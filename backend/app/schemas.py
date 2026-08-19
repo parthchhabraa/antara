@@ -1,0 +1,74 @@
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field
+from datetime import datetime
+
+class TransactionItem(BaseModel):
+    id: Optional[str] = None
+    amount: float = Field(..., gt=0, description="Amount in INR (₹)")
+    category: str = Field(..., description="Category ID (e.g. food-delivery, gaming, subscriptions)")
+    subcategory: Optional[str] = None
+    note: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    source: Optional[str] = "manual"
+
+class SpendPredictRequest(BaseModel):
+    user_id: str
+    transactions: List[TransactionItem]
+    monthly_budget: Optional[float] = 5000.0
+    period_days: Optional[int] = 30
+
+class CategoryForecast(BaseModel):
+    category_id: str
+    category_name: str
+    predicted_spend: float
+    confidence: float
+    historical_spend: float
+    trend_pct: float
+    risk_level: str # 'low', 'medium', 'high'
+
+class SpendPredictResponse(BaseModel):
+    user_id: str
+    predicted_total_spend: float
+    current_burn_rate_daily: float
+    predicted_burn_rate_daily: float
+    projected_days_until_budget_exhaustion: Optional[float]
+    top_risk_categories: List[str]
+    category_breakdown: List[CategoryForecast]
+    smart_insights: List[str]
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class GraphNode(BaseModel):
+    id: str
+    label: str
+    type: str # 'user', 'category', 'peer_cluster', 'transaction_spike'
+    size: float
+    color: str
+    category_id: Optional[str] = None
+    amount: Optional[float] = 0.0
+    x: Optional[float] = None
+    y: Optional[float] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+class GraphLink(BaseModel):
+    source: str
+    target: str
+    strength: float
+    distance: float
+    type: str = "gravity" # 'gravity', 'similarity', 'co_occurrence'
+
+class DotGraphResponse(BaseModel):
+    user_id: str
+    archetype: str
+    archetype_description: str
+    embedding: List[float]
+    nodes: List[GraphNode]
+    links: List[GraphLink]
+    peer_archetypes: List[Dict[str, Any]]
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    port: int
+    version: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)

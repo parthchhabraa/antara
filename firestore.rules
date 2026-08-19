@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if caller is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if caller is the owner of the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Superadmin check via Custom Firebase Auth Claim
+    function isSuperAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'superadmin';
+    }
+
+    // User profile documents
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+      
+      // Transactions subcollection
+      match /transactions/{txId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+    }
+
+    // Shared category taxonomy
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // ML Predictions (written by backend server/Admin SDK, read-only to user)
+    match /predictions/{userId}/{period=**} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow write: if isSuperAdmin(); // Server writes via Admin SDK (bypasses rules) or superadmin token
+    }
+
+    // Admin Beta Allowlist
+    match /admin/betaAllowlist {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+  }
+}
