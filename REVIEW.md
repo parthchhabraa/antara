@@ -1,7 +1,7 @@
 # Antara Engineering Review
 
 ## Status
-CONTINUE — Deploy FastAPI ML service to Ubuntu server on port 8001 and configure Cloudflare Tunnel
+ALL COMPLETED — Antara mobile-first Next.js frontend, Obsidian force-directed Dot Graph physics engine, FastAPI ML service (port 8001), Firebase rules & superadmin claims initialized, github pushed, server updated
 
 ---
 
