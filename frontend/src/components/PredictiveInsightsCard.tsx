@@ -34,10 +34,25 @@ export const PredictiveInsightsCard: React.FC<PredictiveInsightsCardProps> = ({
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs uppercase font-bold tracking-wider text-purple-300">
-              Antara ML Spend Forecast
-            </h3>
-            <p className="text-[11px] text-gray-400">AI prediction for next 30 days</p>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-xs uppercase font-bold tracking-wider text-purple-300">
+                Antara Spend Prediction
+              </h3>
+              {prediction.is_cold_start ? (
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">
+                  Cold-Start Heuristic
+                </span>
+              ) : (
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                  Trained ML V1
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-400">
+              {prediction.is_cold_start
+                ? `Data maturity: ${prediction.data_days_logged}/14 days logged (${Math.round(prediction.confidence_score * 100)}% confidence)`
+                : `Active ML model trained on ${prediction.data_days_logged} days of transactions`}
+            </p>
           </div>
         </div>
 

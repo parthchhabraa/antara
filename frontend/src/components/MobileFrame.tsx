@@ -47,28 +47,34 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Demo Mode Badge / Superadmin Indicator */}
+            {/* Prominent Demo vs Live Data Mode Badge */}
+            <button
+              onClick={toggleDemoMode}
+              title={isDemoMode ? "Currently viewing Demo Data (In-Memory). Click to switch to Live Firestore." : "Currently viewing Live Firestore Data. Click to switch to Demo Data."}
+              className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-bold transition-all shadow-sm ${
+                isDemoMode
+                  ? "bg-purple-950/80 text-purple-200 border-purple-500/50 hover:bg-purple-900/80 shadow-glow-purple"
+                  : "bg-emerald-950/80 text-emerald-200 border-emerald-500/50 hover:bg-emerald-900/80 shadow-glow-emerald"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full animate-pulse ${
+                  isDemoMode ? "bg-purple-400" : "bg-emerald-400"
+                }`}
+              />
+              <span>{isDemoMode ? "DEMO DATA" : "LIVE FIRESTORE"}</span>
+            </button>
+
+            {/* Superadmin Indicator */}
             {isSuperAdmin && (
-              <span className="hidden sm:inline-flex text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
-                Superadmin
+              <span className="hidden sm:inline-flex text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                Admin
               </span>
             )}
 
             <button
-              onClick={toggleDemoMode}
-              title={isDemoMode ? "Currently in Demo Mode" : "Currently in Live Mode"}
-              className={`text-[10px] px-2 py-1 rounded-md border font-medium transition-all ${
-                isDemoMode
-                  ? "bg-purple-950/40 text-purple-300 border-purple-500/30 hover:bg-purple-900/50"
-                  : "bg-emerald-950/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/50"
-              }`}
-            >
-              {isDemoMode ? "Demo Mode" : "Live Firestore"}
-            </button>
-
-            <button
               onClick={signOut}
-              title="Sign out / Switch user"
+              title="Sign out / Reset"
               className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
             >
               <LogOut className="w-4 h-4" />

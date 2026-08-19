@@ -25,6 +25,7 @@ class CategoryForecast(BaseModel):
     historical_spend: float
     trend_pct: float
     risk_level: str # 'low', 'medium', 'high'
+    is_heuristic: bool = True
 
 class SpendPredictResponse(BaseModel):
     user_id: str
@@ -35,6 +36,12 @@ class SpendPredictResponse(BaseModel):
     top_risk_categories: List[str]
     category_breakdown: List[CategoryForecast]
     smart_insights: List[str]
+    is_cold_start: bool
+    model_mode: str # 'HEURISTIC_COLD_START' | 'TRAINED_EMBEDDING_V1'
+    data_days_logged: int
+    data_points_count: int
+    confidence_score: float
+    last_retrained_at: Optional[datetime] = None
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class GraphNode(BaseModel):
@@ -60,10 +67,15 @@ class DotGraphResponse(BaseModel):
     user_id: str
     archetype: str
     archetype_description: str
+    is_cold_start: bool
+    model_mode: str
+    data_days_logged: int
+    confidence_score: float
     embedding: List[float]
     nodes: List[GraphNode]
     links: List[GraphLink]
     peer_archetypes: List[Dict[str, Any]]
+    last_retrained_at: Optional[datetime] = None
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class HealthResponse(BaseModel):

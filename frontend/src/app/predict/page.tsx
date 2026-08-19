@@ -1,21 +1,44 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
 import { QuickLogModal } from "@/components/QuickLogModal";
 import { DEMO_TRANSACTIONS, FORMAT_INR } from "@/lib/constants";
 import { fetchSpendPredictions } from "@/lib/api";
 import { SpendPrediction, Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
-import { Sparkles, TrendingUp, AlertTriangle, ArrowLeft, ShieldAlert, PieChart } from "lucide-react";
+import { Sparkles, TrendingUp, AlertTriangle, ArrowLeft, ShieldAlert, PieChart, Database } from "lucide-react";
 import Link from "next/link";
 
 export default function PredictPage() {
-  const { profile } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>(DEMO_TRANSACTIONS);
+  const { user, profile, isDemoMode } = useAuth();
+  const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
+  const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
   const [prediction, setPrediction] = useState<SpendPrediction | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState<boolean>(false);
+
+  const transactions = isDemoMode ? demoTxs : liveTxs;
+
+  useEffect(() => {
+    if (isDemoMode || !user) return;
+    try {
+      const txCol = collection(db, "users", user.uid, "transactions");
+      const q = query(txCol, orderBy("timestamp", "desc"));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetched: Transaction[] = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Transaction, "id">),
+        }));
+        setLiveTxs(fetched);
+      });
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn("Firestore live query in predict page:", e);
+    }
+  }, [isDemoMode, user]);
 
   const monthlyBudget = profile?.monthly_budget || 5000;
 
@@ -29,12 +52,24 @@ export default function PredictPage() {
     loadML();
   }, [transactions, profile, monthlyBudget]);
 
-  const handleAddTransaction = (newTx: Omit<Transaction, "id">) => {
-    const txWithId: Transaction = {
-      ...newTx,
-      id: "tx-" + Date.now(),
-    };
-    setTransactions([txWithId, ...transactions]);
+  const handleAddTransaction = async (newTx: Omit<Transaction, "id">) => {
+    if (isDemoMode) {
+      const txWithId: Transaction = {
+        ...newTx,
+        id: "tx-" + Date.now(),
+      };
+      setDemoTxs([txWithId, ...demoTxs]);
+    } else if (user) {
+      try {
+        const { collection, addDoc } = await import("firebase/firestore");
+        const txCol = collection(db, "users", user.uid, "transactions");
+        await addDoc(txCol, newTx);
+      } catch (err) {
+        console.error("Error writing to Firestore:", err);
+        const txWithId: Transaction = { ...newTx, id: "tx-" + Date.now() };
+        setLiveTxs([txWithId, ...liveTxs]);
+      }
+    }
   };
 
   return (

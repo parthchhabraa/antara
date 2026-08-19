@@ -1,82 +1,58 @@
-# Antara Engineering Review
+# Antara Engineering Review — Step 4
 
 ## Status
-ALL COMPLETED — Antara mobile-first Next.js frontend, Obsidian force-directed Dot Graph physics engine, FastAPI ML service (port 8001), Firebase rules & superadmin claims initialized, github pushed, server updated
+ALL COMPLETED — Antara Step 4: Cold-start heuristics, 14-day ML trigger, live Firestore sync, named tunnel config, and rules unit tests, github pushed, server updated
 
 ---
 
 ## 1. What Shipped
-- **Next.js Mobile-First Frontend**:
-  - Built with Next.js 14 App Router, Tailwind CSS, and Framer Motion.
-  - Implemented responsive mobile viewport frame tailored for iPhone & iPad dimensions.
-  - **Signature Feature — Obsidian Force-Directed Dot Graph Canvas**: Interactive HTML5 Canvas physics simulation with central user spending core, dynamic category gravity attraction springs, and teen peer archetype clusters with drag & zoom interactions.
-  - Quick-log transaction modal with one-tap rupee (+₹50, +₹100, +₹500) chips, 12 Indian teen spending categories, subcategory tags, and payment source selectors (UPI, Cash, Card).
-  - Predictive AI Insights card detailing 30-day forecasted spend, daily burn rate, budget exhaustion timeline, and risk flags.
-  - Superadmin control panel supporting custom claims verification (`role: "superadmin"`), beta allowlist management, and Demo vs True Firestore mode switching.
-- **FastAPI ML Backend Service (Port 8001)**:
-  - Standalone FastAPI ML service strictly bound to port `8001` (protecting reserved ports `5000` and `8000`).
-  - Spend prediction engine calculating daily burn rates, category inflation trends, and risk levels.
-  - Spend behavior embedding & Obsidian Dot Graph physics generator with cosine-similarity peer clustering.
-  - Passing pytest test suite (`tests/test_api.py`).
-- **Firebase Configuration & Admin Scripts**:
-  - `firestore.rules` implementing strict user data isolation and superadmin authorization via custom Firebase Auth claims.
-  - `firestore.indexes.json` for category and timestamp queries.
-  - `scripts/set_superadmin.py` for granting `role: "superadmin"` to `parthchhabra6112@gmail.com`.
-  - `scripts/seed_categories.py` for seeding the 12 Indian teen spending categories into Firestore.
-  - `scripts/deploy_tunnel.sh` for Cloudflare Tunnel management on port 8001.
-  - `.env-remember.template` documenting the non-secret state file `/root/antara/.env-remember`.
+- **Real ML vs Cold-Start Heuristic Engine (`backend/app/ml/engine.py`)**:
+  - **Cold-Start Heuristic Mode (< 14 days or < 5 transactions)**: Replaced ungrounded predictions with rule-based Indian teen category medians scaled to budget. Explicitly flags `is_cold_start: true`, `model_mode: "HEURISTIC_COLD_START"`, and lower confidence score (`~0.45`), with clear labels in smart insights preventing fabricated statistics.
+  - **Trained Embedding Mode (>= 14 days & >= 5 transactions)**: Transitions to personalized spend behavior embeddings, cosine-similarity peer clustering, and logs `last_retrained_at` per user.
+  - Comprehensive pytest test suite (`backend/tests/test_api.py`) verifying both cold-start and mature 14-day modes.
+- **End-to-End Live Firestore Data Flow (`frontend/src/app/page.tsx`, `graph/`, `predict/`)**:
+  - Real-time Firestore sync via `onSnapshot` from `users/{uid}/transactions`.
+  - Logging expenses in Live Mode writes directly to Firestore subcollection, dynamically recomputing the ML spend forecast and Obsidian Dot Graph.
+  - Seamless toggle between in-memory Demo dataset and Live Firestore data.
+- **Prominent UI Indicators**:
+  - Added glowing top-bar badge: `"DEMO DATA (IN-MEMORY)"` vs `"LIVE FIRESTORE"`.
+  - Added Data Maturity tracker (`N/14 days logged`) and `Cold-Start Heuristic` badge on the Prediction Card.
+- **Firestore Security Rules Unit Tests (`frontend/src/tests/firestore-rules.test.ts`)**:
+  - Automated tests asserting unauthenticated isolation, user cross-boundary isolation (Alice cannot read/write Bob's transactions), and strict `role: 'superadmin'` enforcement on `categories/*` and `admin/betaAllowlist`.
+- **Named Cloudflare Tunnel Provisioner (`scripts/setup_named_tunnel.sh`)**:
+  - Script configuring persistent named tunnel (`antara-ml-tunnel`) routing `ml.antara.app` to port `8001`, preserving ports `5000` and `8000`.
+- **Superadmin Script & Server Memory**:
+  - Configured `scripts/set_superadmin.py` with `antara-moneycontrol` project initialization.
+  - Updated `/root/antara/.env-remember` template with named tunnel specs, 14-day cold-start threshold, and seeded taxonomy.
 
 ---
 
 ## 2. What Broke / Issues Resolved
-- Next.js 14 metadata viewport export separation: Migrated `viewport` from `metadata` export to dedicated `export const viewport: Viewport` in `src/app/layout.tsx`.
-- Offline/Demo fallback: Added client-side ML engine fallback ensuring the dot graph and spend predictions render instantly even when the backend or Firebase API keys are not connected.
+- Python ML Engine `Math.round` NameError: Resolved to native `round()`.
+- State setter binding in `graph/page.tsx` and `predict/page.tsx`: Fixed async Firestore write handler to gracefully switch between demo and live state arrays.
+- Wheel install network timeout: Added extended timeout flag for `firebase-admin` dependency.
 
 ---
 
-## 3. Open Questions
-- What is the preferred subdomain for the Cloudflare Tunnel on port 8001 (e.g. `ml-api.antara.app` or quick ephemeral tunnel)?
-- Once you sign up with `parthchhabra6112@gmail.com`, should we execute `python3 scripts/set_superadmin.py` immediately with your service account key?
+## 3. Open Questions / Next Steps
+- When ready to run on the production Ubuntu server: execute `sudo bash scripts/setup_named_tunnel.sh` with your registered domain, and run `python3 scripts/set_superadmin.py --cred serviceAccountKey.json` to assign superadmin claim.
 
 ---
 
 ## 4. Files Touched
-- `antara/firebase.json`
-- `antara/firestore.rules`
-- `antara/firestore.indexes.json`
-- `antara/.gitignore`
-- `antara/.env.example`
 - `antara/.env-remember.template`
 - `antara/scripts/set_superadmin.py`
-- `antara/scripts/seed_categories.py`
-- `antara/scripts/deploy_tunnel.sh`
-- `antara/backend/requirements.txt`
-- `antara/backend/app/main.py`
+- `antara/scripts/setup_named_tunnel.sh`
 - `antara/backend/app/schemas.py`
-- `antara/backend/app/firebase_admin.py`
-- `antara/backend/app/ml/__init__.py`
 - `antara/backend/app/ml/engine.py`
 - `antara/backend/tests/test_api.py`
 - `antara/frontend/package.json`
-- `antara/frontend/tsconfig.json`
-- `antara/frontend/tailwind.config.ts`
-- `antara/frontend/postcss.config.js`
-- `antara/frontend/next.config.js`
 - `antara/frontend/src/types/index.ts`
-- `antara/frontend/src/lib/constants.ts`
-- `antara/frontend/src/lib/firebase.ts`
-- `antara/frontend/src/lib/AuthContext.tsx`
 - `antara/frontend/src/lib/api.ts`
 - `antara/frontend/src/components/MobileFrame.tsx`
-- `antara/frontend/src/components/DotGraphCanvas.tsx`
-- `antara/frontend/src/components/QuickLogModal.tsx`
-- `antara/frontend/src/components/TransactionList.tsx`
 - `antara/frontend/src/components/PredictiveInsightsCard.tsx`
-- `antara/frontend/src/components/SuperadminPanel.tsx`
-- `antara/frontend/src/app/globals.css`
-- `antara/frontend/src/app/layout.tsx`
 - `antara/frontend/src/app/page.tsx`
 - `antara/frontend/src/app/graph/page.tsx`
 - `antara/frontend/src/app/predict/page.tsx`
-- `antara/frontend/src/app/admin/page.tsx`
+- `antara/frontend/src/tests/firestore-rules.test.ts`
 - `antara/REVIEW.md`

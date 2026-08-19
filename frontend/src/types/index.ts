@@ -37,6 +37,7 @@ export interface CategoryForecast {
   historical_spend: number;
   trend_pct: number;
   risk_level: 'low' | 'medium' | 'high';
+  is_heuristic?: boolean;
 }
 
 export interface SpendPrediction {
@@ -48,6 +49,12 @@ export interface SpendPrediction {
   top_risk_categories: string[];
   category_breakdown: CategoryForecast[];
   smart_insights: string[];
+  is_cold_start: boolean;
+  model_mode: string;
+  data_days_logged: number;
+  data_points_count: number;
+  confidence_score: number;
+  last_retrained_at?: string | null;
   generated_at: string;
 }
 
@@ -84,10 +91,15 @@ export interface DotGraphData {
   user_id: string;
   archetype: string;
   archetype_description: string;
+  is_cold_start: boolean;
+  model_mode: string;
+  data_days_logged: number;
+  confidence_score: number;
   embedding: number[];
   nodes: GraphNode[];
   links: GraphLink[];
   peer_archetypes: PeerArchetype[];
+  last_retrained_at?: string | null;
   generated_at: string;
 }
 

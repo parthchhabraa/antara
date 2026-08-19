@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
 import { QuickLogModal } from "@/components/QuickLogModal";
 import { TransactionList } from "@/components/TransactionList";
@@ -10,21 +12,53 @@ import { DEMO_TRANSACTIONS, STARTER_CATEGORIES, FORMAT_INR } from "@/lib/constan
 import { Transaction, SpendPrediction } from "@/types";
 import { fetchSpendPredictions } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
-import { ArrowUpRight, Network, Sparkles, TrendingUp, Wallet, Flame } from "lucide-react";
+import { ArrowUpRight, Network, Sparkles, TrendingUp, Wallet, Flame, Database } from "lucide-react";
 
 export default function DashboardPage() {
-  const { profile, isDemoMode } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>(DEMO_TRANSACTIONS);
+  const { user, profile, isDemoMode } = useAuth();
+  const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
+  const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState<boolean>(false);
   const [prediction, setPrediction] = useState<SpendPrediction | null>(null);
   const [loadingML, setLoadingML] = useState<boolean>(true);
+
+  // Active transactions depend on whether Demo Mode or Live Mode is selected
+  const transactions = isDemoMode ? demoTxs : liveTxs;
+
+  // Listen to live Firestore transactions when in Live Mode
+  useEffect(() => {
+    if (isDemoMode || !user) return;
+
+    try {
+      const txCol = collection(db, "users", user.uid, "transactions");
+      const q = query(txCol, orderBy("timestamp", "desc"));
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const fetched: Transaction[] = snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...(docSnap.data() as Omit<Transaction, "id">),
+          }));
+          setLiveTxs(fetched);
+        },
+        (err) => {
+          console.warn("Firestore live subscription notice:", err);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn("Error setting up Firestore listener:", e);
+    }
+  }, [isDemoMode, user]);
 
   const monthlyBudget = profile?.monthly_budget || 5000;
   const totalSpent = transactions.reduce((sum, tx) => sum + tx.amount, 0);
   const remainingBudget = Math.max(0, monthlyBudget - totalSpent);
   const budgetProgress = Math.min(100, Math.round((totalSpent / monthlyBudget) * 100));
 
-  // Compute or fetch ML predictions
+  // Compute or fetch ML predictions based on active transactions
   useEffect(() => {
     async function loadML() {
       setLoadingML(true);
@@ -35,16 +69,40 @@ export default function DashboardPage() {
     loadML();
   }, [transactions, profile, monthlyBudget]);
 
-  const handleAddTransaction = (newTx: Omit<Transaction, "id">) => {
-    const txWithId: Transaction = {
-      ...newTx,
-      id: "tx-" + Date.now(),
-    };
-    setTransactions([txWithId, ...transactions]);
+  const handleAddTransaction = async (newTx: Omit<Transaction, "id">) => {
+    if (isDemoMode) {
+      const txWithId: Transaction = {
+        ...newTx,
+        id: "tx-" + Date.now(),
+      };
+      setDemoTxs([txWithId, ...demoTxs]);
+    } else if (user) {
+      try {
+        const txCol = collection(db, "users", user.uid, "transactions");
+        await addDoc(txCol, newTx);
+      } catch (err) {
+        console.error("Error writing to Firestore:", err);
+        // Fallback to local state if offline
+        const txWithId: Transaction = {
+          ...newTx,
+          id: "tx-" + Date.now(),
+        };
+        setLiveTxs([txWithId, ...liveTxs]);
+      }
+    }
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions(transactions.filter((t) => t.id !== id));
+  const handleDeleteTransaction = async (id: string) => {
+    if (isDemoMode) {
+      setDemoTxs(demoTxs.filter((t) => t.id !== id));
+    } else if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "transactions", id));
+      } catch (err) {
+        console.error("Error deleting from Firestore:", err);
+        setLiveTxs(liveTxs.filter((t) => t.id !== id));
+      }
+    }
   };
 
   return (

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
 import { DotGraphCanvas } from "@/components/DotGraphCanvas";
 import { QuickLogModal } from "@/components/QuickLogModal";
@@ -8,16 +10,37 @@ import { DEMO_TRANSACTIONS, FORMAT_INR } from "@/lib/constants";
 import { fetchDotGraphData } from "@/lib/api";
 import { DotGraphData, Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
-import { Network, Sparkles, Compass, Users, ArrowLeft } from "lucide-react";
+import { Network, Sparkles, Compass, Users, ArrowLeft, Database } from "lucide-react";
 import Link from "next/link";
 
 export default function DotGraphPage() {
-  const { profile } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>(DEMO_TRANSACTIONS);
+  const { user, profile, isDemoMode } = useAuth();
+  const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
+  const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
   const [graphData, setGraphData] = useState<DotGraphData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const transactions = isDemoMode ? demoTxs : liveTxs;
+
+  useEffect(() => {
+    if (isDemoMode || !user) return;
+    try {
+      const txCol = collection(db, "users", user.uid, "transactions");
+      const q = query(txCol, orderBy("timestamp", "desc"));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetched: Transaction[] = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Transaction, "id">),
+        }));
+        setLiveTxs(fetched);
+      });
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn("Firestore live query in graph page:", e);
+    }
+  }, [isDemoMode, user]);
 
   useEffect(() => {
     async function loadGraph() {
@@ -29,12 +52,24 @@ export default function DotGraphPage() {
     loadGraph();
   }, [transactions, profile]);
 
-  const handleAddTransaction = (newTx: Omit<Transaction, "id">) => {
-    const txWithId: Transaction = {
-      ...newTx,
-      id: "tx-" + Date.now(),
-    };
-    setTransactions([txWithId, ...transactions]);
+  const handleAddTransaction = async (newTx: Omit<Transaction, "id">) => {
+    if (isDemoMode) {
+      const txWithId: Transaction = {
+        ...newTx,
+        id: "tx-" + Date.now(),
+      };
+      setDemoTxs([txWithId, ...demoTxs]);
+    } else if (user) {
+      try {
+        const { collection, addDoc } = await import("firebase/firestore");
+        const txCol = collection(db, "users", user.uid, "transactions");
+        await addDoc(txCol, newTx);
+      } catch (err) {
+        console.error("Error writing to Firestore:", err);
+        const txWithId: Transaction = { ...newTx, id: "tx-" + Date.now() };
+        setLiveTxs([txWithId, ...liveTxs]);
+      }
+    }
   };
 
   return (

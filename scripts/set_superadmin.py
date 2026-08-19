@@ -15,13 +15,14 @@ SUPERADMIN_EMAIL = "parthchhabra6112@gmail.com"
 def init_firebase(cred_path=None):
     if firebase_admin._apps:
         return
+    project_id = os.getenv("FIREBASE_PROJECT_ID", "antara-moneycontrol")
     if cred_path and os.path.exists(cred_path):
         cred = credentials.Certificate(cred_path)
-        firebase_admin.initialize_app(cred)
+        firebase_admin.initialize_app(cred, {"projectId": project_id})
     else:
         # Falls back to GOOGLE_APPLICATION_CREDENTIALS or default auth
         try:
-            firebase_admin.initialize_app()
+            firebase_admin.initialize_app(options={"projectId": project_id})
         except Exception as e:
             print(f"Error initializing Firebase Admin SDK: {e}")
             print("Please set GOOGLE_APPLICATION_CREDENTIALS or pass --cred <path_to_service_account.json>")

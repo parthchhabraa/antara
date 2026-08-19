@@ -92,48 +92,92 @@ function computeClientSidePrediction(
   });
 
   const totalSpent = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-  const activeDays = 14;
-  const dailyBurnRate = totalSpent / Math.max(1, activeDays);
-  const projectedTotal = dailyBurnRate * 30;
+  
+  // Calculate active day span
+  let activeDays = 0;
+  if (transactions.length > 0) {
+    const times = transactions.map((t) => new Date(t.timestamp).getTime());
+    const minT = Math.min(...times);
+    const maxT = Math.max(...times);
+    const daySpan = Math.max(1, Math.round((maxT - minT) / (1000 * 60 * 60 * 24)) + 1);
+    const uniqueDays = new Set(transactions.map((t) => t.timestamp.split("T")[0])).size;
+    activeDays = Math.max(uniqueDays, daySpan);
+  }
+
+  const isColdStart = activeDays < 14 || transactions.length < 5;
+  const modelMode = isColdStart ? "HEURISTIC_COLD_START" : "TRAINED_EMBEDDING_V1";
+  const confidenceScore = isColdStart ? Math.min(0.55, 0.25 + (activeDays / 14) * 0.25) : Math.min(0.92, 0.75 + (activeDays / 60) * 0.15);
+
+  let dailyBurnRate: number;
+  let projectedTotal: number;
+  let highRisk: string[] = [];
+
+  if (isColdStart) {
+    // Blended benchmark burn rate (70% taxonomy baseline + 30% observed)
+    const baselineDaily = monthlyBudget / 30;
+    const observedDaily = totalSpent > 0 ? totalSpent / Math.max(1, activeDays) : baselineDaily;
+    dailyBurnRate = (0.65 * baselineDaily) + (0.35 * observedDaily);
+    projectedTotal = dailyBurnRate * 30;
+  } else {
+    dailyBurnRate = totalSpent / Math.max(1, activeDays);
+    projectedTotal = dailyBurnRate * 30;
+  }
+
   const daysLeft = dailyBurnRate > 0 ? Math.max(0, (monthlyBudget - totalSpent) / dailyBurnRate) : 30;
 
-  const highRisk: string[] = [];
   const breakdown = STARTER_CATEGORIES.map((cat) => {
     const spent = catTotals[cat.id] || 0;
-    const predicted = Math.round((spent / activeDays) * 30 * (cat.is_essential ? 1.02 : 1.12));
+    const benchmarkPct = cat.is_essential ? 0.12 : 0.08;
+    const predicted = isColdStart
+      ? Math.round(projectedTotal * benchmarkPct)
+      : Math.round((spent / Math.max(1, activeDays)) * 30 * (cat.is_essential ? 1.02 : 1.10));
+
     const isHigh = !cat.is_essential && spent > totalSpent * 0.25 && spent > 300;
     if (isHigh) highRisk.push(cat.name);
 
     return {
       category_id: cat.id,
       category_name: cat.name,
-      predicted_spend: predicted || 150,
-      confidence: 0.86,
+      predicted_spend: predicted || (cat.is_essential ? 350 : 200),
+      confidence: confidenceScore,
       historical_spend: spent,
-      trend_pct: spent > 0 ? Math.round(((predicted - spent) / spent) * 100) : 0,
+      trend_pct: isColdStart ? 0 : spent > 0 ? Math.round(((predicted - spent) / spent) * 100) : 0,
       risk_level: isHigh ? ("high" as const) : spent > totalSpent * 0.15 ? ("medium" as const) : ("low" as const),
+      is_heuristic: isColdStart,
     };
   }).sort((a, b) => b.predicted_spend - a.predicted_spend);
 
-  const insights = [
-    projectedTotal > monthlyBudget
-      ? `🚨 At your current burn rate of ₹${Math.round(dailyBurnRate)}/day, you will exceed your ₹${monthlyBudget} budget by ₹${Math.round(projectedTotal - monthlyBudget)}.`
-      : `✨ Great pacing! You're projected to save ₹${Math.round(monthlyBudget - projectedTotal)} this month.`,
-    highRisk.length > 0
-      ? `⚠️ High discretionary velocity detected in ${highRisk.join(", ")}.`
-      : `⚡ Your essential vs discretionary spend ratio is balanced (62% essential).`,
-    `💡 Tip: Ordering meals in groups or switching to student subscription tiers can save you up to ₹450/month.`
-  ];
+  const insights = isColdStart
+    ? [
+        `ℹ️ Early Estimate (Cold-Start Heuristic): ${activeDays}/14 required days logged (${transactions.length} transactions). Antara uses benchmark taxonomy medians until 14 days of real transactions are recorded.`,
+        highRisk.length > 0 ? `⚠️ Discretionary velocity in ${highRisk.join(", ")} is trending higher than teen baseline.` : `⚡ Baseline essential ratio currently holds steady.`,
+        `💡 Keep daily expenses under ₹${Math.round(monthlyBudget / 30)} to stay on budget.`
+      ]
+    : [
+        `✨ Personalized ML Active: Trained on ${activeDays} days of verified spending (${transactions.length} transactions).`,
+        projectedTotal > monthlyBudget
+          ? `🚨 At your current burn rate of ₹${Math.round(dailyBurnRate)}/day, you will exceed your ₹${monthlyBudget} budget by ₹${Math.round(projectedTotal - monthlyBudget)}.`
+          : `✨ Great pacing! You're projected to save ₹${Math.round(monthlyBudget - projectedTotal)} this month.`,
+        highRisk.length > 0
+          ? `⚠️ Discretionary velocity detected in ${highRisk.join(", ")}.`
+          : `⚡ Spending velocity is stable across essential categories.`,
+      ];
 
   return {
     user_id: userId,
     predicted_total_spend: Math.round(projectedTotal),
-    current_burn_rate_daily: Math.round(dailyBurnRate),
+    current_burn_rate_daily: Math.round(totalSpent / Math.max(1, activeDays)),
     predicted_burn_rate_daily: Math.round(projectedTotal / 30),
     projected_days_until_budget_exhaustion: Math.round(daysLeft),
     top_risk_categories: highRisk,
     category_breakdown: breakdown,
     smart_insights: insights,
+    is_cold_start: isColdStart,
+    model_mode: modelMode,
+    data_days_logged: activeDays,
+    data_points_count: transactions.length,
+    confidence_score: confidenceScore,
+    last_retrained_at: isColdStart ? null : new Date().toISOString(),
     generated_at: new Date().toISOString(),
   };
 }
@@ -149,17 +193,31 @@ function computeClientSideDotGraph(userId: string, transactions: Transaction[]):
   const nodes: any[] = [];
   const links: any[] = [];
 
+  let activeDays = 0;
+  if (transactions.length > 0) {
+    const times = transactions.map((t) => new Date(t.timestamp).getTime());
+    const minT = Math.min(...times);
+    const maxT = Math.max(...times);
+    const daySpan = Math.max(1, Math.round((maxT - minT) / (1000 * 60 * 60 * 24)) + 1);
+    const uniqueDays = new Set(transactions.map((t) => t.timestamp.split("T")[0])).size;
+    activeDays = Math.max(uniqueDays, daySpan);
+  }
+
+  const isColdStart = activeDays < 14 || transactions.length < 5;
+  const modelMode = isColdStart ? "HEURISTIC_COLD_START" : "TRAINED_EMBEDDING_V1";
+  const confidenceScore = isColdStart ? Math.min(0.50, 0.20 + (activeDays / 14) * 0.25) : 0.88;
+
   // User center node
   nodes.push({
     id: "user_center",
-    label: "You (Spend Core)",
+    label: isColdStart ? "You (Early Estimate)" : "You (Spend Core)",
     type: "user",
     size: 36,
-    color: "#8B5CF6",
+    color: isColdStart ? "#A78BFA" : "#8B5CF6",
     amount: totalSpent,
     x: 0,
     y: 0,
-    metadata: { total_spend: totalSpent, tx_count: transactions.length }
+    metadata: { total_spend: totalSpent, tx_count: transactions.length, is_cold_start: isColdStart, active_days: activeDays }
   });
 
   // Radial arrangement of categories
@@ -194,10 +252,10 @@ function computeClientSideDotGraph(userId: string, transactions: Transaction[]):
 
   // Archetypes
   const archetypes = [
-    { id: "gamer_foodie", name: "The Gamer & Foodie", color: "#EC4899", similarity_pct: 78, description: "Heavy Swiggy snacks and gaming passes." },
-    { id: "exam_grinder", name: "The Exam Grinder", color: "#10B981", similarity_pct: 64, description: "Coaching tuition, test series, and study tools." },
-    { id: "social_trendsetter", name: "Social Trendsetter", color: "#F43F5E", similarity_pct: 58, description: "Streetwear, personal care, and social outings." },
-    { id: "zen_saver", name: "The Zen Saver", color: "#22C55E", similarity_pct: 82, description: "Disciplined budget allocation and savings pots." },
+    { id: "gamer_foodie", name: "The Gamer & Foodie", color: "#EC4899", similarity_pct: isColdStart ? 55 : 78, description: "Heavy Swiggy snacks and gaming passes." },
+    { id: "exam_grinder", name: "The Exam Grinder", color: "#10B981", similarity_pct: isColdStart ? 45 : 64, description: "Coaching tuition, test series, and study tools." },
+    { id: "social_trendsetter", name: "Social Trendsetter", color: "#F43F5E", similarity_pct: isColdStart ? 50 : 58, description: "Streetwear, personal care, and social outings." },
+    { id: "zen_saver", name: "The Zen Saver", color: "#22C55E", similarity_pct: isColdStart ? 60 : 82, description: "Disciplined budget allocation and savings pots." },
   ];
 
   archetypes.forEach((arc, i) => {
@@ -214,7 +272,7 @@ function computeClientSideDotGraph(userId: string, transactions: Transaction[]):
       metadata: { similarity_pct: arc.similarity_pct, description: arc.description }
     });
 
-    if (i === 0) {
+    if (!isColdStart && i === 0) {
       links.push({
         source: "user_center",
         target: `arc_${arc.id}`,
@@ -227,12 +285,19 @@ function computeClientSideDotGraph(userId: string, transactions: Transaction[]):
 
   return {
     user_id: userId,
-    archetype: "The Gamer & Foodie",
-    archetype_description: "High velocity of late-night food deliveries, Spotify, and gaming passes.",
+    archetype: isColdStart ? "Heuristic Baseline (Early Stage)" : "The Gamer & Foodie",
+    archetype_description: isColdStart
+      ? `Logged ${activeDays}/14 days of transactions. Displaying benchmark taxonomy until personalized ML embedding activates at 14 days.`
+      : "High velocity of late-night food deliveries, Spotify, and gaming passes.",
+    is_cold_start: isColdStart,
+    model_mode: modelMode,
+    data_days_logged: activeDays,
+    confidence_score: confidenceScore,
     embedding: [0.35, 0.1, 0.15, 0.25, 0.05, 0.02, 0.02, 0.02, 0.02, 0.01, 0.01, 0.0],
     nodes,
     links,
     peer_archetypes: archetypes,
+    last_retrained_at: isColdStart ? null : new Date().toISOString(),
     generated_at: new Date().toISOString(),
   };
 }
