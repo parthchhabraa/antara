@@ -9,12 +9,20 @@
 # references, rather than shipping the admin panel etc. to a public host.
 #
 # Usage:
+#   ./scripts/export-survey-static.sh [output_dir]
+#   CUSTOM_DOMAIN=survey.antara.money ./scripts/export-survey-static.sh [output_dir]
 #   BASE_PATH=/antarasurvey ./scripts/export-survey-static.sh [output_dir]
 #
-# BASE_PATH must match the GitHub Pages project path, e.g. a repo named
-# "antarasurvey" served at https://<user>.github.io/antarasurvey/ needs
-# BASE_PATH=/antarasurvey. Leave unset for a custom domain / user site
-# served from the root.
+# Serving at survey.antara.money (a custom domain, served from the root):
+# leave BASE_PATH unset — that's the default — and set CUSTOM_DOMAIN so a
+# CNAME file gets written into the output too (GitHub Pages reads that file
+# to know which domain to serve on; without it a custom domain is only
+# configured in the repo's Settings, and gets wiped if that file is ever
+# deleted from the branch — writing it here keeps it from silently going
+# missing on a future republish).
+#
+# Serving at https://<user>.github.io/<repo>/ instead (no custom domain):
+# set BASE_PATH=/<repo> so asset URLs get that prefix.
 # ==============================================================================
 set -euo pipefail
 
@@ -22,6 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${SCRIPT_DIR}/../frontend"
 OUT_DIR="${1:-${SCRIPT_DIR}/../publish/survey}"
 BASE_PATH="${BASE_PATH:-}"
+CUSTOM_DOMAIN="${CUSTOM_DOMAIN:-}"
 
 echo "[*] Building static export (BASE_PATH='${BASE_PATH}')..."
 cd "${FRONTEND_DIR}"
@@ -55,6 +64,10 @@ done
 # GitHub Pages runs Jekyll by default, which ignores `_next` (underscore-
 # prefixed dirs) unless told not to.
 touch "${OUT_DIR}/.nojekyll"
+
+if [ -n "${CUSTOM_DOMAIN}" ]; then
+  echo "${CUSTOM_DOMAIN}" > "${OUT_DIR}/CNAME"
+fi
 
 echo "[+] Static survey site ready at: ${OUT_DIR}"
 echo "    Copy its contents to the root of your GitHub Pages branch."

@@ -9,7 +9,7 @@ import { NumericKeypad } from "@/components/survey/NumericKeypad";
 import { ChoiceList, ChoiceOption } from "@/components/survey/ChoiceList";
 import { StepContainer } from "@/components/survey/StepContainer";
 import { StepFooter } from "@/components/survey/StepFooter";
-import { BrandedLoader } from "@/components/survey/BrandedLoader";
+import { AntaraBootloader } from "@/components/survey/AntaraBootloader";
 import { SuccessBurst } from "@/components/survey/SuccessBurst";
 
 import {
@@ -151,6 +151,11 @@ export default function SurveyPage() {
 
   const startedAtRef = useRef<number>(Date.now());
 
+  // Bootloader stays up for a fixed minimum stretch regardless of how fast
+  // the cooldown check resolves (it's sync-fast off localStorage) — so the
+  // mark's assemble-in animation always gets to play instead of flashing by.
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
+
   useEffect(() => {
     try {
       const last = localStorage.getItem(SURVEY_LOCAL_STORAGE_KEY);
@@ -161,6 +166,9 @@ export default function SurveyPage() {
       // localStorage unavailable (private mode etc.) — just proceed normally.
     }
     setCheckedCooldown(true);
+
+    const timer = setTimeout(() => setMinSplashElapsed(true), 1300);
+    return () => clearTimeout(timer);
   }, []);
 
   const goNext = () => {
@@ -205,8 +213,8 @@ export default function SurveyPage() {
     }
   };
 
-  if (!checkedCooldown) {
-    return <BrandedLoader />;
+  if (!checkedCooldown || !minSplashElapsed) {
+    return <AntaraBootloader />;
   }
 
   if (cooldownActive) {
