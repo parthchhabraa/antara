@@ -35,7 +35,7 @@ export const SurveyProgress: React.FC<SurveyProgressProps> = ({
         </motion.button>
         <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-accent-amber to-accent-orange"
+            className="h-full rounded-full bg-purple-400 shadow-glow-purple"
             animate={{ width: `${pct}%` }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />

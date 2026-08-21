@@ -35,7 +35,7 @@ export const StepContainer: React.FC<StepContainerProps> = ({
         </motion.div>
       )}
       {eyebrow && (
-        <span className="text-[11px] font-bold uppercase tracking-wider text-accent-amber mb-1.5 block">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-purple-300 mb-1.5 block">
           {eyebrow}
         </span>
       )}

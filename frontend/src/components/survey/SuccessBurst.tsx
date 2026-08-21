@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-const DOT_COLORS = ["#8B5CF6", "#06B6D4", "#F59E0B", "#EC4899", "#22C55E", "#6366F1"];
+const DOT_COLORS = ["#A78BFA", "#8B5CF6", "#C4B5FD", "#7C3AED", "#DDD6FE", "#9D8FEF"];
 
 // A small, tasteful radial burst of dots behind the thank-you checkmark —
 // a functional celebration moment (submission succeeded), not decorative
