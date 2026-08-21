@@ -35,18 +35,23 @@ def get_firestore_client():
 async def verify_firebase_token(credentials: Optional[HTTPAuthorizationCredentials] = Security(security)) -> Dict[str, Any]:
     """
     Verifies Firebase JWT token and extracts claims (including role: 'superadmin').
-    Allows fallback in local development mode if bypass is active.
+
+    Local development convenience: if ENVIRONMENT=development and no Authorization
+    header was sent at all, returns an obviously-fake, non-privileged demo user so
+    the API can be exercised without a real Firebase project configured. This user
+    never has role=superadmin and is never returned for a token that was present
+    but failed verification - an invalid/expired token always fails with 401,
+    in every environment.
     """
     if not credentials:
-        # Check if running in development mode without token
         if os.getenv("ENVIRONMENT") == "development":
             return {
-                "uid": "dev-user-001",
-                "email": "parthchhabra6112@gmail.com",
-                "role": "superadmin"
+                "uid": "local-dev-fake-uid",
+                "email": "local-dev-fake-user@example.invalid",
+                "role": "demo_dev_only",
             }
         raise HTTPException(status_code=401, detail="Missing authorization header")
-        
+
     token = credentials.credentials
     try:
         initialize_firebase_admin()
@@ -54,12 +59,6 @@ async def verify_firebase_token(credentials: Optional[HTTPAuthorizationCredentia
         return decoded_token
     except Exception as e:
         logger.error(f"Token verification failed: {e}")
-        if os.getenv("ENVIRONMENT") == "development":
-            return {
-                "uid": "dev-user-001",
-                "email": "parthchhabra6112@gmail.com",
-                "role": "superadmin"
-            }
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
 def require_superadmin(user: Dict[str, Any] = Depends(verify_firebase_token)) -> Dict[str, Any]:

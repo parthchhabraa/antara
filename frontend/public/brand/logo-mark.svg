@@ -1,0 +1,21 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Antara">
+  <!--
+    Antara "A" mark — Step 11 (2026-08-21). Reconstructed as an exact vector
+    from the same geometry/colors the survey.antara.money boot screen already
+    ships (its inline SVG: apex (100,15), base corners (15,178)/(185,178),
+    split at x=100, #171717 left / #3E7C99 right, transparent gap band
+    y:104-124) rather than approximated from the raster PNG the user
+    provided — this is the more precise source, and it's what was already
+    live in production. The gap band is genuinely transparent (not painted
+    white) so this one file works correctly as a favicon, an in-app header
+    mark on the dark theme, and on a light surface — each shows its own
+    background through the gap rather than a hardcoded color that only
+    looks right on white.
+  -->
+  <!-- Left leg (black), split into two polygons around the transparent gap band -->
+  <polygon points="100,15 53.59,104 100,104" fill="#171717" />
+  <polygon points="43.16,124 15,178 100,178 100,124" fill="#171717" />
+  <!-- Right leg (steel blue), same split -->
+  <polygon points="100,15 100,104 146.41,104" fill="#3E7C99" />
+  <polygon points="100,124 156.84,124 185,178 100,178" fill="#3E7C99" />
+</svg>

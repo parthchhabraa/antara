@@ -3,13 +3,14 @@
 import React from "react";
 import { MobileFrame } from "@/components/MobileFrame";
 import { SuperadminPanel } from "@/components/SuperadminPanel";
+import { PageTransition } from "@/components/PageTransition";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminPage() {
   return (
     <MobileFrame>
-      <div className="space-y-4">
+      <PageTransition>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -28,7 +29,7 @@ export default function AdminPage() {
 
         {/* Superadmin Panel Component */}
         <SuperadminPanel />
-      </div>
+      </PageTransition>
     </MobileFrame>
   );
 }

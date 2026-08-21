@@ -1,28 +1,31 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
-import { DotGraphCanvas } from "@/components/DotGraphCanvas";
-import { QuickLogModal } from "@/components/QuickLogModal";
-import { DEMO_TRANSACTIONS, FORMAT_INR } from "@/lib/constants";
-import { fetchDotGraphData } from "@/lib/api";
-import { DotGraphData, Transaction } from "@/types";
+import { PullCanvas } from "@/components/PullCanvas";
+import { QuickLogSheet } from "@/components/QuickLogSheet";
+import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
+import { PageTransition } from "@/components/PageTransition";
+import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
+import { calculateBurnMetrics, addLiveTransaction, computeStreakUpdate, streakToastMessage, saveStreakUpdate } from "@/lib/api";
+import { Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
-import { Network, Sparkles, Compass, Users, ArrowLeft, Database } from "lucide-react";
-import Link from "next/link";
 
-export default function DotGraphPage() {
-  const { user, profile, isDemoMode } = useAuth();
+export default function PullPage() {
+  const { user, profile, isDemoMode, refreshClaims } = useAuth();
   const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
   const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
-  const [graphData, setGraphData] = useState<DotGraphData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isQuickLogOpen, setIsQuickLogOpen] = useState<boolean>(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isLogOpen, setIsLogOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>("gaming-inapp");
+  const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const transactions = isDemoMode ? demoTxs : liveTxs;
+  const monthlyBudget = profile?.monthly_budget || 5000;
+  const today = isDemoMode ? DEMO_REFERENCE_DATE : new Date();
 
   useEffect(() => {
     if (isDemoMode || !user) return;
@@ -38,131 +41,159 @@ export default function DotGraphPage() {
       });
       return () => unsubscribe();
     } catch (e) {
-      console.warn("Firestore live query in graph page:", e);
+      console.warn("Firestore live query on Pull screen:", e);
     }
   }, [isDemoMode, user]);
 
-  useEffect(() => {
-    async function loadGraph() {
-      setLoading(true);
-      const res = await fetchDotGraphData(profile?.uid || "demo-user", transactions);
-      setGraphData(res);
-      setLoading(false);
-    }
-    loadGraph();
-  }, [transactions, profile]);
-
-  const handleAddTransaction = async (newTx: Omit<Transaction, "id">) => {
+  const handleCommit = async (newTx: Omit<Transaction, "id">) => {
+    let milestoneLine: string | null = null;
     if (isDemoMode) {
-      const txWithId: Transaction = {
-        ...newTx,
-        id: "tx-" + Date.now(),
-      };
-      setDemoTxs([txWithId, ...demoTxs]);
+      setDemoTxs([{ ...newTx, id: "tx-" + Date.now() }, ...demoTxs]);
     } else if (user) {
+      // Same reasoning as Today's handleCommit (lib/api.ts): every real log is
+      // training data, so a failed write must not be silently papered over
+      // with a local-only fallback that looks like success but never reaches
+      // Firebase.
       try {
-        const { collection, addDoc } = await import("firebase/firestore");
-        const txCol = collection(db, "users", user.uid, "transactions");
-        await addDoc(txCol, newTx);
+        await addLiveTransaction(user.uid, newTx);
       } catch (err) {
-        console.error("Error writing to Firestore:", err);
-        const txWithId: Transaction = { ...newTx, id: "tx-" + Date.now() };
-        setLiveTxs([txWithId, ...liveTxs]);
+        console.error("Error writing transaction to Firestore:", err);
+        setToast("Couldn't save that — check your connection and try again. Nothing was logged.");
+        window.setTimeout(() => setToast(null), 3400);
+        return;
       }
+      try {
+        // Logging from Pull counts toward the streak too, not just from Today.
+        const streakResult = computeStreakUpdate(
+          {
+            currentStreak: profile?.currentStreak,
+            longestStreak: profile?.longestStreak,
+            lastLoggedDate: profile?.lastLoggedDate,
+            streakFreezesAvailable: profile?.streakFreezesAvailable,
+          },
+          new Date()
+        );
+        await saveStreakUpdate(user.uid, streakResult);
+        await refreshClaims();
+        milestoneLine = streakToastMessage(streakResult);
+      } catch (err) {
+        console.warn("Streak update failed (the transaction itself was saved fine):", err);
+      }
+    }
+    setIsLogOpen(false);
+    if (milestoneLine) {
+      setToast(milestoneLine);
+      window.setTimeout(() => setToast(null), 3400);
     }
   };
 
+  const metrics = calculateBurnMetrics(transactions, monthlyBudget, today);
+  const selected = STARTER_CATEGORIES.find((c) => c.id === selectedId) || STARTER_CATEGORIES[0];
+  const selSpent = transactions.filter((t) => t.category === selected.id).reduce((s, t) => s + t.amount, 0);
+  const selCount = transactions.filter((t) => t.category === selected.id).length;
+
+  const detailCategory = STARTER_CATEGORIES.find((c) => c.id === detailCategoryId) || null;
+  const detailEntries = detailCategoryId ? transactions.filter((t) => t.category === detailCategoryId) : [];
+
   return (
-    <MobileFrame onOpenQuickLog={() => setIsQuickLogOpen(true)}>
-      <div className="space-y-4">
-        
-        {/* Title Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <div>
-              <h1 className="text-sm font-bold text-white flex items-center gap-1.5">
-                <span>Obsidian Spend Graph</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">
-                  ML Physics
+    <MobileFrame onOpenQuickLog={() => setIsLogOpen(true)}>
+      <PageTransition>
+        <div className="mb-1">
+          <h3 className="text-lg font-medium text-white m-0 mb-1.5">Pull</h3>
+          <p className="text-[13px] leading-relaxed text-gray-500 m-0">
+            Needs settle left, wants drift right, dots grow with rupees. Tap one to see its month.
+          </p>
+        </div>
+
+        <div className="mt-3 rounded-2xl border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#1b1e30,#121423)] overflow-hidden">
+          <PullCanvas transactions={transactions} selectedId={selectedId} onSelect={setSelectedId} />
+        </div>
+
+        <div className="flex gap-3.5 mt-3 text-[11px] text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-primary-400" />
+            Want
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-gray-400" />
+            Need
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full border border-gray-600" />
+            Untouched
+          </span>
+        </div>
+
+        <button
+          onClick={() => setDetailCategoryId(selected.id)}
+          className="w-full text-left mt-4 p-4 rounded-2xl bg-white/[0.06] active:opacity-70 transition-opacity"
+        >
+          <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300">
+            {selected.is_essential ? "NEED" : "WANT"}
+          </div>
+          <div className="text-lg font-medium text-white mt-1.5">{selected.name}</div>
+          <p className="text-[13px] leading-relaxed text-gray-400 mt-1.5 mb-0">
+            {selSpent
+              ? `${FORMAT_INR(selSpent)} this month — ${
+                  metrics.spent ? Math.round((selSpent / metrics.spent) * 100) : 0
+                }% of everything, across ${selCount} ${selCount === 1 ? "entry" : "entries"}.`
+              : "Nothing here yet this month. Good place to keep it."}
+          </p>
+          <div className="flex gap-2 mt-3">
+            {selected.monthly_cap !== undefined ? (
+              <>
+                <span className="text-[11px] px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-100">
+                  {FORMAT_INR(selected.monthly_cap)} cap
                 </span>
-              </h1>
-              <p className="text-[11px] text-gray-400">Force-directed spend behavior embedding</p>
-            </div>
+                <span
+                  className={`text-[11px] px-2.5 py-1 rounded-md ${
+                    selSpent > selected.monthly_cap ? "bg-rose-500/20 text-rose-300" : "bg-primary-800/50 text-primary-100"
+                  }`}
+                >
+                  {selSpent > selected.monthly_cap ? "Over cap" : `${FORMAT_INR(selected.monthly_cap - selSpent)} left`}
+                </span>
+              </>
+            ) : (
+              <span className="text-[11px] px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-400">No cap set yet</span>
+            )}
+          </div>
+        </button>
+
+        <div className="flex gap-3.5 mt-5">
+          <div className="flex-1">
+            <div className="text-[10px] tracking-wide text-gray-600">NEEDS</div>
+            <div className="text-xl font-medium text-white mt-1">{FORMAT_INR(metrics.need)}</div>
+            <div className="text-[11px] text-gray-600">{metrics.needPct}% of spend</div>
+          </div>
+          <div className="w-px bg-white/10" />
+          <div className="flex-1">
+            <div className="text-[10px] tracking-wide text-gray-600">WANTS</div>
+            <div className="text-xl font-medium text-primary-300 mt-1">{FORMAT_INR(metrics.want)}</div>
+            <div className="text-[11px] text-gray-600">{metrics.wantPct}% of spend</div>
           </div>
         </div>
 
-        {/* The Obsidian Force Graph Visual Canvas */}
-        {loading || !graphData ? (
-          <div className="w-full h-[420px] rounded-2xl bg-[#090A0F] border border-white/10 flex flex-col items-center justify-center text-xs text-gray-500 gap-2">
-            <Network className="w-8 h-8 text-purple-400 animate-spin" />
-            <span>Computing Behavior Physics...</span>
-          </div>
-        ) : (
-          <DotGraphCanvas
-            data={graphData}
-            onSelectCategory={(catId) => setSelectedCategory(catId)}
-          />
-        )}
+        <div className="h-8" />
 
-        {/* Archetype Description & Peer Clusters */}
-        {graphData && (
-          <div className="p-4 rounded-2xl bg-[#0E1019] border border-white/5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Compass className="w-4 h-4 text-purple-400" />
-                <span className="text-xs font-bold text-gray-200">Dominant Spend Archetype</span>
-              </div>
-              <span className="text-[10px] font-bold text-purple-300 px-2 py-0.5 rounded-full bg-purple-500/20">
-                {graphData.archetype}
-              </span>
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              {graphData.archetype_description}
-            </p>
-
-            {/* Peer Cluster Archetype Bars */}
-            <div className="space-y-2 pt-2 border-t border-white/5">
-              <span className="text-[11px] font-bold text-gray-300 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Teen Peer Cluster Affinities</span>
-              </span>
-              <div className="space-y-1.5">
-                {graphData.peer_archetypes.map((arc) => (
-                  <div key={arc.id} className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-gray-300 font-medium">{arc.name}</span>
-                      <span className="text-gray-400 font-mono">{arc.similarity_pct}% match</span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: `${arc.similarity_pct}%`,
-                          backgroundColor: arc.color,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Log Modal */}
-        <QuickLogModal
-          isOpen={isQuickLogOpen}
-          onClose={() => setIsQuickLogOpen(false)}
-          onAddTransaction={handleAddTransaction}
+        <QuickLogSheet
+          isOpen={isLogOpen}
+          onClose={() => setIsLogOpen(false)}
+          onCommit={handleCommit}
+          safeDaily={metrics.safeDaily}
         />
+        <CategoryDetailSheet category={detailCategory} entries={detailEntries} onClose={() => setDetailCategoryId(null)} />
 
-      </div>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-2xl bg-primary-900/95 shadow-2xl text-[13.5px] leading-relaxed text-white"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </PageTransition>
     </MobileFrame>
   );
 }

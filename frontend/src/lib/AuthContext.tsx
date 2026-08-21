@@ -19,6 +19,8 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   isDemoMode: boolean;
   loading: boolean;
+  isNewUser: boolean; // true for exactly the session where a real profile doc was just created
+  dismissNewUserBanner: () => void;
   toggleDemoMode: () => void;
   signInWithGoogle: () => Promise<void>;
   signInAsGuest: () => void;
@@ -35,11 +37,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isNewUser, setIsNewUser] = useState<boolean>(false);
 
-  const checkClaimsAndLoadProfile = async (fbUser: FirebaseUser) => {
+  const checkAllowlist = async (email: string | null): Promise<boolean> => {
+    if (!email) return false;
+    try {
+      const allowlistRef = doc(db, "admin", "betaAllowlist");
+      const snap = await getDoc(allowlistRef);
+      if (!snap.exists()) return false;
+      const emails: string[] = (snap.data().emails as string[]) || [];
+      return emails.some((e) => e?.toLowerCase() === email.toLowerCase());
+    } catch (e) {
+      console.warn("Beta allowlist check failed:", e);
+      return false;
+    }
+  };
+
+  const checkClaimsAndLoadProfile = async (fbUser: FirebaseUser): Promise<boolean> => {
+    let isSuper = false;
     try {
       const tokenResult = await fbUser.getIdTokenResult(true);
-      const isSuper = tokenResult.claims.role === "superadmin" || fbUser.email === "parthchhabra6112@gmail.com";
+      isSuper = tokenResult.claims.role === "superadmin" || fbUser.email === "parthchhabra6112@gmail.com";
       setIsSuperAdmin(isSuper);
 
       // Fetch or create user profile in Firestore
@@ -59,9 +77,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             is_demo_mode: false,
             monthly_budget: 5000,
             created_at: new Date().toISOString(),
+            // Step 8 streak fields — real accounts only, start at zero.
+            currentStreak: 0,
+            longestStreak: 0,
+            lastLoggedDate: null,
+            streakFreezesAvailable: 0,
           };
           await setDoc(userDocRef, newProfile);
           setProfile(newProfile);
+          // Real account, brand new — this is the one moment to tell them the
+          // cold-start/trained-embedding split (Step 4/8) affects what they'll
+          // actually see, before they wonder why "Why this pace?" says
+          // "early estimate" for the first two weeks.
+          setIsNewUser(true);
         }
       } catch (err) {
         console.warn("Firestore profile fetch skipped in mock/demo mode:", err);
@@ -74,11 +102,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_demo_mode: isDemoMode,
           monthly_budget: 5000,
           created_at: new Date().toISOString(),
+          currentStreak: 0,
+          longestStreak: 0,
+          lastLoggedDate: null,
+          streakFreezesAvailable: 0,
         });
       }
     } catch (e) {
       console.error("Error inspecting user claims:", e);
     }
+    return isSuper;
   };
 
   useEffect(() => {
@@ -86,8 +119,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
         setUser(fbUser);
         if (fbUser) {
-          await checkClaimsAndLoadProfile(fbUser);
-          setIsDemoMode(false);
+          const isSuper = await checkClaimsAndLoadProfile(fbUser);
+          if (isSuper) {
+            setIsDemoMode(false);
+          } else {
+            const allowed = await checkAllowlist(fbUser.email);
+            if (allowed) {
+              setIsDemoMode(false);
+            } else {
+              console.warn(`Beta access blocked for ${fbUser.email}: not on allowlist.`);
+              alert(
+                "This Google account isn't on the Antara beta allowlist yet. You've been signed out and returned to Demo Mode until a superadmin approves your email."
+              );
+              await fbSignOut(auth);
+              setUser(null);
+              setIsSuperAdmin(false);
+              signInAsGuest();
+            }
+          }
         } else {
           // Initialize default local demo profile
           setProfile({
@@ -171,6 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const dismissNewUserBanner = () => setIsNewUser(false);
+
   return (
     <AuthContext.Provider
       value={{
@@ -179,6 +230,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isSuperAdmin,
         isDemoMode,
         loading,
+        isNewUser,
+        dismissNewUserBanner,
         toggleDemoMode,
         signInWithGoogle,
         signInAsGuest,

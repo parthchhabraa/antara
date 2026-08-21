@@ -1,233 +1,323 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import React, { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
-import { QuickLogModal } from "@/components/QuickLogModal";
-import { TransactionList } from "@/components/TransactionList";
-import { PredictiveInsightsCard } from "@/components/PredictiveInsightsCard";
-import { DEMO_TRANSACTIONS, STARTER_CATEGORIES, FORMAT_INR } from "@/lib/constants";
-import { Transaction, SpendPrediction } from "@/types";
-import { fetchSpendPredictions } from "@/lib/api";
+import { BurnGauge } from "@/components/BurnGauge";
+import { QuickLogSheet } from "@/components/QuickLogSheet";
+import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
+import { WhyPredictionSheet } from "@/components/WhyPredictionSheet";
+import { NewUserOnboardingSheet } from "@/components/NewUserOnboardingSheet";
+import { AntaraWordmark } from "@/components/AntaraWordmark";
+import { CountUpNumber } from "@/components/CountUpNumber";
+import { PageTransition } from "@/components/PageTransition";
+import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
+import { calculateBurnMetrics, addLiveTransaction, computeStreakUpdate, streakToastMessage, saveStreakUpdate } from "@/lib/api";
+import { Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
-import { ArrowUpRight, Network, Sparkles, TrendingUp, Wallet, Flame, Database } from "lucide-react";
 
-export default function DashboardPage() {
-  const { user, profile, isDemoMode } = useAuth();
+export default function TodayPage() {
+  const { user, profile, isDemoMode, signInWithGoogle, refreshClaims, isNewUser, dismissNewUserBanner } = useAuth();
   const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
   const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
-  const [isQuickLogOpen, setIsQuickLogOpen] = useState<boolean>(false);
-  const [prediction, setPrediction] = useState<SpendPrediction | null>(null);
-  const [loadingML, setLoadingML] = useState<boolean>(true);
+  const [isLogOpen, setIsLogOpen] = useState(false);
+  const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
+  const [isWhyOpen, setIsWhyOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  // `user` is null AND isDemoMode is true for every fresh/unauthenticated
+  // visit (AuthContext only ever sets isDemoMode=false once a real signed-in,
+  // allowlisted user resolves) — so the hero can't gate on isDemoMode itself,
+  // or it would show forever. This local flag lets a visitor dismiss the
+  // hero into demo browsing without an account, same as the app always
+  // allowed; it resets on reload rather than persisting, which is fine for
+  // a "first thing you see" screen.
+  const [heroDismissed, setHeroDismissed] = useState(false);
 
-  // Active transactions depend on whether Demo Mode or Live Mode is selected
   const transactions = isDemoMode ? demoTxs : liveTxs;
+  const monthlyBudget = profile?.monthly_budget || 5000;
+  // Demo mode uses a fixed reference date; live mode is only ever rendered
+  // client-side (post-auth, post-hydration), so real "now" is safe there.
+  // See the hydration note above DEMO_TRANSACTIONS in constants.ts.
+  const today = isDemoMode ? DEMO_REFERENCE_DATE : new Date();
 
-  // Listen to live Firestore transactions when in Live Mode
   useEffect(() => {
     if (isDemoMode || !user) return;
-
     try {
       const txCol = collection(db, "users", user.uid, "transactions");
       const q = query(txCol, orderBy("timestamp", "desc"));
-
-      const unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const fetched: Transaction[] = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...(docSnap.data() as Omit<Transaction, "id">),
-          }));
-          setLiveTxs(fetched);
-        },
-        (err) => {
-          console.warn("Firestore live subscription notice:", err);
-        }
-      );
-
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetched: Transaction[] = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Transaction, "id">),
+        }));
+        setLiveTxs(fetched);
+      });
       return () => unsubscribe();
     } catch (e) {
-      console.warn("Error setting up Firestore listener:", e);
+      console.warn("Firestore live query on Today screen:", e);
     }
   }, [isDemoMode, user]);
 
-  const monthlyBudget = profile?.monthly_budget || 5000;
-  const totalSpent = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-  const remainingBudget = Math.max(0, monthlyBudget - totalSpent);
-  const budgetProgress = Math.min(100, Math.round((totalSpent / monthlyBudget) * 100));
+  const metrics = useMemo(
+    () => calculateBurnMetrics(transactions, monthlyBudget, today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions, monthlyBudget, isDemoMode]
+  );
 
-  // Compute or fetch ML predictions based on active transactions
-  useEffect(() => {
-    async function loadML() {
-      setLoadingML(true);
-      const res = await fetchSpendPredictions(profile?.uid || "demo-user", transactions, monthlyBudget);
-      setPrediction(res);
-      setLoadingML(false);
-    }
-    loadML();
-  }, [transactions, profile, monthlyBudget]);
-
-  const handleAddTransaction = async (newTx: Omit<Transaction, "id">) => {
+  const handleCommit = async (newTx: Omit<Transaction, "id">) => {
+    let milestoneLine: string | null = null;
     if (isDemoMode) {
-      const txWithId: Transaction = {
-        ...newTx,
-        id: "tx-" + Date.now(),
-      };
-      setDemoTxs([txWithId, ...demoTxs]);
+      setDemoTxs([{ ...newTx, id: "tx-" + Date.now() }, ...demoTxs]);
     } else if (user) {
+      // Every real log needs to actually land in Firestore — it's the training
+      // data for the ML personalization, not just something to show on screen.
+      // No local-only fallback here on purpose: faking a successful "Logged ₹X"
+      // toast while the write silently failed would mean that transaction is
+      // gone from Firebase forever, invisible to the model, with the user none
+      // the wiser. If it fails, say so and stop — don't close the sheet, don't
+      // touch the streak, don't show a false success toast.
       try {
-        const txCol = collection(db, "users", user.uid, "transactions");
-        await addDoc(txCol, newTx);
+        await addLiveTransaction(user.uid, newTx);
       } catch (err) {
-        console.error("Error writing to Firestore:", err);
-        // Fallback to local state if offline
-        const txWithId: Transaction = {
-          ...newTx,
-          id: "tx-" + Date.now(),
-        };
-        setLiveTxs([txWithId, ...liveTxs]);
+        console.error("Error writing transaction to Firestore:", err);
+        setToast("Couldn't save that — check your connection and try again. Nothing was logged.");
+        window.setTimeout(() => setToast(null), 3400);
+        return;
+      }
+      // Transaction is confirmed saved at this point. The streak update is a
+      // secondary effect on top of it — if this part fails, the log itself is
+      // still safely in Firebase; just don't let a streak-write hiccup make it
+      // look like the log itself didn't happen.
+      try {
+        const streakResult = computeStreakUpdate(
+          {
+            currentStreak: profile?.currentStreak,
+            longestStreak: profile?.longestStreak,
+            lastLoggedDate: profile?.lastLoggedDate,
+            streakFreezesAvailable: profile?.streakFreezesAvailable,
+          },
+          new Date()
+        );
+        await saveStreakUpdate(user.uid, streakResult);
+        await refreshClaims(); // re-fetch profile so the header's streak badge updates
+        milestoneLine = streakToastMessage(streakResult);
+      } catch (err) {
+        console.warn("Streak update failed (the transaction itself was saved fine):", err);
       }
     }
+    setIsLogOpen(false);
+    const line =
+      newTx.amount > 300
+        ? `Logged ${FORMAT_INR(newTx.amount)}. That nudges the date — check the ring.`
+        : `Logged ${FORMAT_INR(newTx.amount)}. Small one, barely moves the date. Nice.`;
+    setToast(milestoneLine ? `${line} ${milestoneLine}` : line);
+    window.setTimeout(() => setToast(null), 3400);
   };
 
-  const handleDeleteTransaction = async (id: string) => {
-    if (isDemoMode) {
-      setDemoTxs(demoTxs.filter((t) => t.id !== id));
-    } else if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "transactions", id));
-      } catch (err) {
-        console.error("Error deleting from Firestore:", err);
-        setLiveTxs(liveTxs.filter((t) => t.id !== id));
-      }
-    }
-  };
+  const detailCategory = STARTER_CATEGORIES.find((c) => c.id === detailCategoryId) || null;
+  const detailEntries = detailCategoryId ? transactions.filter((t) => t.category === detailCategoryId) : [];
 
+  // Both derived from `today` (fixed in demo mode, real in live mode — see the
+  // hydration note on `today` above) rather than hardcoded "Aug": that was a
+  // leftover from when demo data was the only thing ever rendered here, and
+  // silently wrong for any real user in any month but August.
+  const monthShort = today.toLocaleDateString("en-US", { month: "short" });
+  const monthLong = today.toLocaleDateString("en-US", { month: "long" });
+  const runOutDate = `${metrics.runOutDay} ${monthShort}`;
+  const earlyLabel = metrics.earlyDays > 0 ? `${metrics.earlyDays} days early` : "right on the line";
+  const coachLine =
+    metrics.weekRate > metrics.safeDaily
+      ? `Ease off ${FORMAT_INR(metrics.weekRate - metrics.safeDaily)} a day — about two fewer delivery nights — and ${monthLong} lands clean.`
+      : `You're ${FORMAT_INR(metrics.safeDaily - metrics.weekRate)} a day under. Keep it up and you finish with money spare.`;
+
+  // ── Signed-out hero ──────────────────────────────────────────────
+  if (!user && !heroDismissed) {
+    return (
+      <MobileFrame immersive>
+        <div className="min-h-screen flex flex-col justify-between -mx-4 -my-4 px-7 pt-8 pb-10 bg-[radial-gradient(90%_60%_at_50%_18%,#262a60_0%,#171a2c_55%,#101220_100%)]">
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            <AntaraWordmark />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
+            <h2 className="text-[34px] leading-[1.1] tracking-tight text-white m-0 mb-2.5">
+              Know where your
+              <br />
+              month is heading.
+            </h2>
+            <p className="text-sm leading-relaxed text-gray-400 mb-6">
+              Log what you spend in two taps. Antara does the maths and tells you the one date that matters.
+            </p>
+            <button
+              onClick={signInWithGoogle}
+              className="w-full h-[50px] rounded-2xl bg-transparent border border-primary-500/60 text-primary-300 font-bold text-[15px] active:scale-[0.97] transition-transform"
+            >
+              Continue with Google
+            </button>
+            <button
+              onClick={() => setHeroDismissed(true)}
+              className="w-full h-11 mt-1 text-[13px] text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              Continue in Demo Mode
+            </button>
+          </motion.div>
+        </div>
+      </MobileFrame>
+    );
+  }
+
+  // ── Today screen ─────────────────────────────────────────────────
   return (
-    <MobileFrame onOpenQuickLog={() => setIsQuickLogOpen(true)}>
-      <div className="space-y-5">
-        
-        {/* Main Budget Card */}
-        <div className="relative overflow-hidden p-5 rounded-3xl bg-gradient-to-br from-[#1E1238] via-[#121424] to-[#0A0C14] border border-purple-500/30 shadow-glow-purple">
-          <div className="absolute top-0 right-0 w-36 h-36 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-purple-300">
-              August Allowance
-            </span>
-            <span className="text-xs text-gray-400 font-medium">
-              Remaining: <span className="text-emerald-400 font-bold">{FORMAT_INR(remainingBudget)}</span>
-            </span>
-          </div>
+    <MobileFrame onOpenQuickLog={() => setIsLogOpen(true)}>
+      <PageTransition className="space-y-1">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-medium text-white" suppressHydrationWarning>
+            {isDemoMode
+              ? "Wednesday, 19 Aug"
+              : today.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short" })}
+          </span>
+          <span className="ml-auto text-[11px] text-gray-600">
+            DAY {metrics.today} / {metrics.daysInMonth}
+          </span>
+        </div>
 
-          <div className="mt-2 flex items-baseline gap-2">
-            <h1 className="text-3xl font-black tracking-tight text-white">
-              {FORMAT_INR(totalSpent)}
-            </h1>
-            <span className="text-xs text-gray-400 font-medium">spent of {FORMAT_INR(monthlyBudget)}</span>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mt-4 space-y-1.5">
-            <div className="w-full h-2.5 rounded-full bg-white/10 overflow-hidden p-0.5">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  budgetProgress > 85
-                    ? "bg-gradient-to-r from-rose-500 to-amber-500"
-                    : "bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-400"
-                }`}
-                style={{ width: `${budgetProgress}%` }}
-              />
+        {/* Week bars */}
+        <div className="flex gap-1.5 pt-3.5 pb-1.5">
+          {metrics.weekBars.map((b, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+              <div className="w-full h-11 rounded flex items-end bg-white/[0.08] overflow-hidden">
+                <motion.div
+                  initial={{ height: 0 }}
+                  animate={{ height: `${b.heightPct}%` }}
+                  transition={{ duration: 0.6, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                  className={`w-full rounded ${b.heightPct > 60 ? "bg-primary-400" : "bg-gray-500/45"}`}
+                />
+              </div>
+              <span className={`text-[9px] ${b.isToday ? "text-primary-300" : "text-gray-600"}`}>{b.day}</span>
             </div>
-            <div className="flex justify-between text-[10px] text-gray-400">
-              <span>{budgetProgress}% used</span>
-              <span>Daily target: ₹{Math.round(remainingBudget / 15)}/day</span>
+          ))}
+        </div>
+
+        {/* Burn gauge */}
+        <div className="flex flex-col items-center py-3.5">
+          <BurnGauge burnPct={metrics.burnPct} />
+        </div>
+        <div className="text-center text-[13px] text-gray-400 leading-relaxed -mt-1 mb-4">
+          You're running {FORMAT_INR(metrics.weekRate)} a day.
+          <br />
+          Safe is {FORMAT_INR(metrics.safeDaily)}.
+        </div>
+
+        {/* Money runs out */}
+        <div className="rounded-2xl border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
+          <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300 mb-2">MONEY RUNS OUT</div>
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-4xl font-medium tracking-tight text-white">{runOutDate}</span>
+            <span className="text-xs text-gray-400">{earlyLabel}</span>
+          </div>
+          <button
+            onClick={() => setIsWhyOpen(true)}
+            className="block w-full text-left text-[13.5px] leading-relaxed text-gray-200 mt-3 underline decoration-dotted decoration-gray-500 underline-offset-4 active:opacity-70 transition-opacity"
+          >
+            {coachLine}
+          </button>
+          {metrics.riskRows[0] && (
+            <button
+              onClick={() => setDetailCategoryId(metrics.riskRows[0].categoryId)}
+              className="mt-3.5 h-10 px-4 rounded-xl bg-transparent border border-primary-500/60 text-primary-300 text-[13px] font-bold active:scale-[0.97] transition-transform"
+            >
+              Show me the plan
+            </button>
+          )}
+        </div>
+
+        {/* Stat tiles */}
+        <div className="grid grid-cols-3 gap-2 mt-3.5">
+          <div className="p-3 rounded-2xl bg-white/[0.06]">
+            <div className="text-[10px] text-gray-600 tracking-wide">LEFT</div>
+            <div className="text-[19px] font-medium text-white mt-1">
+              <CountUpNumber value={metrics.left} format={FORMAT_INR} />
+            </div>
+          </div>
+          <div className="p-3 rounded-2xl bg-white/[0.06]">
+            <div className="text-[10px] text-gray-600 tracking-wide">PER DAY</div>
+            <div className="text-[19px] font-medium text-white mt-1">{FORMAT_INR(metrics.safeDaily)}</div>
+          </div>
+          <div className="p-3 rounded-2xl bg-white/[0.06]">
+            <div className="text-[10px] text-gray-600 tracking-wide">DAYS</div>
+            <div className="text-[19px] font-medium text-white mt-1">
+              <CountUpNumber value={metrics.daysLeft} />
             </div>
           </div>
         </div>
 
-        {/* Signature Obsidian Dot Graph Banner / Preview */}
-        <Link
-          href="/graph"
-          className="block p-4 rounded-2xl bg-gradient-to-r from-[#141226] via-[#101322] to-[#0C1524] border border-cyan-500/30 hover:border-cyan-400/60 shadow-glow-cyan transition-all group"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Network className="w-5 h-5 animate-pulse" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs uppercase font-bold text-cyan-300">Obsidian Dot Graph</h3>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-semibold">
-                    Live Physics
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-400">
-                  Explore your spending behavior in force-directed node space
-                </p>
-              </div>
-            </div>
-            <ArrowUpRight className="w-4 h-4 text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-          </div>
-        </Link>
-
-        {/* Top Spending Categories Scroller */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Top Categories
-            </span>
-            <span className="text-[11px] text-gray-500">12 Indian Teen Categories</span>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {STARTER_CATEGORIES.slice(0, 6).map((cat) => (
-              <div
-                key={cat.id}
-                className="flex-shrink-0 p-3 rounded-2xl bg-[#0E1019] border border-white/5 w-32 space-y-1.5"
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <span className="text-[9px] font-semibold text-gray-500">
-                    {cat.is_essential ? "Need" : "Want"}
-                  </span>
-                </div>
-                <p className="text-xs font-bold text-gray-200 line-clamp-1">{cat.name}</p>
-                <p className="text-[10px] text-gray-400">
-                  {FORMAT_INR(
-                    transactions
-                      .filter((t) => t.category === cat.id)
-                      .reduce((a, b) => a + b.amount, 0)
-                  )}
-                </p>
-              </div>
-            ))}
-          </div>
+        {/* What's pushing the date */}
+        <div className="flex items-baseline mt-6 mb-2.5">
+          <h5 className="text-sm font-semibold text-white m-0">What's pushing the date</h5>
+          <span className="ml-auto text-[11px] text-gray-600">tap a row</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          {metrics.riskRows.length === 0 && (
+            <p className="py-6 text-center text-xs text-gray-500">Log an expense to see what's driving your pace.</p>
+          )}
+          {metrics.riskRows.map((r) => (
+            <button
+              key={r.categoryId}
+              onClick={() => setDetailCategoryId(r.categoryId)}
+              className="text-left bg-transparent border-0 py-2.5 flex flex-col gap-1.5 border-b border-white/5 last:border-0 active:opacity-60 transition-opacity"
+            >
+              <span className="flex items-baseline gap-2 w-full">
+                <span className="text-[13.5px] text-gray-100">{r.name}</span>
+                <span className="ml-auto text-xs text-gray-500">{FORMAT_INR(r.perDay)}/day</span>
+              </span>
+              <span className="block w-full h-[3px] rounded-full bg-white/10 relative overflow-hidden">
+                <span
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{ width: `${Math.min(100, r.sharePct * 2.3)}%`, backgroundColor: r.isEssential ? "#75798c" : "#8B5CF6" }}
+                />
+              </span>
+              <span className="text-[11px] text-gray-600">
+                {r.isEssential
+                  ? `Mostly fixed · ${FORMAT_INR(r.projectedMore)} more expected`
+                  : `Yours to control · ${FORMAT_INR(r.projectedMore)} more if nothing changes`}
+              </span>
+            </button>
+          ))}
         </div>
 
-        {/* ML Predictive Insights Card */}
-        <PredictiveInsightsCard prediction={prediction} monthlyBudget={monthlyBudget} />
+        <div className="h-8" />
 
-        {/* Recent Transactions List */}
-        <TransactionList
+        <QuickLogSheet
+          isOpen={isLogOpen}
+          onClose={() => setIsLogOpen(false)}
+          onCommit={handleCommit}
+          safeDaily={metrics.safeDaily}
+        />
+        <CategoryDetailSheet category={detailCategory} entries={detailEntries} onClose={() => setDetailCategoryId(null)} />
+        <WhyPredictionSheet
+          isOpen={isWhyOpen}
+          onClose={() => setIsWhyOpen(false)}
+          riskRows={metrics.riskRows}
           transactions={transactions}
-          onDeleteTransaction={handleDeleteTransaction}
+          monthlyBudget={monthlyBudget}
+          today={today}
+          isDemoMode={isDemoMode}
+          user={user}
         />
+        <NewUserOnboardingSheet isOpen={isNewUser} onClose={dismissNewUserBanner} />
 
-        {/* Quick Log Modal */}
-        <QuickLogModal
-          isOpen={isQuickLogOpen}
-          onClose={() => setIsQuickLogOpen(false)}
-          onAddTransaction={handleAddTransaction}
-        />
-
-      </div>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-2xl bg-primary-900/95 shadow-2xl text-[13.5px] leading-relaxed text-white"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </PageTransition>
     </MobileFrame>
   );
 }

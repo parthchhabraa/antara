@@ -1,51 +1,103 @@
 "use client";
 
-import React, { useState } from "react";
-import { Shield, UserCheck, Plus, Trash2, Server, Database, Radio } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Shield, UserCheck, Plus, Trash2, Server, Database, Radio, LineChart, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import { BetaAllowlistEntry } from "@/types";
+import { DataConfigPanel } from "./DataConfigPanel";
+
+const ALLOWLIST_DOC_REF = doc(db, "admin", "betaAllowlist");
+const ROOT_SUPERADMIN_EMAIL = "parthchhabra6112@gmail.com";
 
 export const SuperadminPanel: React.FC = () => {
   const { profile, isSuperAdmin, isDemoMode, toggleDemoMode } = useAuth();
-  const [allowlist, setAllowlist] = useState<string[]>([
-    "parthchhabra6112@gmail.com",
-    "tester.teen1@antara.app",
-    "beta.delhi@antara.app",
-  ]);
+  const [allowlist, setAllowlist] = useState<BetaAllowlistEntry[]>([]);
   const [newEmail, setNewEmail] = useState<string>("");
   const [toastMsg, setToastMsg] = useState<string>("");
 
-  const handleAddEmail = (e: React.FormEvent) => {
+  // Live-sync the allowlist from Firestore (admin/betaAllowlist)
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      ALLOWLIST_DOC_REF,
+      (snap) => {
+        if (snap.exists()) {
+          setAllowlist((snap.data().entries as BetaAllowlistEntry[]) || []);
+        } else if (isSuperAdmin) {
+          // Seed the doc so the root superadmin always shows up in the panel
+          const seed: BetaAllowlistEntry[] = [
+            { email: ROOT_SUPERADMIN_EMAIL, added_at: new Date().toISOString(), added_by: "system" },
+          ];
+          persistAllowlist(seed).catch((err) =>
+            console.warn("Could not seed betaAllowlist doc:", err)
+          );
+        }
+      },
+      (err) => console.warn("Allowlist subscription error:", err)
+    );
+    return () => unsubscribe();
+  }, [isSuperAdmin]);
+
+  // `emails` is the flat array firestore.rules checks against (cheap membership
+  // test); `entries` carries the added_at/added_by metadata for this panel's UI.
+  // Both are written together so they never drift apart.
+  const persistAllowlist = async (entries: BetaAllowlistEntry[]) => {
+    await setDoc(ALLOWLIST_DOC_REF, {
+      entries,
+      emails: entries.map((e) => e.email),
+    });
+  };
+
+  const handleAddEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail.trim() || !newEmail.includes("@")) return;
-    if (allowlist.includes(newEmail.trim())) {
+    const email = newEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) return;
+    if (allowlist.some((entry) => entry.email.toLowerCase() === email)) {
       setToastMsg("Email already in allowlist");
+      setTimeout(() => setToastMsg(""), 3000);
       return;
     }
-    setAllowlist([...allowlist, newEmail.trim()]);
-    setNewEmail("");
-    setToastMsg("Beta tester added successfully!");
+    const newEntry: BetaAllowlistEntry = {
+      email,
+      added_at: new Date().toISOString(),
+      added_by: profile?.email || "superadmin",
+    };
+    try {
+      await persistAllowlist([...allowlist, newEntry]);
+      setNewEmail("");
+      setToastMsg("Beta tester added successfully!");
+    } catch (err) {
+      console.error("Failed to persist allowlist:", err);
+      setToastMsg("Failed to save — check connection");
+    }
     setTimeout(() => setToastMsg(""), 3000);
   };
 
-  const handleRemoveEmail = (email: string) => {
-    if (email === "parthchhabra6112@gmail.com") {
+  const handleRemoveEmail = async (email: string) => {
+    if (email === ROOT_SUPERADMIN_EMAIL) {
       alert("Cannot remove root superadmin email.");
       return;
     }
-    setAllowlist(allowlist.filter((e) => e !== email));
+    try {
+      await persistAllowlist(allowlist.filter((entry) => entry.email !== email));
+    } catch (err) {
+      console.error("Failed to persist allowlist:", err);
+    }
   };
 
   return (
     <div className="space-y-5">
       {/* Superadmin Header */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/60 to-indigo-950/60 border border-purple-500/30 flex items-center justify-between">
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-primary-950/60 to-primary-950/60 border border-primary-500/30 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
+          <div className="p-2.5 rounded-xl bg-primary-500/20 text-primary-300 border border-primary-500/30">
             <Shield className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-white">Superadmin Control Deck</h2>
-            <p className="text-xs text-purple-300">Custom Auth Claim: role = 'superadmin'</p>
+            <p className="text-xs text-primary-300">Custom Auth Claim: role = 'superadmin'</p>
           </div>
         </div>
         <span className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
@@ -66,7 +118,7 @@ export const SuperadminPanel: React.FC = () => {
             onClick={toggleDemoMode}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               isDemoMode
-                ? "bg-purple-600 text-white shadow-glow-purple"
+                ? "bg-primary-600 text-white shadow-glow-primary"
                 : "bg-emerald-600 text-white"
             }`}
           >
@@ -100,22 +152,47 @@ export const SuperadminPanel: React.FC = () => {
           </div>
           <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
             <span className="text-[10px] text-gray-400">Memory Sync</span>
-            <div className="font-bold text-purple-300 mt-1">/root/antara/.env-remember</div>
+            <div className="font-bold text-primary-300 mt-1">/root/antara/.env-remember</div>
           </div>
         </div>
       </div>
+
+      {/* Step 10: Training Insights entry point — superadmin only, matching
+          DataConfigPanel's own gate (this whole page doesn't otherwise gate
+          on role, but these two Step 10 additions shouldn't be the exception
+          that starts showing real admin tooling to non-admins). */}
+      {isSuperAdmin && (
+        <Link
+          href="/admin/training-insights"
+          className="p-4 rounded-2xl bg-[#0F111A] border border-white/5 flex items-center justify-between hover:border-primary-500/40 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary-500/10 text-primary-300 border border-primary-500/20">
+              <LineChart className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-gray-200">Training Insights</h3>
+              <p className="text-[11px] text-gray-500">Survey distributions, sample size trend, population dot-graph</p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-gray-600" />
+        </Link>
+      )}
+
+      {/* Step 10: superadmin "tailor the data" controls */}
+      <DataConfigPanel />
 
       {/* Beta Allowlist Manager */}
       <div className="p-4 rounded-2xl bg-[#0F111A] border border-white/5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold text-gray-200 flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-purple-400" />
+            <UserCheck className="w-4 h-4 text-primary-400" />
             <span>Beta Tester Allowlist ({allowlist.length})</span>
           </h3>
         </div>
 
         {toastMsg && (
-          <div className="p-2 rounded-lg bg-purple-500/20 border border-purple-500/30 text-[11px] text-purple-200 text-center">
+          <div className="p-2 rounded-lg bg-primary-500/20 border border-primary-500/30 text-[11px] text-primary-200 text-center">
             {toastMsg}
           </div>
         )}
@@ -126,11 +203,11 @@ export const SuperadminPanel: React.FC = () => {
             placeholder="teen.tester@gmail.com"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+            className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-primary-500"
           />
           <button
             type="submit"
-            className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1 transition-all"
+            className="px-3 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold flex items-center gap-1 transition-all"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add</span>
@@ -138,17 +215,17 @@ export const SuperadminPanel: React.FC = () => {
         </form>
 
         <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-          {allowlist.map((email) => (
+          {allowlist.map((entry) => (
             <div
-              key={email}
+              key={entry.email}
               className="p-2 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between text-xs"
             >
-              <span className="text-gray-300 font-mono text-[11px]">{email}</span>
-              {email === "parthchhabra6112@gmail.com" ? (
+              <span className="text-gray-300 font-mono text-[11px]">{entry.email}</span>
+              {entry.email === ROOT_SUPERADMIN_EMAIL ? (
                 <span className="text-[10px] text-amber-400 font-semibold">Superadmin</span>
               ) : (
                 <button
-                  onClick={() => handleRemoveEmail(email)}
+                  onClick={() => handleRemoveEmail(entry.email)}
                   className="text-gray-500 hover:text-rose-400 p-1 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

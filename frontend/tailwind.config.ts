@@ -12,11 +12,23 @@ const config: Config = {
         background: "#08090C",
         card: "rgba(18, 20, 29, 0.75)",
         "card-border": "rgba(255, 255, 255, 0.08)",
+        // Theme: violet/indigo as the primary brand color on the near-black
+        // base, matching the original "Antara.dc.html" ("1a — Strain")
+        // Claude Design mockup. Step 7 (2026-08-20) reverted this back from
+        // an emerald/gold reskin — the emerald swap wasn't actually what was
+        // wanted; the mockup's own colors are the source of truth.
         primary: {
-          50: "#f5f3ff",
-          500: "#8b5cf6",
-          600: "#7c3aed",
-          700: "#6d28d9",
+          50: "#F5F3FF",
+          100: "#EDE9FE",
+          200: "#DDD6FE",
+          300: "#C4B5FD",
+          400: "#A78BFA",
+          500: "#8B5CF6",
+          600: "#7C3AED",
+          700: "#6D28D9",
+          800: "#5B21B6",
+          900: "#4C1D95",
+          950: "#2E1065",
         },
         accent: {
           cyan: "#06b6d4",
@@ -30,7 +42,7 @@ const config: Config = {
         sans: ["var(--font-inter)", "sans-serif"],
       },
       boxShadow: {
-        "glow-purple": "0 0 25px -5px rgba(139, 92, 246, 0.4)",
+        "glow-primary": "0 0 25px -5px rgba(139, 92, 246, 0.4)",
         "glow-cyan": "0 0 25px -5px rgba(6, 182, 212, 0.4)",
         "glow-pink": "0 0 25px -5px rgba(236, 72, 153, 0.4)",
       },

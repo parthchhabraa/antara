@@ -37,6 +37,25 @@ describe("Firestore Security Rules Tests", () => {
     }
   });
 
+  // Seeds admin/betaAllowlist bypassing rules, mirroring how the superadmin
+  // panel actually writes it (both the flat `emails` array rules check against,
+  // and the richer `entries` array the UI displays).
+  async function seedAllowlist(emails: string[]) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .doc("admin/betaAllowlist")
+        .set({
+          emails,
+          entries: emails.map((email) => ({
+            email,
+            added_at: new Date().toISOString(),
+            added_by: "test-setup",
+          })),
+        });
+    });
+  }
+
   test("Unauthenticated user CANNOT read or write any transactions", async () => {
     const unauthedDb = testEnv.unauthenticatedContext().firestore();
     const txRef = unauthedDb.doc("users/user_alice/transactions/tx_1");
@@ -50,8 +69,11 @@ describe("Firestore Security Rules Tests", () => {
     );
   });
 
-  test("User Alice CAN read and write her own transactions", async () => {
-    const aliceDb = testEnv.authenticatedContext("user_alice").firestore();
+  test("Allowlisted user Alice CAN read and write her own transactions", async () => {
+    await seedAllowlist(["alice@example.com"]);
+    const aliceDb = testEnv
+      .authenticatedContext("user_alice", { email: "alice@example.com" })
+      .firestore();
     const aliceTx = aliceDb.doc("users/user_alice/transactions/tx_1");
     await assertSucceeds(
       aliceTx.set({
@@ -64,8 +86,56 @@ describe("Firestore Security Rules Tests", () => {
     await assertSucceeds(aliceTx.get());
   });
 
+  test("Authenticated but NON-allowlisted user CANNOT write her own transactions", async () => {
+    await seedAllowlist(["someone.else@example.com"]);
+    const aliceDb = testEnv
+      .authenticatedContext("user_alice", { email: "alice@example.com" })
+      .firestore();
+    const aliceTx = aliceDb.doc("users/user_alice/transactions/tx_1");
+    await assertFails(
+      aliceTx.set({
+        amount: 250,
+        category: "food-delivery",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Authenticated user with no betaAllowlist doc at all CANNOT write transactions", async () => {
+    // No seedAllowlist() call - admin/betaAllowlist doesn't exist yet.
+    const aliceDb = testEnv
+      .authenticatedContext("user_alice", { email: "alice@example.com" })
+      .firestore();
+    const aliceTx = aliceDb.doc("users/user_alice/transactions/tx_1");
+    await assertFails(
+      aliceTx.set({
+        amount: 250,
+        category: "food-delivery",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Superadmin CAN write to any user's transactions even when not on the allowlist", async () => {
+    await seedAllowlist(["someone.else@example.com"]);
+    const superadminDb = testEnv
+      .authenticatedContext("user_parth", { email: "parthchhabra6112@gmail.com", role: "superadmin" })
+      .firestore();
+    const aliceTx = superadminDb.doc("users/user_alice/transactions/tx_1");
+    await assertSucceeds(
+      aliceTx.set({
+        amount: 250,
+        category: "food-delivery",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
   test("User Bob CANNOT read or write Alice's transactions", async () => {
-    const bobDb = testEnv.authenticatedContext("user_bob").firestore();
+    await seedAllowlist(["bob@example.com", "alice@example.com"]);
+    const bobDb = testEnv
+      .authenticatedContext("user_bob", { email: "bob@example.com" })
+      .firestore();
     const aliceTx = bobDb.doc("users/user_alice/transactions/tx_1");
     await assertFails(aliceTx.get());
     await assertFails(

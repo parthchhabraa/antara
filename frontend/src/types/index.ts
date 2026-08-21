@@ -11,11 +11,17 @@ export interface Transaction {
 export interface Category {
   id: string;
   name: string;
+  short: string; // compact chip/label form, e.g. "Food" for "Food delivery & street food"
   icon: string;
   color: string;
   subcategories: string[];
   is_essential: boolean;
   description: string;
+  // Soft per-category monthly spend cap in INR, used by the burn/detail views. Optional:
+  // the 6 categories merged in from the teen survey (Step 8) have no real cap number yet —
+  // that's blocked on the survey's actual data, not something to guess. Callers must treat
+  // `undefined` as "no cap set" (show neutral copy), never default it to a made-up figure.
+  monthly_cap?: number;
 }
 
 export interface UserProfile {
@@ -27,80 +33,14 @@ export interface UserProfile {
   is_demo_mode: boolean;
   monthly_budget: number;
   created_at: string;
-}
-
-export interface CategoryForecast {
-  category_id: string;
-  category_name: string;
-  predicted_spend: number;
-  confidence: number;
-  historical_spend: number;
-  trend_pct: number;
-  risk_level: 'low' | 'medium' | 'high';
-  is_heuristic?: boolean;
-}
-
-export interface SpendPrediction {
-  user_id: string;
-  predicted_total_spend: number;
-  current_burn_rate_daily: number;
-  predicted_burn_rate_daily: number;
-  projected_days_until_budget_exhaustion: number;
-  top_risk_categories: string[];
-  category_breakdown: CategoryForecast[];
-  smart_insights: string[];
-  is_cold_start: boolean;
-  model_mode: string;
-  data_days_logged: number;
-  data_points_count: number;
-  confidence_score: number;
-  last_retrained_at?: string | null;
-  generated_at: string;
-}
-
-export interface GraphNode {
-  id: string;
-  label: string;
-  type: 'user' | 'category' | 'peer_cluster' | 'transaction_spike';
-  size: number;
-  color: string;
-  category_id?: string;
-  amount?: number;
-  x?: number;
-  y?: number;
-  metadata?: Record<string, any>;
-}
-
-export interface GraphLink {
-  source: string;
-  target: string;
-  strength: number;
-  distance: number;
-  type: 'gravity' | 'similarity' | 'co_occurrence';
-}
-
-export interface PeerArchetype {
-  id: string;
-  name: string;
-  color: string;
-  similarity_pct: number;
-  description: string;
-}
-
-export interface DotGraphData {
-  user_id: string;
-  archetype: string;
-  archetype_description: string;
-  is_cold_start: boolean;
-  model_mode: string;
-  data_days_logged: number;
-  confidence_score: number;
-  embedding: number[];
-  nodes: GraphNode[];
-  links: GraphLink[];
-  peer_archetypes: PeerArchetype[];
-  last_retrained_at?: string | null;
-  generated_at: string;
+  // Daily logging streak (Step 8). Only tracked for real signed-in accounts, never demo/guest
+  // — demo transactions are preview data, not something that should count toward a streak.
+  // Profiles created before Step 8 won't have these in Firestore yet; treat missing as
+  // 0/0/null/0 (see computeStreakUpdate in lib/api.ts) rather than assuming they exist.
+  currentStreak?: number;
+  longestStreak?: number;
+  lastLoggedDate?: string | null; // Date.toDateString() of the last calendar day a real transaction was logged
+  streakFreezesAvailable?: number;
 }
 
 export interface BetaAllowlistEntry {

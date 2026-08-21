@@ -1,8 +1,8 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from app.schemas import (
@@ -10,6 +10,7 @@ from app.schemas import (
     DotGraphResponse, HealthResponse, TransactionItem
 )
 from app.ml.engine import MLEngine
+from app.ml import survey_etl
 from app.firebase_admin import (
     initialize_firebase_admin, verify_firebase_token,
     require_superadmin, get_firestore_client
@@ -22,9 +23,39 @@ app = FastAPI(
 )
 
 # CORS Middleware config
+#
+# Step 9 (2026-08-21): switched from a wildcard ("*") to an explicit allowlist.
+# This isn't just tidying — `allow_origins=["*"]` combined with
+# `allow_credentials=True` is invalid per the CORS spec (browsers refuse a
+# literal "*" origin on credentialed requests) and only ever "worked" because
+# every real browser call up to now went through the Next.js rewrite proxy
+# (next.config.js), making it same-origin from the browser's point of view —
+# CORS was never actually exercised. Step 9 points the frontend at
+# https://api.antara.money directly (see frontend/src/lib/api.ts's
+# API_BASE_URL), making this a genuine cross-origin call for the first time,
+# so the allowlist needs to be real. Keeps every existing access path — the
+# Tailscale IP, LAN IP, and local dev — none of that narrows.
+ALLOWED_ORIGINS = [
+    # Production domain (Step 9) — app.antara.money is the frontend; the bare
+    # apex is included too in case anything ever serves directly from it.
+    "https://app.antara.money",
+    "https://antara.money",
+    # Tailscale (stable, private) — unchanged fallback access path.
+    "http://100.103.94.116:3001",
+    "http://100.103.94.116:8001",
+    # LAN — unchanged fallback access path.
+    "http://192.168.0.8:3001",
+    "http://192.168.0.8:8001",
+    # Local dev.
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,6 +64,21 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     initialize_firebase_admin()
+    # Step 10: load whatever Stage-1 survey-derived benchmarks were last
+    # computed (admin/categoryBenchmarks) and overlay them onto the cold-start
+    # heuristic's static fallback numbers. If nothing's been computed yet
+    # (fresh deploy, or Firestore unreachable), this safely no-ops and the
+    # Step 8 static numbers keep serving — never a startup failure either way.
+    try:
+        db = get_firestore_client()
+        existing = survey_etl.load_benchmarks(db)
+        if existing:
+            applied = MLEngine.apply_live_benchmarks(existing)
+            print(f"[+] Loaded existing survey benchmarks (n={existing.get('sampleSize')}), applied={applied}")
+        else:
+            print("[i] No admin/categoryBenchmarks doc yet — run POST /api/v1/admin/recompute-benchmarks once survey data exists")
+    except Exception as e:
+        print(f"[!] Warning: could not load survey benchmarks at startup: {e}")
     print("[+] Antara ML API service initialized on port 8001")
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
@@ -54,6 +100,13 @@ async def predict_spending(
     """
     Computes forecasted categorical spend, burn rate, risk levels, and smart teen insights.
     Caches the forecast to Firestore `predictions/{uid}/{period}` when Firestore is reachable.
+
+    Revived in Step 8 (2026-08-21) — this is what powers the "Why" screen reachable from
+    BurnGauge's coaching line on the frontend (see frontend/src/components/WhyPredictionSheet.tsx
+    and lib/api.ts's fetchSpendPrediction). Cold-start heuristic vs. trained-embedding mode is
+    decided by MLEngine based on logged history, not guessed client-side — see `is_cold_start`/
+    `model_mode` on the response, which the frontend labels honestly rather than presenting a
+    heuristic guess as a confident prediction.
     """
     prediction = MLEngine.calculate_spend_predictions(
         user_id=req.user_id,
@@ -82,6 +135,12 @@ async def get_dot_graph(
     """
     Computes learned spend embedding space and generates Obsidian-style force-directed
     graph nodes (user core, category gravity centers, peer archetypes) and physics springs.
+
+    Not currently called by the frontend — the Pull screen (frontend/src/components/
+    PullCanvas.tsx) uses its own pure client-side two-pole need/want layout, and Step 8's
+    ML revival scoped the frontend wiring to the "Why" prediction screen only (predict_spending
+    above), not this dot-graph. Left fully functional and unretired (no dormant-by-design
+    notice) since Step 8 reversed that framing — it just doesn't have a UI consumer yet.
     """
     return MLEngine.generate_dot_graph(
         user_id=req.user_id,
@@ -99,7 +158,92 @@ async def get_admin_status(admin_user: dict = Depends(require_superadmin)):
         "port": 8001,
         "ports_guarded": [5000, 8000],
         "systemd_unit": "antara-ml.service",
-        "tunnel_configured": True
+        "tunnel_configured": True,
+        "live_survey_benchmarks_applied": MLEngine.live_benchmarks_applied,
+        "live_survey_benchmarks_sample_size": MLEngine.live_benchmarks_sample_size,
+        "live_survey_benchmarks_computed_at": MLEngine.live_benchmarks_computed_at,
+    }
+
+# ── Step 10: Survey ETL / Stage-1 training stats / superadmin data config ──
+# All three endpoints below are superadmin-only (require_superadmin) — the
+# raw stats and the ability to change what feeds the ML heuristic aren't
+# public. See backend/app/ml/survey_etl.py for the actual computation; these
+# are thin wrappers that make it callable from the admin panel without a
+# redeploy, which was the explicit point of this pass.
+
+@app.get("/api/v1/admin/data-config", tags=["Superadmin", "Training"])
+async def get_data_config(admin_user: dict = Depends(require_superadmin)):
+    """Current admin/dataConfig (income band cutoffs, per-category weights,
+    outlier handling, confidence threshold) — defaults filled in if the doc
+    doesn't exist yet, so the admin panel always has something sane to render."""
+    db = get_firestore_client()
+    return survey_etl.load_data_config(db)
+
+@app.put("/api/v1/admin/data-config", tags=["Superadmin", "Training"])
+async def update_data_config(
+    config: Dict[str, Any] = Body(...),
+    admin_user: dict = Depends(require_superadmin)
+):
+    """
+    Saves a new admin/dataConfig and immediately recomputes Stage-1 stats
+    against it — this IS the "changing these values triggers a recompute,
+    not a redeploy" mechanism from the brief. Partial updates are fine
+    (missing keys keep their existing/default value); unknown keys are
+    dropped rather than silently stored, since a typo'd key would otherwise
+    just be ignored forever without anyone noticing.
+    """
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable — cannot save config or recompute")
+
+    merged = survey_etl.load_data_config(db)
+    for key in survey_etl.DEFAULT_DATA_CONFIG:
+        if key in config:
+            merged[key] = config[key]
+    db.collection("admin").document("dataConfig").set(merged)
+
+    stats = survey_etl.run_etl(db)
+    MLEngine.apply_live_benchmarks(stats)
+    return {"config": merged, "recomputedStats": stats}
+
+@app.post("/api/v1/admin/recompute-benchmarks", tags=["Superadmin", "Training"])
+async def recompute_benchmarks(admin_user: dict = Depends(require_superadmin)):
+    """Re-runs the Stage-1 ETL against current admin/dataConfig and whatever
+    survey_responses exist right now (e.g. to pick up new submissions without
+    also changing config), and re-applies the result to the running MLEngine."""
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable — cannot recompute")
+    stats = survey_etl.run_etl(db)
+    MLEngine.apply_live_benchmarks(stats)
+    return stats
+
+@app.get("/api/v1/admin/training-insights", tags=["Superadmin", "Training"])
+async def get_training_insights(admin_user: dict = Depends(require_superadmin)):
+    """
+    Everything the Training Insights admin screen needs in one call: the
+    latest computed Stage-1 stats (per-category-per-income-band median/IQR/
+    sample size), a sample-size trend history, and the population-level
+    dot-graph clustering preview (item 4 in the brief). Computes fresh from
+    current Firestore data on every call rather than only ever showing a
+    stale cached snapshot — this endpoint is admin-only and low-traffic by
+    nature, so the recompute cost isn't a real concern.
+    """
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+
+    stats = survey_etl.run_etl(db)
+    MLEngine.apply_live_benchmarks(stats)
+    history = survey_etl.load_benchmark_history(db)
+    config = stats["configUsed"]
+    responses = survey_etl.fetch_survey_responses(db)
+    dot_graph = survey_etl.generate_population_dot_graph(responses, config)
+
+    return {
+        "stats": stats,
+        "history": history,
+        "populationDotGraph": dot_graph,
     }
 
 if __name__ == "__main__":

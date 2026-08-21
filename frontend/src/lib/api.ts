@@ -1,303 +1,538 @@
-import { DotGraphData, SpendPrediction, Transaction } from "@/types";
+import { User as FirebaseUser } from "firebase/auth";
+import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { Transaction, UserProfile } from "@/types";
 import { STARTER_CATEGORIES } from "./constants";
+import { db } from "./firebase";
 
-const ML_API_BASE = process.env.NEXT_PUBLIC_ML_API_URL || "http://localhost:8001";
+// Backend base URL for calls that go directly to the ML API rather than
+// through Next.js's own rewrite (next.config.js: /api/v1/:path* ->
+// 127.0.0.1:8001, still used for local dev). Step 9 (2026-08-21): set
+// NEXT_PUBLIC_API_BASE_URL="https://api.antara.money" in the production
+// .env.local so the deployed build calls the public domain directly
+// (needed now that CORS is a real allowlist on the backend — see
+// backend/app/main.py). Left unset, this falls back to an empty string,
+// which makes every URL below relative (e.g. "/api/v1/predict/spend"),
+// going through the Next.js rewrite exactly as before — that's the local/dev
+// path, and always available regardless of whether the production domain
+// resolves from wherever you're running the dev server.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
-export async function fetchSpendPredictions(
-  userId: string,
-  transactions: Transaction[],
-  monthlyBudget: number = 5000,
-  token?: string
-): Promise<SpendPrediction> {
-  try {
-    const res = await fetch(`${ML_API_BASE}/api/v1/predict/spend`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        transactions: transactions.map((t) => ({
-          id: t.id,
-          amount: t.amount,
-          category: t.category,
-          subcategory: t.subcategory,
-          note: t.note,
-          timestamp: t.timestamp,
-          source: t.source || "manual",
-        })),
-        monthly_budget: monthlyBudget,
-        period_days: 30,
-      }),
-    });
+// ────────────────────────────────────────────────────────────────────────
+// Burn-rate / "safe day" pacing metrics for the Today screen.
+// ────────────────────────────────────────────────────────────────────────
 
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (err) {
-    console.warn("Backend ML API unavailable on port 8001, executing client-side ML engine:", err);
-  }
-
-  // Client-Side ML Fallback Engine
-  return computeClientSidePrediction(userId, transactions, monthlyBudget);
+export interface WeekBar {
+  day: string; // narrow weekday label, e.g. "T"
+  amount: number;
+  heightPct: number; // 0-100, relative to the week's max day
+  isToday: boolean;
 }
 
-export async function fetchDotGraphData(
-  userId: string,
-  transactions: Transaction[],
-  token?: string
-): Promise<DotGraphData> {
-  try {
-    const res = await fetch(`${ML_API_BASE}/api/v1/ml/dot-graph`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        transactions: transactions.map((t) => ({
-          id: t.id,
-          amount: t.amount,
-          category: t.category,
-          subcategory: t.subcategory,
-          note: t.note,
-          timestamp: t.timestamp,
-        })),
-        monthly_budget: 5000,
-      }),
-    });
-
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (err) {
-    console.warn("Backend ML API unavailable on port 8001, executing client-side Dot Graph physics:", err);
-  }
-
-  // Client-Side Dot Graph Generation Fallback
-  return computeClientSideDotGraph(userId, transactions);
+export interface RiskRow {
+  categoryId: string;
+  name: string;
+  short: string;
+  color: string;
+  icon: string;
+  spent: number;
+  perDay: number;
+  sharePct: number; // 0-100
+  isEssential: boolean;
+  projectedMore: number; // rupees more expected by month end at the current per-day rate
 }
 
-function computeClientSidePrediction(
-  userId: string,
+export interface BurnMetrics {
+  today: number;
+  daysInMonth: number;
+  daysLeft: number;
+  spent: number;
+  left: number;
+  weekRate: number;
+  safeDaily: number;
+  burnPct: number;
+  runOutDay: number;
+  earlyDays: number;
+  weekBars: WeekBar[];
+  riskRows: RiskRow[];
+  need: number;
+  want: number;
+  needPct: number;
+  wantPct: number;
+}
+
+/**
+ * Derived "burn rate vs. safe pace" metrics for the Today screen and its
+ * detail views.
+ *
+ * `today` must be injected by the caller rather than computed internally via
+ * `new Date()`. Calling `new Date()` inside a function that can run during
+ * Next.js's build-time static prerender produces a different value there
+ * than it does on the client a moment (or days) later, which is exactly the
+ * class of React hydration mismatch (#418/#423/#425) fixed elsewhere in this
+ * app (see the comment above DEMO_TRANSACTIONS in constants.ts). Demo mode
+ * must pass a fixed reference date; live mode may pass the real current date
+ * since live data only ever renders after mount (post-hydration).
+ */
+export function calculateBurnMetrics(
+  transactions: Transaction[],
+  monthlyBudget: number,
+  today: Date
+): BurnMetrics {
+  const dayOfMonth = today.getDate();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const daysLeft = Math.max(1, daysInMonth - dayOfMonth);
+
+  const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
+  const left = Math.max(0, monthlyBudget - spent);
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const todayStart = startOfDay(today);
+  const sevenDaysAgoStart = todayStart - 6 * 86400000;
+
+  const weekSpend = transactions
+    .filter((t) => new Date(t.timestamp).getTime() >= sevenDaysAgoStart)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const weekRate = weekSpend / 7;
+
+  const safeDaily = left / daysLeft;
+  const burnPct = safeDaily > 0 ? (weekRate / safeDaily) * 100 : weekRate > 0 ? 200 : 0;
+
+  const crossDay = weekRate > 0 ? Math.min(daysInMonth, dayOfMonth + left / weekRate) : daysInMonth;
+  const runOutDay = Math.floor(crossDay);
+  const earlyDays = daysInMonth - runOutDay;
+
+  // Trailing 7 calendar days, oldest to newest, for the week-bar strip.
+  const dayTotals: Record<string, number> = {};
+  transactions.forEach((t) => {
+    const key = new Date(t.timestamp).toDateString();
+    dayTotals[key] = (dayTotals[key] || 0) + t.amount;
+  });
+  const weekBars: WeekBar[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(todayStart - i * 86400000);
+    const key = d.toDateString();
+    weekBars.push({
+      day: d.toLocaleDateString("en-US", { weekday: "narrow" }),
+      amount: dayTotals[key] || 0,
+      heightPct: 0,
+      isToday: i === 0,
+    });
+  }
+  const maxDay = Math.max(400, ...weekBars.map((b) => b.amount));
+  weekBars.forEach((b) => {
+    b.heightPct = Math.round((b.amount / maxDay) * 100);
+  });
+
+  // Per-category spend, largest first, for the "what's pushing the date" rows.
+  const byCategory: Record<string, number> = {};
+  STARTER_CATEGORIES.forEach((c) => {
+    byCategory[c.id] = 0;
+  });
+  transactions.forEach((t) => {
+    byCategory[t.category] = (byCategory[t.category] || 0) + t.amount;
+  });
+
+  const riskRows: RiskRow[] = STARTER_CATEGORIES.filter((c) => byCategory[c.id] > 0)
+    .sort((a, b) => byCategory[b.id] - byCategory[a.id])
+    .slice(0, 5)
+    .map((c) => {
+      const catSpent = byCategory[c.id];
+      const perDay = catSpent / dayOfMonth;
+      return {
+        categoryId: c.id,
+        name: c.name,
+        short: c.short,
+        color: c.color,
+        icon: c.icon,
+        spent: catSpent,
+        perDay,
+        sharePct: spent ? (catSpent / spent) * 100 : 0,
+        isEssential: c.is_essential,
+        projectedMore: Math.round(perDay * daysLeft),
+      };
+    });
+
+  const need = STARTER_CATEGORIES.filter((c) => c.is_essential).reduce((s, c) => s + byCategory[c.id], 0);
+  const want = spent - need;
+
+  return {
+    today: dayOfMonth,
+    daysInMonth,
+    daysLeft,
+    spent,
+    left,
+    weekRate,
+    safeDaily,
+    burnPct,
+    runOutDay,
+    earlyDays,
+    weekBars,
+    riskRows,
+    need,
+    want,
+    needPct: spent ? Math.round((need / spent) * 100) : 0,
+    wantPct: spent ? Math.round((want / spent) * 100) : 0,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Week-over-week category trend — purely local, works in demo mode and
+// before the backend prediction resolves (or if it fails). Used by
+// WhyPredictionSheet for the "X% more than your last 2 weeks" style
+// comparison from the Step 8 brief. `hasComparison` is false whenever there
+// isn't genuinely 2 prior weeks of data to compare against yet (true for
+// almost every real account right now, with only a couple weeks of beta
+// history total) — callers must show an honest "not enough history yet"
+// state rather than inventing a percentage.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface CategoryTrend {
+  categoryId: string;
+  last7Spend: number;
+  hasComparison: boolean;
+  pctChangeVsPriorTwoWeeks: number | null;
+  priorTwoWeekAvg: number | null;
+}
+
+export function computeCategoryTrend(transactions: Transaction[], categoryId: string, today: Date): CategoryTrend {
+  const dayMs = 86400000;
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const todayStart = startOfDay(today);
+  const last7Start = todayStart - 6 * dayMs;
+  const prior14Start = todayStart - 20 * dayMs;
+
+  const catTx = transactions.filter((t) => t.category === categoryId);
+  const last7Spend = catTx
+    .filter((t) => new Date(t.timestamp).getTime() >= last7Start)
+    .reduce((s, t) => s + t.amount, 0);
+  const prior14Spend = catTx
+    .filter((t) => {
+      const ts = new Date(t.timestamp).getTime();
+      return ts >= prior14Start && ts < last7Start;
+    })
+    .reduce((s, t) => s + t.amount, 0);
+
+  if (prior14Spend > 0) {
+    const priorTwoWeekAvg = Math.round(prior14Spend / 2);
+    const pctChangeVsPriorTwoWeeks = Math.round(((last7Spend - priorTwoWeekAvg) / priorTwoWeekAvg) * 100);
+    return { categoryId, last7Spend, hasComparison: true, pctChangeVsPriorTwoWeeks, priorTwoWeekAvg };
+  }
+  return { categoryId, last7Spend, hasComparison: false, pctChangeVsPriorTwoWeeks: null, priorTwoWeekAvg: null };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Live transaction writes — shared between Today and Pull so streak logic
+// (below) only lives in one place instead of being duplicated per page.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id">): Promise<void> {
+  const txCol = collection(db, "users", uid, "transactions");
+  await addDoc(txCol, tx);
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// ML "Why" prediction — revived in Step 8. Calls the backend's
+// /api/v1/predict/spend (see backend/app/main.py, backend/app/ml/engine.py)
+// through Next.js's own rewrite (next.config.js: /api/v1/:path* ->
+// 127.0.0.1:8001), so a plain same-origin fetch works whether the app is
+// reached via Tailscale, LAN, or the public tunnel — no separate backend
+// base URL needs hardcoding on the client.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface CategoryForecast {
+  category_id: string;
+  category_name: string;
+  predicted_spend: number;
+  confidence: number;
+  historical_spend: number;
+  trend_pct: number;
+  risk_level: "low" | "medium" | "high";
+  is_heuristic: boolean;
+}
+
+export interface SpendPrediction {
+  predicted_total_spend: number;
+  current_burn_rate_daily: number;
+  predicted_burn_rate_daily: number;
+  projected_days_until_budget_exhaustion: number | null;
+  top_risk_categories: string[];
+  category_breakdown: CategoryForecast[];
+  smart_insights: string[];
+  is_cold_start: boolean;
+  model_mode: "HEURISTIC_COLD_START" | "TRAINED_EMBEDDING_V1";
+  data_days_logged: number;
+  data_points_count: number;
+  confidence_score: number;
+}
+
+/**
+ * Fetches a real ML spend prediction for a signed-in Live user. Requires a
+ * Firebase ID token (the backend's verify_firebase_token rejects requests
+ * without one outside local dev) — there is deliberately no fallback path
+ * that calls this for demo/guest users, since they have no Firebase auth
+ * session to get a token from. Callers should catch and fall back to
+ * client-only insights (see WhyPredictionSheet) rather than surface a raw
+ * fetch failure — a beta tester on a flaky connection shouldn't see an error
+ * screen where a "here's what we can tell you locally" screen would do.
+ */
+export async function fetchSpendPrediction(
+  user: FirebaseUser,
   transactions: Transaction[],
   monthlyBudget: number
-): SpendPrediction {
-  const catTotals: Record<string, number> = {};
-  STARTER_CATEGORIES.forEach((c) => (catTotals[c.id] = 0));
-  transactions.forEach((tx) => {
-    catTotals[tx.category] = (catTotals[tx.category] || 0) + tx.amount;
+): Promise<SpendPrediction> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}/api/v1/predict/spend`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      user_id: user.uid,
+      transactions: transactions.map((t) => ({
+        amount: t.amount,
+        category: t.category,
+        subcategory: t.subcategory,
+        note: t.note,
+        timestamp: t.timestamp,
+        source: t.source,
+      })),
+      monthly_budget: monthlyBudget,
+      period_days: 30,
+    }),
   });
-
-  const totalSpent = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-  
-  // Calculate active day span
-  let activeDays = 0;
-  if (transactions.length > 0) {
-    const times = transactions.map((t) => new Date(t.timestamp).getTime());
-    const minT = Math.min(...times);
-    const maxT = Math.max(...times);
-    const daySpan = Math.max(1, Math.round((maxT - minT) / (1000 * 60 * 60 * 24)) + 1);
-    const uniqueDays = new Set(transactions.map((t) => t.timestamp.split("T")[0])).size;
-    activeDays = Math.max(uniqueDays, daySpan);
+  if (!res.ok) {
+    throw new Error(`Prediction request failed: ${res.status}`);
   }
+  return res.json();
+}
 
-  const isColdStart = activeDays < 14 || transactions.length < 5;
-  const modelMode = isColdStart ? "HEURISTIC_COLD_START" : "TRAINED_EMBEDDING_V1";
-  const confidenceScore = isColdStart ? Math.min(0.55, 0.25 + (activeDays / 14) * 0.25) : Math.min(0.92, 0.75 + (activeDays / 60) * 0.15);
+// ────────────────────────────────────────────────────────────────────────
+// Streak / retention mechanic (Step 8) — Firestore fields on the user doc:
+// currentStreak, longestStreak, lastLoggedDate, streakFreezesAvailable.
+// Pure function so its day-boundary/freeze logic can be unit-tested without
+// touching Firestore; callers persist the result themselves (see page.tsx /
+// graph/page.tsx handleCommit) and refetch the profile to update the UI.
+// Real accounts only — never called for demo/guest logging.
+// ────────────────────────────────────────────────────────────────────────
 
-  let dailyBurnRate: number;
-  let projectedTotal: number;
-  let highRisk: string[] = [];
+export interface StreakFields {
+  currentStreak: number;
+  longestStreak: number;
+  lastLoggedDate: string | null;
+  streakFreezesAvailable: number;
+}
 
-  if (isColdStart) {
-    // Blended benchmark burn rate (70% taxonomy baseline + 30% observed)
-    const baselineDaily = monthlyBudget / 30;
-    const observedDaily = totalSpent > 0 ? totalSpent / Math.max(1, activeDays) : baselineDaily;
-    dailyBurnRate = (0.65 * baselineDaily) + (0.35 * observedDaily);
-    projectedTotal = dailyBurnRate * 30;
-  } else {
-    dailyBurnRate = totalSpent / Math.max(1, activeDays);
-    projectedTotal = dailyBurnRate * 30;
-  }
+export interface StreakUpdateResult extends StreakFields {
+  milestoneHit: 7 | 30 | 100 | null;
+  freezeConsumed: boolean;
+  alreadyLoggedToday: boolean;
+}
 
-  const daysLeft = dailyBurnRate > 0 ? Math.max(0, (monthlyBudget - totalSpent) / dailyBurnRate) : 30;
+const STREAK_MAX_BANKED_FREEZES = 2;
+const STREAK_MILESTONES = [7, 30, 100] as const;
 
-  const breakdown = STARTER_CATEGORIES.map((cat) => {
-    const spent = catTotals[cat.id] || 0;
-    const benchmarkPct = cat.is_essential ? 0.12 : 0.08;
-    const predicted = isColdStart
-      ? Math.round(projectedTotal * benchmarkPct)
-      : Math.round((spent / Math.max(1, activeDays)) * 30 * (cat.is_essential ? 1.02 : 1.10));
+export function computeStreakUpdate(prev: Partial<StreakFields>, now: Date): StreakUpdateResult {
+  const currentStreak = prev.currentStreak ?? 0;
+  const longestStreak = prev.longestStreak ?? 0;
+  const lastLoggedDate = prev.lastLoggedDate ?? null;
+  let streakFreezesAvailable = prev.streakFreezesAvailable ?? 0;
 
-    const isHigh = !cat.is_essential && spent > totalSpent * 0.25 && spent > 300;
-    if (isHigh) highRisk.push(cat.name);
+  const todayKey = now.toDateString();
+  const yesterdayKey = new Date(now.getTime() - 86400000).toDateString();
+  const twoDaysAgoKey = new Date(now.getTime() - 2 * 86400000).toDateString();
 
+  if (lastLoggedDate === todayKey) {
+    // Already logged a real transaction today — the streak already reflects
+    // today; a second (or third...) log today must not double-increment it.
     return {
-      category_id: cat.id,
-      category_name: cat.name,
-      predicted_spend: predicted || (cat.is_essential ? 350 : 200),
-      confidence: confidenceScore,
-      historical_spend: spent,
-      trend_pct: isColdStart ? 0 : spent > 0 ? Math.round(((predicted - spent) / spent) * 100) : 0,
-      risk_level: isHigh ? ("high" as const) : spent > totalSpent * 0.15 ? ("medium" as const) : ("low" as const),
-      is_heuristic: isColdStart,
+      currentStreak,
+      longestStreak,
+      lastLoggedDate,
+      streakFreezesAvailable,
+      milestoneHit: null,
+      freezeConsumed: false,
+      alreadyLoggedToday: true,
     };
-  }).sort((a, b) => b.predicted_spend - a.predicted_spend);
-
-  const insights = isColdStart
-    ? [
-        `ℹ️ Early Estimate (Cold-Start Heuristic): ${activeDays}/14 required days logged (${transactions.length} transactions). Antara uses benchmark taxonomy medians until 14 days of real transactions are recorded.`,
-        highRisk.length > 0 ? `⚠️ Discretionary velocity in ${highRisk.join(", ")} is trending higher than teen baseline.` : `⚡ Baseline essential ratio currently holds steady.`,
-        `💡 Keep daily expenses under ₹${Math.round(monthlyBudget / 30)} to stay on budget.`
-      ]
-    : [
-        `✨ Personalized ML Active: Trained on ${activeDays} days of verified spending (${transactions.length} transactions).`,
-        projectedTotal > monthlyBudget
-          ? `🚨 At your current burn rate of ₹${Math.round(dailyBurnRate)}/day, you will exceed your ₹${monthlyBudget} budget by ₹${Math.round(projectedTotal - monthlyBudget)}.`
-          : `✨ Great pacing! You're projected to save ₹${Math.round(monthlyBudget - projectedTotal)} this month.`,
-        highRisk.length > 0
-          ? `⚠️ Discretionary velocity detected in ${highRisk.join(", ")}.`
-          : `⚡ Spending velocity is stable across essential categories.`,
-      ];
-
-  return {
-    user_id: userId,
-    predicted_total_spend: Math.round(projectedTotal),
-    current_burn_rate_daily: Math.round(totalSpent / Math.max(1, activeDays)),
-    predicted_burn_rate_daily: Math.round(projectedTotal / 30),
-    projected_days_until_budget_exhaustion: Math.round(daysLeft),
-    top_risk_categories: highRisk,
-    category_breakdown: breakdown,
-    smart_insights: insights,
-    is_cold_start: isColdStart,
-    model_mode: modelMode,
-    data_days_logged: activeDays,
-    data_points_count: transactions.length,
-    confidence_score: confidenceScore,
-    last_retrained_at: isColdStart ? null : new Date().toISOString(),
-    generated_at: new Date().toISOString(),
-  };
-}
-
-function computeClientSideDotGraph(userId: string, transactions: Transaction[]): DotGraphData {
-  const catTotals: Record<string, number> = {};
-  STARTER_CATEGORIES.forEach((c) => (catTotals[c.id] = 0));
-  transactions.forEach((tx) => {
-    catTotals[tx.category] = (catTotals[tx.category] || 0) + tx.amount;
-  });
-
-  const totalSpent = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-  const nodes: any[] = [];
-  const links: any[] = [];
-
-  let activeDays = 0;
-  if (transactions.length > 0) {
-    const times = transactions.map((t) => new Date(t.timestamp).getTime());
-    const minT = Math.min(...times);
-    const maxT = Math.max(...times);
-    const daySpan = Math.max(1, Math.round((maxT - minT) / (1000 * 60 * 60 * 24)) + 1);
-    const uniqueDays = new Set(transactions.map((t) => t.timestamp.split("T")[0])).size;
-    activeDays = Math.max(uniqueDays, daySpan);
   }
 
-  const isColdStart = activeDays < 14 || transactions.length < 5;
-  const modelMode = isColdStart ? "HEURISTIC_COLD_START" : "TRAINED_EMBEDDING_V1";
-  const confidenceScore = isColdStart ? Math.min(0.50, 0.20 + (activeDays / 14) * 0.25) : 0.88;
+  let newStreak: number;
+  let freezeConsumed = false;
 
-  // User center node
-  nodes.push({
-    id: "user_center",
-    label: isColdStart ? "You (Early Estimate)" : "You (Spend Core)",
-    type: "user",
-    size: 36,
-    color: isColdStart ? "#A78BFA" : "#8B5CF6",
-    amount: totalSpent,
-    x: 0,
-    y: 0,
-    metadata: { total_spend: totalSpent, tx_count: transactions.length, is_cold_start: isColdStart, active_days: activeDays }
-  });
+  if (lastLoggedDate === null) {
+    // First real log ever.
+    newStreak = 1;
+  } else if (lastLoggedDate === yesterdayKey) {
+    // Logged yesterday, logging again today — streak continues.
+    newStreak = currentStreak + 1;
+  } else if (lastLoggedDate === twoDaysAgoKey && streakFreezesAvailable > 0) {
+    // Exactly one calendar day was missed, and a banked freeze covers it.
+    newStreak = currentStreak + 1;
+    streakFreezesAvailable -= 1;
+    freezeConsumed = true;
+  } else {
+    // Either a gap of 2+ days with no freeze available, or a gap longer than
+    // one day, which a single freeze can't cover regardless of balance.
+    // Today's log starts a fresh streak of 1, not a streak of 0.
+    newStreak = 1;
+  }
 
-  // Radial arrangement of categories
-  const radius = 220;
-  STARTER_CATEGORIES.forEach((cat, idx) => {
-    const angle = (idx / STARTER_CATEGORIES.length) * 2 * Math.PI;
-    const spent = catTotals[cat.id] || 0;
-    const pct = totalSpent > 0 ? spent / totalSpent : 0.08;
-    const nodeSize = 14 + pct * 40;
+  const newLongest = Math.max(longestStreak, newStreak);
 
-    nodes.push({
-      id: `cat_${cat.id}`,
-      label: cat.name,
-      type: "category",
-      size: nodeSize,
-      color: cat.color,
-      category_id: cat.id,
-      amount: spent,
-      x: Math.cos(angle) * radius,
-      y: Math.sin(angle) * radius,
-      metadata: { spend: spent, percentage: Math.round(pct * 100) }
-    });
+  // Earn a freeze every 7-day streak milestone, capped at 2 banked.
+  if (newStreak > 0 && newStreak % 7 === 0) {
+    streakFreezesAvailable = Math.min(STREAK_MAX_BANKED_FREEZES, streakFreezesAvailable + 1);
+  }
 
-    links.push({
-      source: "user_center",
-      target: `cat_${cat.id}`,
-      strength: Math.max(0.1, pct * 1.8),
-      distance: Math.max(70, 200 - pct * 100),
-      type: "gravity"
-    });
-  });
-
-  // Archetypes
-  const archetypes = [
-    { id: "gamer_foodie", name: "The Gamer & Foodie", color: "#EC4899", similarity_pct: isColdStart ? 55 : 78, description: "Heavy Swiggy snacks and gaming passes." },
-    { id: "exam_grinder", name: "The Exam Grinder", color: "#10B981", similarity_pct: isColdStart ? 45 : 64, description: "Coaching tuition, test series, and study tools." },
-    { id: "social_trendsetter", name: "Social Trendsetter", color: "#F43F5E", similarity_pct: isColdStart ? 50 : 58, description: "Streetwear, personal care, and social outings." },
-    { id: "zen_saver", name: "The Zen Saver", color: "#22C55E", similarity_pct: isColdStart ? 60 : 82, description: "Disciplined budget allocation and savings pots." },
-  ];
-
-  archetypes.forEach((arc, i) => {
-    const angle = (i / archetypes.length) * 2 * Math.PI + 0.4;
-    const arcRadius = 340;
-    nodes.push({
-      id: `arc_${arc.id}`,
-      label: arc.name,
-      type: "peer_cluster",
-      size: 20,
-      color: arc.color,
-      x: Math.cos(angle) * arcRadius,
-      y: Math.sin(angle) * arcRadius,
-      metadata: { similarity_pct: arc.similarity_pct, description: arc.description }
-    });
-
-    if (!isColdStart && i === 0) {
-      links.push({
-        source: "user_center",
-        target: `arc_${arc.id}`,
-        strength: 0.7,
-        distance: 180,
-        type: "similarity"
-      });
-    }
-  });
+  const milestoneHit = (STREAK_MILESTONES as readonly number[]).includes(newStreak)
+    ? (newStreak as 7 | 30 | 100)
+    : null;
 
   return {
-    user_id: userId,
-    archetype: isColdStart ? "Heuristic Baseline (Early Stage)" : "The Gamer & Foodie",
-    archetype_description: isColdStart
-      ? `Logged ${activeDays}/14 days of transactions. Displaying benchmark taxonomy until personalized ML embedding activates at 14 days.`
-      : "High velocity of late-night food deliveries, Spotify, and gaming passes.",
-    is_cold_start: isColdStart,
-    model_mode: modelMode,
-    data_days_logged: activeDays,
-    confidence_score: confidenceScore,
-    embedding: [0.35, 0.1, 0.15, 0.25, 0.05, 0.02, 0.02, 0.02, 0.02, 0.01, 0.01, 0.0],
-    nodes,
-    links,
-    peer_archetypes: archetypes,
-    last_retrained_at: isColdStart ? null : new Date().toISOString(),
-    generated_at: new Date().toISOString(),
+    currentStreak: newStreak,
+    longestStreak: newLongest,
+    lastLoggedDate: todayKey,
+    streakFreezesAvailable,
+    milestoneHit,
+    freezeConsumed,
+    alreadyLoggedToday: false,
   };
 }
+
+/** Plain-language toast copy for a streak update — null if nothing streak-worthy happened. */
+export function streakToastMessage(result: StreakUpdateResult): string | null {
+  if (result.alreadyLoggedToday) return null;
+  if (result.milestoneHit === 100) return `🔥 100-day streak! That's real discipline.`;
+  if (result.milestoneHit === 30) return `🔥 30-day streak! A month of logging every day.`;
+  if (result.milestoneHit === 7) return `🔥 7-day streak! You've earned a streak freeze.`;
+  if (result.freezeConsumed) return `🧊 Streak freeze used — ${result.currentStreak}-day streak stays alive.`;
+  return null;
+}
+
+/** Persists the updated streak fields onto the user's profile doc (merge, safe for legacy docs missing these fields). */
+export async function saveStreakUpdate(uid: string, result: StreakUpdateResult): Promise<void> {
+  const userRef = doc(db, "users", uid);
+  await setDoc(
+    userRef,
+    {
+      currentStreak: result.currentStreak,
+      longestStreak: result.longestStreak,
+      lastLoggedDate: result.lastLoggedDate,
+      streakFreezesAvailable: result.streakFreezesAvailable,
+    } as Partial<UserProfile>,
+    { merge: true }
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Step 10 — superadmin Stage-1 training-data admin API. All of these hit
+// backend/app/main.py's admin endpoints (superadmin-only, verified via the
+// same Firebase ID token pattern as fetchSpendPrediction above). Shapes here
+// mirror backend/app/ml/survey_etl.py's output field-for-field rather than
+// re-deriving anything client-side — the backend is the one source of truth
+// for these stats, this is just typing what it returns.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface DataConfig {
+  incomeBandCutoffs: number[];
+  incomeBandLabels: string[];
+  categoryWeights: Record<string, number>;
+  outlierHandling: { enabled: boolean; thresholdIQR: number };
+  minSampleSizeConfident: number;
+}
+
+export interface CategoryStat {
+  insufficientData: boolean;
+  sampleSizeRaw: number;
+  sampleSizeUsed: number;
+  outliersRemoved?: number;
+  median?: number;
+  q1?: number;
+  q3?: number;
+  iqr?: number;
+  insufficientForIQR?: boolean;
+  min?: number;
+  max?: number;
+  rawBenchmarkPct: number;
+  categoryWeight: number;
+  adjustedBenchmarkPct: number;
+  confidenceTier: "confident" | "early_estimate";
+}
+
+export interface IncomeBandStats {
+  respondentCount: number;
+  categories: Record<string, CategoryStat>;
+}
+
+export interface Stage1Stats {
+  computedAt: string;
+  sampleSize: number;
+  grandTotalReported: number;
+  configUsed: DataConfig;
+  overall: Record<string, CategoryStat>;
+  byIncomeBand: Record<string, IncomeBandStats>;
+  unmappedCategories: Record<string, number>;
+}
+
+export interface PopulationDotGraphNode {
+  id: string;
+  label: string;
+  type: "archetype_center" | "survey_respondent";
+  size: number;
+  color: string;
+  x: number;
+  y: number;
+  metadata: Record<string, any>;
+}
+
+export interface PopulationDotGraphLink {
+  source: string;
+  target: string;
+  strength: number;
+  distance: number;
+  type: string;
+}
+
+export interface PopulationDotGraph {
+  sampleSize: number;
+  respondentsPlotted: number;
+  nodes: PopulationDotGraphNode[];
+  links: PopulationDotGraphLink[];
+  note: string;
+}
+
+export interface TrainingInsights {
+  stats: Stage1Stats;
+  history: { computedAt: string; sampleSize: number }[];
+  populationDotGraph: PopulationDotGraph;
+}
+
+async function adminFetch<T>(path: string, user: FirebaseUser, options: RequestInit = {}): Promise<T> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Admin request to ${path} failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export const fetchDataConfig = (user: FirebaseUser) => adminFetch<DataConfig>("/api/v1/admin/data-config", user);
+
+export const updateDataConfig = (user: FirebaseUser, config: Partial<DataConfig>) =>
+  adminFetch<{ config: DataConfig; recomputedStats: Stage1Stats }>("/api/v1/admin/data-config", user, {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+
+export const recomputeBenchmarks = (user: FirebaseUser) =>
+  adminFetch<Stage1Stats>("/api/v1/admin/recompute-benchmarks", user, { method: "POST" });
+
+export const fetchTrainingInsights = (user: FirebaseUser) =>
+  adminFetch<TrainingInsights>("/api/v1/admin/training-insights", user);
