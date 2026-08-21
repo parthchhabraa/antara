@@ -4,8 +4,12 @@ import {
   initializeTestEnvironment,
   RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
+import firebase from "firebase/compat/app";
+import "firebase/compat/firestore";
 import * as fs from "fs";
 import * as path from "path";
+
+const { FieldValue } = firebase.firestore;
 
 describe("Firestore Security Rules Tests", () => {
   let testEnv: RulesTestEnvironment;
@@ -122,5 +126,59 @@ describe("Firestore Security Rules Tests", () => {
         emails: ["parthchhabra6112@gmail.com", "beta.tester@antara.app"],
       })
     );
+  });
+
+  const validSurveyDoc = {
+    schema_version: 1,
+    submitted_at: FieldValue.serverTimestamp(),
+    demographics: { age_range: "16–18", gender: null, city_tier: "metro", pocket_money_range: "₹1,500 – ₹3,000", family_income_bracket: null },
+    category_spend: { "food-snacks": 800, gaming: 500 },
+    other_spend_note: null,
+    beta_email: null,
+    meta: { completion_seconds: 95, source: "web_survey_v1" },
+  };
+
+  test("Unauthenticated respondent CAN submit a well-formed survey response", async () => {
+    const unauthedDb = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(
+      unauthedDb.collection("survey_responses").add(validSurveyDoc)
+    );
+  });
+
+  test("Survey submission with unexpected extra fields is REJECTED", async () => {
+    const unauthedDb = testEnv.unauthenticatedContext().firestore();
+    await assertFails(
+      unauthedDb.collection("survey_responses").add({
+        ...validSurveyDoc,
+        admin_override: true,
+      })
+    );
+  });
+
+  test("Unauthenticated respondent CANNOT read back survey responses", async () => {
+    const unauthedDb = testEnv.unauthenticatedContext().firestore();
+    const docRef = unauthedDb.collection("survey_responses").doc("resp_1");
+    await assertFails(docRef.get());
+  });
+
+  test("Superadmin CAN read survey responses", async () => {
+    const superadminDb = testEnv
+      .authenticatedContext("user_parth", { role: "superadmin" })
+      .firestore();
+    const docRef = superadminDb.collection("survey_responses").doc("resp_1");
+    await assertSucceeds(docRef.set(validSurveyDoc));
+    await assertSucceeds(docRef.get());
+  });
+
+  test("Regular authenticated user CANNOT read survey responses", async () => {
+    const superadminDb = testEnv
+      .authenticatedContext("user_parth", { role: "superadmin" })
+      .firestore();
+    await assertSucceeds(
+      superadminDb.collection("survey_responses").doc("resp_1").set(validSurveyDoc)
+    );
+
+    const aliceDb = testEnv.authenticatedContext("user_alice").firestore();
+    await assertFails(aliceDb.collection("survey_responses").doc("resp_1").get());
   });
 });

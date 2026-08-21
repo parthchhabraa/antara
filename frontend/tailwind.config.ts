@@ -24,7 +24,17 @@ const config: Config = {
           emerald: "#10b981",
           orange: "#f97316",
           amber: "#f59e0b",
-        }
+        },
+        // "Strain" redesign tokens (survey + future emerald/gold surfaces).
+        // Additive only — existing violet/cyan pages are untouched.
+        gold: {
+          200: "#f2debb",
+          300: "#e8c98c",
+          400: "#dfb35f",
+          500: "#d4a444",
+          600: "#b3853a",
+          700: "#8a6528",
+        },
       },
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],
@@ -33,6 +43,8 @@ const config: Config = {
         "glow-purple": "0 0 25px -5px rgba(139, 92, 246, 0.4)",
         "glow-cyan": "0 0 25px -5px rgba(6, 182, 212, 0.4)",
         "glow-pink": "0 0 25px -5px rgba(236, 72, 153, 0.4)",
+        "glow-emerald": "0 0 25px -5px rgba(16, 185, 129, 0.4)",
+        "glow-gold": "0 0 25px -6px rgba(212, 164, 68, 0.45)",
       },
       animation: {
         "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
