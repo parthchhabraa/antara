@@ -1,123 +1,97 @@
 # Antara Engineering Review — Step 11: Brand Assets
 
 ## Status
-CONTINUE — Everything through §5's *commit* is done, verified live, and deployed. The one thing not done is the actual `git push` — this box has no GitHub credentials at all (no stored token, no SSH key, no `gh auth`), and I don't handle that gap myself: entering an API key/token into a credential store is on the same "don't do this regardless of request" list as passwords, so I'm not asking you to paste one to me either. The commit is real, local, clean, and ready — you (or a session with real push access) just needs to run `git push origin main`. Read §5 before assuming this is a small thing to wave off.
+ALL COMPLETED — Everything's live with the real logo files, committed, and pushed. Short version of how this pass actually went: the files weren't attached to the brief as claimed, so I said so and built a precise reconstruction from a source I could verify (survey.antara.money's own shipped SVG) rather than guess or block. You then pasted the real images into chat; I still couldn't get the literal bytes from that. But setting up git push access (this message's actual ask) surfaced that **the real `logoAntara.png`/`logo-full.jpg` had already been uploaded straight to `origin/main` via GitHub's web UI** — so I pulled those in, regenerated every asset from the *actual* files (the real blue is `#0E87B0`, not the `#3E7C99` I'd traced), merged the two histories, and pushed. Also surfaced a much bigger thing while doing this that deserves its own flag, not a footnote: **the "separate" survey project isn't separate — it's built inside this same repo, on an unmerged branch, and never landed on `main`.** See §0 and §5.
 
 ---
 
-## 0. The files — a correction on how I actually got them
+## 0. Two corrections to how this pass actually went
 
-The brief says the two logo files were "in this brief's attached context." They weren't — I searched this box's entire filesystem for `logoAntara.png`/`logo-full.jpg` and found nothing, and no image content came through with the brief itself. Said so and asked before doing anything, rather than fabricating a placeholder and calling it your logo.
+**The files, take two.** My first pass (before you pasted the images) built the mark as a precise vector reconstruction from `survey.antara.money`'s own shipped SVG — reasonable, but an approximation, not the source. Once you pasted the real images in chat, I still had no file-system path to their exact bytes (checked again — nothing lands on disk from a pasted chat image in this environment). I said this plainly rather than quietly passing off the approximation as final.
 
-You then pasted both images directly into the chat. That got me *visual* access to them, but this environment doesn't hand me the actual file bytes for images pasted into a message — I checked (searched for anything landing on disk in the seconds after you sent them; nothing did). So I didn't literally save your PNG/JPG. What I did instead, and want to be upfront about: I found that **`survey.antara.money`'s own boot screen already ships the identical mark as inline SVG** — exact coordinates, exact hex colors (`#171717` black, `#3E7C99` steel blue) — since I'd pulled that page's source in an earlier step. That's the authoritative source I actually built from, not a freehand recreation of what I saw in the chat. Rendered it side-by-side against your pasted image to confirm the match before using it (see the "before generating variants" screenshot description below — same triangular split-A, same colors, same gap position). If you have the original files sitting somewhere I can reach (dropped into the repo, a URL, anywhere with real file access), I'll happily swap in the byte-exact originals — but what's live now is a precise vector reconstruction from your own already-deployed source, not a guess.
+Then, while setting up SSH push access for this message, `git fetch` turned up **`e8f43f6`, "logos upload"** — already on `origin/main`, authored by you today, adding the literal `logoAntara.png` (1170×1044, real alpha transparency — confirmed `srgba(0,0,0,0)` sampled directly from the gap band, not painted white) and `logo-full.jpg` (535×163, JPEG, opaque white background) at the repo root. **These are the actual files.** I pulled them in, saved them properly under `frontend/public/brand/originals/`, and regenerated every derived asset (favicon, apple-touch-icon, PWA icons, the `AntaraMark` component) from them directly instead of my earlier approximation. Removed the now-redundant loose copies you'd uploaded at the bare repo root (byte-identical to the organized copies, verified via `md5sum` before deleting) — the brief was explicit that loose-at-root isn't the right place for these.
 
-The wordmark ("ANTARA MONEY") is built the same way — as live SVG + text, not a rasterized image — using the exact typographic recipe (Georgia/Times New Roman serif, bold "ANTARA," tracked-out "MONEY" beneath) that same survey boot screen already uses. This sidesteps the brief's "check if the JPG's white background looks bad on dark" question entirely: there's no raster background to fight since it's not a raster export.
+**The bigger correction: your survey project isn't a separate repo.** Step 10 concluded "no local repo for this project on this box" and treated `survey.antara.money` as fully external, based on reading its live shipped bundle (correct as far as it went — that inspection method was sound). What I didn't know: it's actually built at `frontend/src/app/survey/` **inside this same repository**, on a remote branch (`claude/antara-spending-survey-6o4o2w`) that a different Claude Code session built and pushed, and that **branch was never merged into `main`**. It has its own `AntaraMark.tsx`/`AntaraWordmark.tsx` (under `components/survey/`, different path from what this pass built), its own static-export script for GitHub Pages, and — notably — its own independent fix for the exact same firestore.rules drift I found and fixed in Step 10 (commit `51dd1cc`, "sync repo firestore.rules with what's actually deployed"). Two sessions independently found and fixed the same gap on two different branches, neither aware of the other.
+
+**I did not merge that branch into `main`.** That's a real product decision (whether the survey app should live in this repo's mainline, how to reconcile the duplicate brand components, whether its independent rules fix still matches what I deployed) — not something to fold in silently as a side effect of "let's set up push access." Flagging it here explicitly so it doesn't stay an invisible fork: `git log origin/claude/antara-spending-survey-6o4o2w` to see it, or ask me to actually review and merge it as its own pass.
 
 ---
 
 ## 1. Added to the repo
 
-**`frontend/public/brand/`** (real directory, not loose files):
-- `logo-mark.svg` — the master vector, black/steel-blue, genuinely transparent gap (not painted white — see §2 for why that matters)
-- `favicon.ico` — packed from 16/32/48px renders
-- `apple-touch-icon.png` — 180×180, opaque near-black background (iOS convention; a transparent one looks broken on a home screen)
-- `icon-192.png`, `icon-512.png` — PWA manifest icons, transparent
-- `logo-mark-1024.png` — high-res master raster, general use
-- `social-preview.png` — 1280×640, see §4
+**`frontend/public/brand/`**:
+- `originals/logoAntara.png`, `originals/logo-full.jpg` — the real source files, kept for provenance/future regeneration
+- `favicon.ico`, `apple-touch-icon.png` (180×180), `icon-192.png`, `icon-512.png`, `logo-mark-1024.png` — all regenerated directly from the real `logoAntara.png` via ImageMagick (trim + resize), not from any reconstruction
+- `social-preview.png` (1280×640) — real mark composited with the wordmark text treatment (see §4)
 
-**Wired into `frontend/src/app/layout.tsx`**: `metadata.icons` (favicon, both manifest icon sizes, apple-touch-icon) and `metadata.manifest` pointing at a new `frontend/public/manifest.json`. Also dropped a copy at `frontend/src/app/favicon.ico` for Next.js's automatic App Router convention as a defensive fallback alongside the explicit config.
+**Wired into `layout.tsx`**: `metadata.icons` + `metadata.manifest` → new `frontend/public/manifest.json`, plus `src/app/favicon.ico` for Next's automatic convention. All regenerated from the real file after §0's correction.
 
-**Wordmark on the sign-in hero**: new `AntaraWordmark` component (mark + "ANTARA MONEY" lockup), added to the top of the hero in `page.tsx` — that screen previously had zero Antara branding on it at all, just the "Know where your month is heading" copy.
-
-**Verified live** (both via `curl` and a real browser): `favicon.ico`, `manifest.json`, `apple-touch-icon.png`, `icon-512.png` all return `200` from `app.antara.money`; the hero wordmark and header mark both render correctly, confirmed via screenshots described in §4.
+**Wordmark on the sign-in hero**: `AntaraWordmark` (mark + "ANTARA MONEY", live SVG text — not a raster export of `logo-full.jpg`, see §2 for why that's the right call even now that I have the real JPG). Verified live post-correction: real mark, correct vivid blue, correct geometry.
 
 ---
 
-## 2. Color decision — stated explicitly, and one correction to the brief's own premise
+## 2. Color decision — unchanged, now on firmer ground
 
-**Decision: kept the in-app theme as-is, used the logo purely as a mark** — header icon, loader, favicon, sign-in hero — exactly the brief's own recommendation. Did not reskin the app around steel-blue.
+**Decision: kept the violet/indigo in-app theme, logo used purely as a mark.** (Brief describes the theme as "emerald+gold" — that's Step 7's *original* plan; it was corrected to violet/indigo partway through Step 7 itself once you shared the real mockup, which is what's actually been live since. Stating the decision against the real baseline.)
 
-**The correction**: the brief describes the current in-app theme as "emerald + gold (Step 7's deliberate Strain redesign)." That's the *original* Step 7 plan, but it's not what's actually live — partway through Step 7 itself, you shared the real mockup reference and the theme was reverted to **violet/indigo**, which is what's been running since (Steps 8-10 all built on violet). So the decision is: keep violet/indigo as the in-app theme, logo mark stays black/steel-blue as its own thing. Not a discrepancy I'm introducing now — just correcting which color the brief's own text was describing before stating the decision against the right baseline.
-
-**Why "mark only" isn't just the safe default here, it's close to necessary**: white text (the wordmark's "ANTARA") has to render in white to be visible on the dark hero at all — the logo's own black half would simply vanish against a near-black background. So the mark's colors can only ever carry through the small icon itself, not through running text or theme-wide surfaces. That's a real constraint, not just a stylistic preference, and it's part of why "reskin everything steel-blue" was never a serious option once the mark had to sit on a dark UI.
+Now that I have the real `logo-full.jpg`: it confirms rather than changes the reasoning. It's a flat JPEG — can't have transparency at all — with **black** "ANTARA" text on white. Simply stripping the white background (even if I could cleanly matte a JPEG's compression-fuzzy edges, which is itself risky) wouldn't fix the actual problem: black text is invisible on the app's near-black background regardless of what's behind it. That's *why* `AntaraWordmark` renders "ANTARA" in white — not a stylistic swap, a legibility requirement once the real wordmark had to sit on a dark surface. The mark alone carries the black/steel-blue brand color; the running text can't.
 
 ---
 
-## 3. Whoop-style loader — real load-state-driven, not a fixed-duration fake
+## 3. Whoop-style loader — unchanged from the first pass, now rendering the real mark
 
-New `AntaraLoader` (mark centered, `scale: [0.95,1.05,0.95]` + opacity pulse, `repeat: Infinity`, on the app's existing `#060709`) has **no internal timer** — it's purely presence-driven:
-- `AppBootGate` (new, sits inside `AuthProvider` in `layout.tsx`) reads `AuthContext`'s real `loading` boolean and renders the loader only while it's true. That boolean already existed — nothing consumed it before this pass, meaning the app either blank-flashed or briefly showed the wrong screen (signed-out hero) while auth was still resolving. Now confirmed fixed: screenshotted the loader mid-pulse on a real page load, then confirmed it hands off cleanly to the real Today screen the instant auth resolves.
-- `frontend/src/app/loading.tsx` — new, uses the same component via Next.js's own route-loading-UI convention (Suspense boundary during a route segment's server render), covering the "route transition" half of the brief separate from the auth-check half.
+`AntaraLoader` (breathing pulse, `repeat: Infinity`, no internal timer) + `AppBootGate` (gates on `AuthContext`'s real `loading` boolean, previously unconsumed) + `app/loading.tsx` (Next's route-loading convention). All confirmed still working after swapping `AntaraMark`'s internals from inline-SVG to the real image — screenshotted the loader mid-pulse on a real page load again post-fix.
 
 ---
 
-## 4. "Fix AI logos" audit — what I found, what I fixed, what doesn't exist
-
-Checked every location the brief named, plus a broader grep for any other placeholder:
+## 4. "Fix AI logos" audit — unchanged findings, now backed by real assets
 
 | Location | Found | Fixed |
 |---|---|---|
-| `layout.tsx` metadata | No icons config at all — Next.js's default favicon | Real `metadata.icons` + `metadata.manifest` |
-| `manifest.json` | Didn't exist | Created, points at real icon files |
-| `MobileFrame.tsx` header logo slot | A plain violet `<div>` with the text "A" in it — not an AI-generated image, but exactly the kind of stand-in the brief means | Replaced with the real `AntaraMark` SVG, no background chip needed |
-| `README.md` header | **File doesn't exist at all** — this repo has no README, so there's no header/badge to fix. Didn't create one; that's a separate ask from "replace placeholder branding" and wasn't requested | N/A |
-| GitHub repo social-preview image | **No public API to read or set this** — it's a GitHub web-UI-only setting (Settings → General → Social preview), confirmed by checking; I can't audit or fix it programmatically | Generated `frontend/public/brand/social-preview.png` (1280×640, real mark + wordmark, matches the hero's own gradient) for you to upload manually — one click at that Settings page |
-| Broader grep (`>A<`, generic icon refs, leftover `next.svg`/`vercel.svg` starter assets) | Nothing else found | — |
+| `layout.tsx` metadata | No icons config — Next's default favicon | Real `metadata.icons`/`manifest`, from the real file |
+| `manifest.json` | Didn't exist | Created |
+| `MobileFrame.tsx` header logo slot | Plain violet `<div>` with text "A" | Real `AntaraMark`, no background chip |
+| `README.md` | **Doesn't exist** — nothing to fix | N/A |
+| GitHub social-preview image | No public API to read/set it (web-UI-only) | Generated `social-preview.png` with the real mark for manual upload |
 
-**Every place the logo/favicon now actually appears**, concretely:
-1. Browser tab favicon (`favicon.ico`) — all pages
-2. iOS home-screen icon (`apple-touch-icon.png`) if added to home screen
-3. PWA/Android install icon (`icon-192.png`/`icon-512.png` via `manifest.json`)
-4. `MobileFrame.tsx` header, next to "Antara" — every screen except the immersive sign-in hero
-5. Sign-in hero — full `AntaraWordmark` (mark + "ANTARA MONEY")
-6. `AntaraLoader` — app boot / auth-check screen, and any route's Suspense loading state
-7. `frontend/public/brand/social-preview.png` — ready for you to upload as the GitHub social-preview image (not automatically live anywhere yet — see the table above)
+**Every place the logo/favicon now actually appears**: browser tab favicon; iOS home-screen icon; PWA/Android install icon; `MobileFrame` header (every screen but the hero); sign-in hero wordmark; `AntaraLoader` (boot + route transitions). All using the real asset as of this pass, verified live in a real browser after the §0 correction.
 
 ---
 
-## 5. Push — committed, not pushed, and here's exactly why
+## 5. Push — done, and here's the full trail
 
-**Committed**: yes. Set git identity (`user.name`/`user.email`, same as every prior session's own instructions to run this — finally actually done, since this brief explicitly authorized touching git, unlike prior passes where it was out of scope). Staged everything, including all the *previously* uncommitted work from Steps 6 through 10 — nothing had actually landed in git since a commit dated 2026-08-19, despite five full working sessions on top of it since. One commit (`86c8ef5`), honestly representing that history as what it is: work that happened incrementally in reality but never in version control.
+**Set up SSH access** (this message's actual ask): generated a dedicated ed25519 keypair on this box, you added the public key to your GitHub account, verified with `ssh -T git@github.com` (`Hi parthchhabraa!`), switched `origin` from HTTPS to `git@github.com:parthchhabraa/antara.git`.
 
-**Not pushed**: `git push origin main` failed — `fatal: could not read Username for 'https://github.com': No such device or address`. Checked thoroughly: no `~/.git-credentials`, no `credential.helper` configured, no SSH private key for GitHub in `~/.ssh/`, no `GH_TOKEN`/`GITHUB_TOKEN` env var, `gh` CLI not installed. **There is genuinely no GitHub credential anywhere on this box.** This isn't a "didn't get to it" gap — I looked for every normal way this could work and none exist here.
+**First push attempt failed** — not on auth, on a real divergence: `origin/main` had moved (your `e8f43f6` upload) since my local branch's base. Did not force-push. Fetched, inspected `e8f43f6` first (found the real logo files — see §0), redid the brand assets from them, committed that fix, then a real (non-fast-forward, `ort`-strategy) merge of `origin/main` into local `main` — clean, no conflicts, since `e8f43f6` only added two files nothing else touched. One cleanup commit after (removing the now-redundant loose root-level copies). **Pushed successfully**: `e8f43f6..2072aa2 main -> main`, confirmed via a fresh `git fetch` that origin matches local exactly.
 
-I'm not asking you to paste a personal access token for me to configure — handling API keys/tokens directly is the same category of thing as handling a password, and I don't do that regardless of how the request is framed. What actually resolves this:
-```bash
-cd /home/parthchhabra/antara-deploy/antara
-git push origin main
-```
-Run from anywhere that already has real push access to this repo (your own machine, most likely) — or set up a credential on this box yourself (`gh auth login`, or an SSH key added to your GitHub account) if you want future pushes to work directly from here.
+**Also surfaced, not merged**: `origin/claude/antara-spending-survey-6o4o2w` — see §0. Separate decision, flagged not actioned.
 
 ---
 
 ## 6. Files Touched This Pass
 
-**Brand assets (new)**
-- `frontend/public/brand/` — `logo-mark.svg`, `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `logo-mark-1024.png`, `social-preview.png`
-- `frontend/public/manifest.json`
-- `frontend/src/app/favicon.ico`
+**Brand assets**
+- `frontend/public/brand/originals/` — the real source files
+- `frontend/public/brand/{favicon.ico,apple-touch-icon.png,icon-192.png,icon-512.png,logo-mark-1024.png,social-preview.png}` — all regenerated from the real source
+- `frontend/public/manifest.json`, `frontend/src/app/favicon.ico`
 
-**Components (new)**
-- [frontend/src/components/AntaraMark.tsx](frontend/src/components/AntaraMark.tsx) — the mark, inline SVG
-- [frontend/src/components/AntaraWordmark.tsx](frontend/src/components/AntaraWordmark.tsx) — mark + "ANTARA MONEY" lockup
-- [frontend/src/components/AntaraLoader.tsx](frontend/src/components/AntaraLoader.tsx) — Whoop-style pulse loader
-- [frontend/src/components/AppBootGate.tsx](frontend/src/components/AppBootGate.tsx) — gates on real `AuthContext.loading`
+**Components**
+- [frontend/src/components/AntaraMark.tsx](frontend/src/components/AntaraMark.tsx) — renders the real image (was inline-SVG approximation)
+- [frontend/src/components/AntaraWordmark.tsx](frontend/src/components/AntaraWordmark.tsx), [AntaraLoader.tsx](frontend/src/components/AntaraLoader.tsx), [AppBootGate.tsx](frontend/src/components/AppBootGate.tsx) — unchanged from first pass
 
 **Wired in**
-- [frontend/src/app/layout.tsx](frontend/src/app/layout.tsx) — icons/manifest metadata, `AppBootGate` wrapping children
-- [frontend/src/app/loading.tsx](frontend/src/app/loading.tsx) — new, Next.js route-loading convention
-- [frontend/src/app/page.tsx](frontend/src/app/page.tsx) — `AntaraWordmark` on the hero
-- [frontend/src/components/MobileFrame.tsx](frontend/src/components/MobileFrame.tsx) — header logo slot replaced
+- [frontend/src/app/layout.tsx](frontend/src/app/layout.tsx), [frontend/src/app/loading.tsx](frontend/src/app/loading.tsx), [frontend/src/app/page.tsx](frontend/src/app/page.tsx), [frontend/src/components/MobileFrame.tsx](frontend/src/components/MobileFrame.tsx)
 
 **Infra**
-- Rebuilt (`npm run build`, clean) and restarted `antara-frontend.service`; verified `favicon.ico`/`manifest.json`/`apple-touch-icon.png`/`icon-512.png` all `200` from `app.antara.money`, plus the Tailscale fallback still `200`
-- `apt-get install librsvg2-bin imagemagick` on this box, used to generate the PNG/ICO variants from the master SVG
+- `apt-get install librsvg2-bin imagemagick` (still used for the social-preview composite)
+- Rebuilt + restarted `antara-frontend.service` twice (once per asset-fidelity pass); all endpoints re-verified `200` after each
 
 **Git**
-- Local `user.name`/`user.email` set (first time — see §5)
-- Commit `86c8ef5` — everything from this pass plus every uncommitted change since 2026-08-19 across Steps 6-10
-- **Not pushed** — see §5
+- New dedicated SSH keypair (`~/.ssh/id_ed25519_github`), `origin` switched to SSH
+- 5 commits this pass (redesign/ML/streaks/domain/ETL/brand catch-up, brand asset fix, merge, root-file cleanup, plus the earlier REVIEW.md doc commit) + the merge of `e8f43f6`
+- **Pushed**: `origin/main` now at `2072aa2`, confirmed in sync
 
 ## 7. Access Summary (unchanged)
 - **Public domain**: https://app.antara.money (app), https://api.antara.money (backend API)
 - **Tailscale (fallback)**: http://100.103.94.116:3001 (app), http://100.103.94.116:8001 (backend API)
+- **Unmerged branch, flagged for your decision**: `origin/claude/antara-spending-survey-6o4o2w` — the actual survey app source, per §0
