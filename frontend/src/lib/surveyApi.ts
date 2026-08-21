@@ -23,6 +23,7 @@ export async function submitSurveyResponse(
     schema_version: SURVEY_SCHEMA_VERSION,
     submitted_at: serverTimestamp(),
     demographics: input.demographics,
+    habits: input.habits,
     category_spend: input.category_spend,
     other_spend_note: input.other_spend_note.trim() || null,
     beta_email: input.beta_email?.trim() || null,

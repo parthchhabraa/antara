@@ -52,7 +52,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
     <div className="space-y-4">
       {/* Amount display */}
       <div className="flex items-baseline justify-center gap-1.5 py-1 overflow-hidden">
-        <span className={`text-xl font-bold ${value ? "text-gold-400" : "text-gray-700"}`}>₹</span>
+        <span className={`text-xl font-bold ${value ? "text-purple-400" : "text-gray-700"}`}>₹</span>
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={display}
@@ -77,7 +77,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
           onClick={() => onChange("0")}
           className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition-colors ${
             value === "0"
-              ? "bg-emerald-500/20 border-emerald-500/60 text-emerald-300"
+              ? "bg-purple-500/20 border-purple-500/60 text-purple-300"
               : "bg-white/5 border-white/10 text-gray-400 hover:text-gray-200"
           }`}
         >
@@ -89,7 +89,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             type="button"
             whileTap={{ scale: 0.94 }}
             onClick={() => addQuick(amt)}
-            className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-emerald-500/15 border border-white/10 hover:border-emerald-500/40 text-xs font-semibold text-gray-300 hover:text-emerald-300 transition-colors"
+            className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-purple-500/15 border border-white/10 hover:border-purple-500/40 text-xs font-semibold text-gray-300 hover:text-purple-300 transition-colors"
           >
             +{amt >= 1000 ? `${amt / 1000}k` : amt}
           </motion.button>
@@ -110,7 +110,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
                 ? "bg-white/5 border border-white/10 text-gray-500 text-[11px] font-bold uppercase tracking-wide"
                 : key === "back"
                 ? "bg-white/5 border border-white/10 text-gray-300"
-                : "bg-white/[0.04] border border-white/10 text-white text-lg font-bold hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                : "bg-white/[0.04] border border-white/10 text-white text-lg font-bold hover:bg-purple-500/10 hover:border-purple-500/30"
             }`}
           >
             {key === "back" ? <Delete className="w-4 h-4" /> : key === "clear" ? "Clear" : key}

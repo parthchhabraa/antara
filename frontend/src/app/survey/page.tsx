@@ -9,6 +9,8 @@ import { NumericKeypad } from "@/components/survey/NumericKeypad";
 import { ChoiceList, ChoiceOption } from "@/components/survey/ChoiceList";
 import { StepContainer } from "@/components/survey/StepContainer";
 import { StepFooter } from "@/components/survey/StepFooter";
+import { BrandedLoader } from "@/components/survey/BrandedLoader";
+import { SuccessBurst } from "@/components/survey/SuccessBurst";
 
 import {
   SURVEY_CATEGORIES,
@@ -17,14 +19,18 @@ import {
   CITY_TIERS,
   POCKET_MONEY_RANGES,
   FAMILY_INCOME_BRACKETS,
+  PAYMENT_METHODS,
+  POCKET_MONEY_DURATION,
+  SPEND_TRACKING_OPTIONS,
   SURVEY_LOCAL_STORAGE_KEY,
   SURVEY_RESUBMIT_COOLDOWN_MS,
+  SURVEY_AVG_SECONDS_PER_STEP,
 } from "@/lib/surveyConstants";
-import { SurveyDemographics } from "@/types/survey";
+import { SurveyDemographics, SurveyHabits } from "@/types/survey";
 import { submitSurveyResponse } from "@/lib/surveyApi";
 
-interface DemoStepConfig {
-  key: keyof SurveyDemographics;
+interface ChoiceStepConfig<K extends string> {
+  key: K;
   eyebrow: string;
   title: string;
   subtitle?: string;
@@ -32,7 +38,7 @@ interface DemoStepConfig {
   skippable?: boolean;
 }
 
-const DEMO_STEPS: DemoStepConfig[] = [
+const DEMO_STEPS: ChoiceStepConfig<keyof SurveyDemographics>[] = [
   {
     key: "age_range",
     eyebrow: "About you",
@@ -69,9 +75,35 @@ const DEMO_STEPS: DemoStepConfig[] = [
   },
 ];
 
+// Quick behavioral questions — same one-tap UI as demographics, but these
+// feed the prediction model more directly than a profile field would:
+// payment channel, and pocket-money runway (a proxy for the overspend risk
+// the model is ultimately trying to forecast).
+const HABIT_STEPS: ChoiceStepConfig<keyof SurveyHabits>[] = [
+  {
+    key: "payment_method",
+    eyebrow: "Money habits",
+    title: "How do you usually pay for things?",
+    options: PAYMENT_METHODS.map((v) => ({ value: v, label: v })),
+  },
+  {
+    key: "pocket_money_duration",
+    eyebrow: "Money habits",
+    title: "Does your pocket money usually last the month?",
+    options: POCKET_MONEY_DURATION.map((v) => ({ value: v, label: v })),
+  },
+  {
+    key: "tracks_spending",
+    eyebrow: "Money habits",
+    title: "Do you track your spending anywhere?",
+    options: SPEND_TRACKING_OPTIONS.map((v) => ({ value: v, label: v })),
+  },
+];
+
 const INTRO_INDEX = 0;
 const DEMO_START = 1;
-const CATEGORY_START = DEMO_START + DEMO_STEPS.length; // 6
+const HABITS_START = DEMO_START + DEMO_STEPS.length; // 6
+const CATEGORY_START = HABITS_START + HABIT_STEPS.length; // 9
 const OPEN_INDEX = CATEGORY_START + SURVEY_CATEGORIES.length; // 26
 const SUBMIT_INDEX = OPEN_INDEX + 1; // 27
 const TOTAL_STEPS = SUBMIT_INDEX + 1; // 28
@@ -81,6 +113,13 @@ const slideVariants = {
   center: { x: 0, opacity: 1 },
   exit: (dir: number) => ({ x: dir > 0 ? -32 : 32, opacity: 0 }),
 };
+
+function formatTimeLeft(stepsLeft: number): string {
+  const seconds = Math.max(1, Math.round(stepsLeft * SURVEY_AVG_SECONDS_PER_STEP));
+  if (seconds < 60) return `~${seconds}s left`;
+  const minutes = Math.round(seconds / 60);
+  return `~${minutes}min left`;
+}
 
 export default function SurveyPage() {
   const [checkedCooldown, setCheckedCooldown] = useState(false);
@@ -95,6 +134,11 @@ export default function SurveyPage() {
     city_tier: null,
     pocket_money_range: null,
     family_income_bracket: null,
+  });
+  const [habits, setHabits] = useState<SurveyHabits>({
+    payment_method: null,
+    pocket_money_duration: null,
+    tracks_spending: null,
   });
   const [categorySpend, setCategorySpend] = useState<Record<string, string>>({});
   const [otherSpendNote, setOtherSpendNote] = useState("");
@@ -139,6 +183,7 @@ export default function SurveyPage() {
 
     const result = await submitSurveyResponse({
       demographics,
+      habits,
       category_spend,
       other_spend_note: otherSpendNote,
       beta_email: (emailOverride ?? betaEmail) || null,
@@ -161,15 +206,15 @@ export default function SurveyPage() {
   };
 
   if (!checkedCooldown) {
-    return <div className="h-[100dvh] bg-[#05100B]" />;
+    return <BrandedLoader />;
   }
 
   if (cooldownActive) {
     return (
       <SurveyShell>
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center px-8">
-          <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mb-5">
-            <CheckCircle className="w-7 h-7 text-emerald-400" />
+          <div className="w-14 h-14 rounded-full bg-purple-500/15 border border-purple-500/40 flex items-center justify-center mb-5">
+            <CheckCircle className="w-7 h-7 text-purple-400" />
           </div>
           <h1 className="text-xl font-black text-white">You've already helped us out</h1>
           <p className="text-sm text-gray-400 mt-2 leading-relaxed">
@@ -201,14 +246,14 @@ export default function SurveyPage() {
           subtitle="A quick survey on how teens in India actually spend money, across every income level."
         >
           <div className="space-y-2 mt-1 text-xs text-gray-400">
-            <InfoRow text="About 3–4 minutes" />
+            <InfoRow text="About 2–3 minutes" />
             <InfoRow text="Anonymous & voluntary — no account, no login" />
           </div>
         </StepContainer>
         <StepFooter onPrimary={goNext} primaryLabel="Start survey" />
       </div>
     );
-  } else if (stepIndex >= DEMO_START && stepIndex < CATEGORY_START) {
+  } else if (stepIndex >= DEMO_START && stepIndex < HABITS_START) {
     const cfg = DEMO_STEPS[stepIndex - DEMO_START];
     const value = demographics[cfg.key];
     content = (
@@ -235,6 +280,21 @@ export default function SurveyPage() {
         />
       </div>
     );
+  } else if (stepIndex >= HABITS_START && stepIndex < CATEGORY_START) {
+    const cfg = HABIT_STEPS[stepIndex - HABITS_START];
+    const value = habits[cfg.key];
+    content = (
+      <div key={`habit-${cfg.key}`} className="min-h-full flex flex-col">
+        <StepContainer eyebrow={cfg.eyebrow} title={cfg.title} subtitle={cfg.subtitle}>
+          <ChoiceList
+            options={cfg.options}
+            selected={value}
+            onSelect={(v) => setHabits((prev) => ({ ...prev, [cfg.key]: v }))}
+          />
+        </StepContainer>
+        <StepFooter onPrimary={goNext} primaryDisabled={!value} />
+      </div>
+    );
   } else if (stepIndex >= CATEGORY_START && stepIndex < OPEN_INDEX) {
     const catIdx = stepIndex - CATEGORY_START;
     const cat = SURVEY_CATEGORIES[catIdx];
@@ -242,7 +302,18 @@ export default function SurveyPage() {
     content = (
       <div key={`cat-${cat.id}`} className="min-h-full flex flex-col">
         <StepContainer
-          icon={<cat.icon className="w-6 h-6" />}
+          icon={
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                backgroundColor: `${cat.color}1F`,
+                border: `1px solid ${cat.color}4D`,
+                color: cat.color,
+              }}
+            >
+              <cat.icon className="w-5 h-5" />
+            </div>
+          }
           eyebrow={`Spending · ${catIdx + 1} of ${SURVEY_CATEGORIES.length}`}
           title={`How much do you spend monthly on ${cat.label.toLowerCase()}?`}
           subtitle="Rough monthly average in ₹. Tap ₹0 / N/A if this doesn't apply to you."
@@ -268,7 +339,7 @@ export default function SurveyPage() {
             onChange={(e) => setOtherSpendNote(e.target.value.slice(0, 300))}
             rows={5}
             placeholder="e.g. Thrifted sneakers, cricket betting pools, birthday gifts for friends…"
-            className="w-full px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 focus:border-emerald-500 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none"
+            className="w-full px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 focus:border-purple-500 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
           />
           <p className="text-right text-[10px] text-gray-600 mt-1.5">{otherSpendNote.length}/300</p>
         </StepContainer>
@@ -285,14 +356,17 @@ export default function SurveyPage() {
         className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center px-8"
         key="thankyou"
       >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.1 }}
-          className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mb-5"
-        >
-          <CheckCircle className="w-8 h-8 text-emerald-400" />
-        </motion.div>
+        <div className="relative w-16 h-16 mb-5">
+          <SuccessBurst />
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.1 }}
+            className="w-16 h-16 rounded-full bg-purple-500/15 border border-purple-500/40 flex items-center justify-center"
+          >
+            <CheckCircle className="w-8 h-8 text-purple-400" />
+          </motion.div>
+        </div>
         <h1 className="text-2xl font-black text-white">Thank you.</h1>
         <p className="text-sm text-gray-400 mt-2 max-w-xs leading-relaxed">
           Your answers just helped train Antara's spend-prediction model for Indian teens.
@@ -311,7 +385,7 @@ export default function SurveyPage() {
             onChange={(e) => setBetaEmail(e.target.value)}
             placeholder="you@example.com"
             autoComplete="email"
-            className="w-full px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 focus:border-emerald-500 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="w-full px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 focus:border-purple-500 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
           />
           {submitError && <p className="text-xs text-rose-400 mt-3">{submitError}</p>}
         </StepContainer>
@@ -319,12 +393,15 @@ export default function SurveyPage() {
           onPrimary={() => handleSubmit()}
           primaryLabel="Submit survey"
           loading={submitting}
+          loadingLabel="Saving your answers…"
           onSkip={() => handleSubmit("")}
           skipLabel="Skip email & submit"
         />
       </div>
     );
   }
+
+  const stepsLeft = TOTAL_STEPS - (stepIndex + 1);
 
   return (
     <SurveyShell>
@@ -345,6 +422,7 @@ export default function SurveyPage() {
           step={stepIndex + 1}
           totalSteps={TOTAL_STEPS}
           onBack={stepIndex > 0 ? goBack : undefined}
+          timeLeftLabel={stepsLeft > 0 ? formatTimeLeft(stepsLeft) : undefined}
         />
       )}
 
@@ -370,16 +448,16 @@ export default function SurveyPage() {
 
 const InfoRow: React.FC<{ text: string }> = ({ text }) => (
   <div className="flex items-center gap-2">
-    <span className="w-1 h-1 rounded-full bg-emerald-400" />
+    <span className="w-1 h-1 rounded-full bg-purple-400" />
     <span>{text}</span>
   </div>
 );
 
 const SurveyShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="h-[100dvh] bg-[#05100B] flex justify-center overflow-hidden">
+  <div className="h-[100dvh] bg-background flex justify-center overflow-hidden">
     <div className="w-full max-w-md h-full flex flex-col relative overflow-hidden">
-      {/* Subtle ambient glow, matches "Whoop-style" restraint — no busy gradients */}
-      <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl" />
+      {/* Subtle ambient glow, echoes the app's own radial indigo backdrop */}
+      <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-72 h-72 bg-purple-600/15 rounded-full blur-3xl" />
       {children}
     </div>
   </div>

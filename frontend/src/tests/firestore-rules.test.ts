@@ -129,10 +129,11 @@ describe("Firestore Security Rules Tests", () => {
   });
 
   const validSurveyDoc = {
-    schema_version: 1,
+    schema_version: 2,
     submitted_at: FieldValue.serverTimestamp(),
     demographics: { age_range: "16–18", gender: null, city_tier: "metro", pocket_money_range: "₹1,500 – ₹3,000", family_income_bracket: null },
-    category_spend: { "food-snacks": 800, gaming: 500 },
+    habits: { payment_method: "Mostly UPI", pocket_money_duration: "Sometimes runs out early", tracks_spending: "No, never" },
+    category_spend: { "food-snacks": 800, "gaming-inapp": 500 },
     other_spend_note: null,
     beta_email: null,
     meta: { completion_seconds: 95, source: "web_survey_v1" },

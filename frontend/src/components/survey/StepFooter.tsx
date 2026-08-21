@@ -9,6 +9,7 @@ interface StepFooterProps {
   primaryLabel?: string;
   primaryDisabled?: boolean;
   loading?: boolean;
+  loadingLabel?: string;
   onSkip?: () => void;
   skipLabel?: string;
 }
@@ -21,20 +22,24 @@ export const StepFooter: React.FC<StepFooterProps> = ({
   primaryLabel = "Continue",
   primaryDisabled = false,
   loading = false,
+  loadingLabel,
   onSkip,
   skipLabel = "Skip",
 }) => {
   return (
-    <div className="sticky bottom-0 px-5 pt-3 pb-[max(1.1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[#05100B] via-[#05100B] to-transparent">
+    <div className="sticky bottom-0 px-5 pt-3 pb-[max(1.1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background to-transparent">
       <motion.button
         type="button"
         whileTap={primaryDisabled || loading ? undefined : { scale: 0.97 }}
         onClick={onPrimary}
         disabled={primaryDisabled || loading}
-        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-[#05100B] font-bold text-sm hover:opacity-95 transition-opacity disabled:opacity-35 disabled:pointer-events-none flex items-center justify-center gap-2"
+        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white font-bold text-sm shadow-glow-purple hover:opacity-95 transition-opacity disabled:opacity-35 disabled:pointer-events-none flex items-center justify-center gap-2"
       >
         {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {loadingLabel && <span>{loadingLabel}</span>}
+          </>
         ) : (
           <>
             <span>{primaryLabel}</span>

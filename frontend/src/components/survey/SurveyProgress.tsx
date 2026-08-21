@@ -8,13 +8,20 @@ interface SurveyProgressProps {
   step: number; // 1-indexed, includes intro
   totalSteps: number;
   onBack?: () => void;
+  /** Friendly "~45s left" style label — shown instead of a raw step count. */
+  timeLeftLabel?: string;
 }
 
-export const SurveyProgress: React.FC<SurveyProgressProps> = ({ step, totalSteps, onBack }) => {
+export const SurveyProgress: React.FC<SurveyProgressProps> = ({
+  step,
+  totalSteps,
+  onBack,
+  timeLeftLabel,
+}) => {
   const pct = Math.min(100, Math.round((step / totalSteps) * 100));
 
   return (
-    <div className="shrink-0 bg-[#05100B]/90 backdrop-blur-xl px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
+    <div className="shrink-0 bg-background/90 backdrop-blur-xl px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
       <div className="flex items-center gap-3">
         <motion.button
           type="button"
@@ -28,14 +35,16 @@ export const SurveyProgress: React.FC<SurveyProgressProps> = ({ step, totalSteps
         </motion.button>
         <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-gold-400"
+            className="h-full rounded-full bg-gradient-to-r from-accent-amber to-accent-orange"
             animate={{ width: `${pct}%` }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
         </div>
-        <span className="text-[10px] font-semibold text-gray-500 tabular-nums w-9 text-right">
-          {step}/{totalSteps}
-        </span>
+        {timeLeftLabel && (
+          <span className="text-[10px] font-semibold text-gray-500 tabular-nums whitespace-nowrap">
+            {timeLeftLabel}
+          </span>
+        )}
       </div>
     </div>
   );

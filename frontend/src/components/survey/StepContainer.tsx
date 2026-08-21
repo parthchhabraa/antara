@@ -7,6 +7,7 @@ interface StepContainerProps {
   eyebrow?: string;
   title: string;
   subtitle?: string;
+  /** Pre-styled node (e.g. a colored category badge) — rendered as-is, no default box. */
   icon?: React.ReactNode;
   children?: React.ReactNode;
 }
@@ -28,13 +29,13 @@ export const StepContainer: React.FC<StepContainerProps> = ({
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 400, damping: 22 }}
-          className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-4"
+          className="mb-4"
         >
           {icon}
         </motion.div>
       )}
       {eyebrow && (
-        <span className="text-[11px] font-bold uppercase tracking-wider text-gold-400 mb-1.5 block">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-accent-amber mb-1.5 block">
           {eyebrow}
         </span>
       )}

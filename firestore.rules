@@ -57,11 +57,12 @@ service cloud.firestore {
     function isValidSurveySubmission() {
       let d = request.resource.data;
       return d.keys().hasOnly(
-        ['schema_version', 'submitted_at', 'demographics', 'category_spend', 'other_spend_note', 'beta_email', 'meta']
+        ['schema_version', 'submitted_at', 'demographics', 'habits', 'category_spend', 'other_spend_note', 'beta_email', 'meta']
       )
         && d.schema_version is int
         && d.submitted_at == request.time
         && d.demographics is map
+        && d.habits is map
         && d.category_spend is map
         && d.category_spend.size() <= 25
         && (d.other_spend_note == null || (d.other_spend_note is string && d.other_spend_note.size() <= 300))

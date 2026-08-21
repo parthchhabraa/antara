@@ -29,7 +29,7 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
             onClick={() => onSelect(opt.value)}
             className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border text-left transition-colors ${
               isSelected
-                ? "bg-emerald-500/15 border-emerald-500/60"
+                ? "bg-purple-500/15 border-purple-500/60"
                 : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06]"
             }`}
           >
@@ -41,7 +41,7 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
             </div>
             <div
               className={`w-5 h-5 shrink-0 rounded-full border flex items-center justify-center ${
-                isSelected ? "bg-emerald-500 border-emerald-500" : "border-white/20"
+                isSelected ? "bg-purple-500 border-purple-500" : "border-white/20"
               }`}
             >
               <AnimatePresence>
@@ -52,7 +52,7 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
                     exit={{ scale: 0 }}
                     transition={{ type: "spring", stiffness: 500, damping: 25 }}
                   >
-                    <Check className="w-3 h-3 text-[#05100B]" strokeWidth={3} />
+                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
                   </motion.span>
                 )}
               </AnimatePresence>
