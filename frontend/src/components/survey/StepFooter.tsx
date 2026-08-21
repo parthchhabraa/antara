@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion } from "framer-motion";
 import { ArrowRight, Loader2 } from "lucide-react";
 
 interface StepFooterProps {
@@ -25,21 +26,28 @@ export const StepFooter: React.FC<StepFooterProps> = ({
 }) => {
   return (
     <div className="sticky bottom-0 px-5 pt-3 pb-[max(1.1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[#05100B] via-[#05100B] to-transparent">
-      <button
+      <motion.button
         type="button"
+        whileTap={primaryDisabled || loading ? undefined : { scale: 0.97 }}
         onClick={onPrimary}
         disabled={primaryDisabled || loading}
-        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-[#05100B] font-bold text-sm shadow-glow-emerald hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-35 disabled:pointer-events-none flex items-center justify-center gap-2"
+        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-[#05100B] font-bold text-sm hover:opacity-95 transition-opacity disabled:opacity-35 disabled:pointer-events-none flex items-center justify-center gap-2"
       >
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
           <>
             <span>{primaryLabel}</span>
-            <ArrowRight className="w-4 h-4" />
+            <motion.span
+              initial={{ x: 0 }}
+              whileHover={{ x: 2 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            >
+              <ArrowRight className="w-4 h-4" />
+            </motion.span>
           </>
         )}
-      </button>
+      </motion.button>
       {onSkip && !loading && (
         <button
           type="button"

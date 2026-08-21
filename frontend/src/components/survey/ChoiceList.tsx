@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Check } from "lucide-react";
 
 export interface ChoiceOption {
@@ -21,13 +22,14 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
       {options.map((opt) => {
         const isSelected = selected === opt.value;
         return (
-          <button
+          <motion.button
             key={opt.value}
             type="button"
+            whileTap={{ scale: 0.98 }}
             onClick={() => onSelect(opt.value)}
-            className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border text-left transition-all active:scale-[0.98] ${
+            className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border text-left transition-colors ${
               isSelected
-                ? "bg-emerald-500/15 border-emerald-500/60 shadow-glow-emerald"
+                ? "bg-emerald-500/15 border-emerald-500/60"
                 : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06]"
             }`}
           >
@@ -42,9 +44,20 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
                 isSelected ? "bg-emerald-500 border-emerald-500" : "border-white/20"
               }`}
             >
-              {isSelected && <Check className="w-3 h-3 text-[#05100B]" strokeWidth={3} />}
+              <AnimatePresence>
+                {isSelected && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                  >
+                    <Check className="w-3 h-3 text-[#05100B]" strokeWidth={3} />
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
-          </button>
+          </motion.button>
         );
       })}
     </div>

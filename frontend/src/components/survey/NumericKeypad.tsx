@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Delete } from "lucide-react";
 
 interface NumericKeypadProps {
@@ -48,59 +49,72 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   const display = value === "" ? "0" : new Intl.NumberFormat("en-IN").format(parseInt(value, 10));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Amount display */}
-      <div className="flex items-baseline justify-center gap-1.5 py-2">
-        <span className={`text-2xl font-bold ${value ? "text-gold-400" : "text-gray-700"}`}>₹</span>
-        <span
-          className={`text-5xl font-black tracking-tight tabular-nums ${value ? "text-white" : "text-gray-700"}`}
-        >
-          {display}
-        </span>
+      <div className="flex items-baseline justify-center gap-1.5 py-1 overflow-hidden">
+        <span className={`text-xl font-bold ${value ? "text-gold-400" : "text-gray-700"}`}>₹</span>
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={display}
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -10, opacity: 0 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+            className={`text-4xl font-black tracking-tight tabular-nums ${
+              value ? "text-white" : "text-gray-700"
+            }`}
+          >
+            {display}
+          </motion.span>
+        </AnimatePresence>
       </div>
 
       {/* N/A + quick-add chips, mirrors QuickLogModal's denomination chips */}
       <div className="flex items-center gap-2">
-        <button
+        <motion.button
           type="button"
+          whileTap={{ scale: 0.94 }}
           onClick={() => onChange("0")}
-          className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+          className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition-colors ${
             value === "0"
               ? "bg-emerald-500/20 border-emerald-500/60 text-emerald-300"
               : "bg-white/5 border-white/10 text-gray-400 hover:text-gray-200"
           }`}
         >
           ₹0 / N/A
-        </button>
+        </motion.button>
         {quickAdd.map((amt) => (
-          <button
+          <motion.button
             key={amt}
             type="button"
+            whileTap={{ scale: 0.94 }}
             onClick={() => addQuick(amt)}
-            className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-emerald-500/15 border border-white/10 hover:border-emerald-500/40 text-xs font-semibold text-gray-300 hover:text-emerald-300 transition-all active:scale-95"
+            className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-emerald-500/15 border border-white/10 hover:border-emerald-500/40 text-xs font-semibold text-gray-300 hover:text-emerald-300 transition-colors"
           >
             +{amt >= 1000 ? `${amt / 1000}k` : amt}
-          </button>
+          </motion.button>
         ))}
       </div>
 
       {/* Digit pad */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 gap-2">
         {KEYS.map((key) => (
-          <button
+          <motion.button
             key={key}
             type="button"
+            whileTap={{ scale: 0.9 }}
+            transition={{ duration: 0.1 }}
             onClick={() => press(key)}
-            className={`h-14 rounded-2xl flex items-center justify-center transition-all active:scale-95 ${
+            className={`h-12 rounded-2xl flex items-center justify-center transition-colors ${
               key === "clear"
                 ? "bg-white/5 border border-white/10 text-gray-500 text-[11px] font-bold uppercase tracking-wide"
                 : key === "back"
                 ? "bg-white/5 border border-white/10 text-gray-300"
-                : "bg-white/[0.04] border border-white/10 text-white text-xl font-bold hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                : "bg-white/[0.04] border border-white/10 text-white text-lg font-bold hover:bg-emerald-500/10 hover:border-emerald-500/30"
             }`}
           >
-            {key === "back" ? <Delete className="w-5 h-5" /> : key === "clear" ? "Clear" : key}
-          </button>
+            {key === "back" ? <Delete className="w-4 h-4" /> : key === "clear" ? "Clear" : key}
+          </motion.button>
         ))}
       </div>
     </div>

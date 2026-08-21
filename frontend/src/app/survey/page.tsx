@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ShieldCheck, Clock, CheckCircle, Mail } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 import { SurveyProgress } from "@/components/survey/SurveyProgress";
 import { NumericKeypad } from "@/components/survey/NumericKeypad";
@@ -162,28 +161,29 @@ export default function SurveyPage() {
   };
 
   if (!checkedCooldown) {
-    return <div className="min-h-[100dvh] bg-[#05100B]" />;
+    return <div className="h-[100dvh] bg-[#05100B]" />;
   }
 
   if (cooldownActive) {
     return (
       <SurveyShell>
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center px-8">
           <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mb-5">
             <CheckCircle className="w-7 h-7 text-emerald-400" />
           </div>
-          <h1 className="text-xl font-black text-white">You've already helped us out 🎉</h1>
+          <h1 className="text-xl font-black text-white">You've already helped us out</h1>
           <p className="text-sm text-gray-400 mt-2 leading-relaxed">
             Looks like this browser recently submitted a response. Thank you! If this is a
             different person on a shared device, you're welcome to submit again.
           </p>
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.96 }}
             onClick={() => setCooldownActive(false)}
-            className="mt-6 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-gray-300 hover:bg-white/10 transition-all"
+            className="mt-6 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-gray-300 hover:bg-white/10 transition-colors"
           >
             Submit another response
-          </button>
+          </motion.button>
         </div>
       </SurveyShell>
     );
@@ -194,26 +194,25 @@ export default function SurveyPage() {
 
   if (stepIndex === INTRO_INDEX) {
     content = (
-      <React.Fragment key="intro">
+      <div key="intro" className="min-h-full flex flex-col">
         <StepContainer
-          icon={<Sparkles className="w-6 h-6" />}
           eyebrow="Antara Research"
-          title="Help train Antara's spend-prediction AI"
-          subtitle="A quick, anonymous survey on how teens in India actually spend money — across every income level. Your answers directly shape the model."
+          title="Help train Antara's spend-prediction model"
+          subtitle="A quick survey on how teens in India actually spend money, across every income level."
         >
-          <div className="space-y-3 mt-2">
-            <InfoRow icon={<Clock className="w-4 h-4" />} text="Takes about 3–4 minutes" />
-            <InfoRow icon={<ShieldCheck className="w-4 h-4" />} text="Anonymous & voluntary — no account, no login" />
+          <div className="space-y-2 mt-1 text-xs text-gray-400">
+            <InfoRow text="About 3–4 minutes" />
+            <InfoRow text="Anonymous & voluntary — no account, no login" />
           </div>
         </StepContainer>
         <StepFooter onPrimary={goNext} primaryLabel="Start survey" />
-      </React.Fragment>
+      </div>
     );
   } else if (stepIndex >= DEMO_START && stepIndex < CATEGORY_START) {
     const cfg = DEMO_STEPS[stepIndex - DEMO_START];
     const value = demographics[cfg.key];
     content = (
-      <React.Fragment key={`demo-${cfg.key}`}>
+      <div key={`demo-${cfg.key}`} className="min-h-full flex flex-col">
         <StepContainer eyebrow={cfg.eyebrow} title={cfg.title} subtitle={cfg.subtitle}>
           <ChoiceList
             options={cfg.options}
@@ -234,14 +233,14 @@ export default function SurveyPage() {
           }
           skipLabel="Prefer not to say"
         />
-      </React.Fragment>
+      </div>
     );
   } else if (stepIndex >= CATEGORY_START && stepIndex < OPEN_INDEX) {
     const catIdx = stepIndex - CATEGORY_START;
     const cat = SURVEY_CATEGORIES[catIdx];
     const raw = categorySpend[cat.id] ?? "";
     content = (
-      <React.Fragment key={`cat-${cat.id}`}>
+      <div key={`cat-${cat.id}`} className="min-h-full flex flex-col">
         <StepContainer
           icon={<cat.icon className="w-6 h-6" />}
           eyebrow={`Spending · ${catIdx + 1} of ${SURVEY_CATEGORIES.length}`}
@@ -254,11 +253,11 @@ export default function SurveyPage() {
           />
         </StepContainer>
         <StepFooter onPrimary={goNext} primaryDisabled={raw === ""} />
-      </React.Fragment>
+      </div>
     );
   } else if (stepIndex === OPEN_INDEX) {
     content = (
-      <React.Fragment key="open">
+      <div key="open" className="min-h-full flex flex-col">
         <StepContainer
           eyebrow="Almost there"
           title="Spend on anything we didn't list?"
@@ -274,31 +273,34 @@ export default function SurveyPage() {
           <p className="text-right text-[10px] text-gray-600 mt-1.5">{otherSpendNote.length}/300</p>
         </StepContainer>
         <StepFooter onPrimary={goNext} primaryLabel="Continue" />
-      </React.Fragment>
+      </div>
     );
   } else {
     // SUBMIT_INDEX
     content = submitted ? (
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-8" key="thankyou">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mb-5">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 24 }}
+        className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center px-8"
+        key="thankyou"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.1 }}
+          className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mb-5"
+        >
           <CheckCircle className="w-8 h-8 text-emerald-400" />
-        </div>
-        <h1 className="text-2xl font-black text-white">You're in. Thank you! 🎉</h1>
+        </motion.div>
+        <h1 className="text-2xl font-black text-white">Thank you.</h1>
         <p className="text-sm text-gray-400 mt-2 max-w-xs leading-relaxed">
           Your answers just helped train Antara's spend-prediction model for Indian teens.
-          Anonymous, appreciated, done.
         </p>
-        <Link
-          href="/"
-          className="mt-7 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-        >
-          Curious what Antara looks like? →
-        </Link>
-      </div>
+      </motion.div>
     ) : (
-      <React.Fragment key="submit">
+      <div key="submit" className="min-h-full flex flex-col">
         <StepContainer
-          icon={<Mail className="w-6 h-6" />}
           eyebrow="Last step"
           title="Want early access to Antara?"
           subtitle="Optional — leave your email for a beta invite when we launch. Used for that only."
@@ -320,7 +322,7 @@ export default function SurveyPage() {
           onSkip={() => handleSubmit("")}
           skipLabel="Skip email & submit"
         />
-      </React.Fragment>
+      </div>
     );
   }
 
@@ -346,7 +348,7 @@ export default function SurveyPage() {
         />
       )}
 
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 min-h-0 relative overflow-hidden">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={stepIndex}
@@ -366,16 +368,16 @@ export default function SurveyPage() {
   );
 }
 
-const InfoRow: React.FC<{ icon: React.ReactNode; text: string }> = ({ icon, text }) => (
-  <div className="flex items-center gap-2.5 text-xs text-gray-400">
-    <span className="text-emerald-400">{icon}</span>
+const InfoRow: React.FC<{ text: string }> = ({ text }) => (
+  <div className="flex items-center gap-2">
+    <span className="w-1 h-1 rounded-full bg-emerald-400" />
     <span>{text}</span>
   </div>
 );
 
 const SurveyShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="min-h-[100dvh] bg-[#05100B] flex justify-center">
-    <div className="w-full max-w-md min-h-[100dvh] flex flex-col relative overflow-hidden">
+  <div className="h-[100dvh] bg-[#05100B] flex justify-center overflow-hidden">
+    <div className="w-full max-w-md h-full flex flex-col relative overflow-hidden">
       {/* Subtle ambient glow, matches "Whoop-style" restraint — no busy gradients */}
       <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl" />
       {children}
