@@ -54,9 +54,28 @@ describe("Firestore Security Rules Tests", () => {
     );
   });
 
-  test("User Alice CAN read and write her own transactions", async () => {
-    const aliceDb = testEnv.authenticatedContext("user_alice").firestore();
+  test("User Alice CAN read her own transactions, but CANNOT write until beta-allowlisted", async () => {
+    const aliceDb = testEnv
+      .authenticatedContext("user_alice", { email: "alice@antara.app" })
+      .firestore();
     const aliceTx = aliceDb.doc("users/user_alice/transactions/tx_1");
+
+    await assertSucceeds(aliceTx.get()); // reads only require ownership
+    await assertFails(
+      aliceTx.set({
+        amount: 250,
+        category: "food-delivery",
+        note: "Swiggy snack",
+        timestamp: new Date().toISOString(),
+      })
+    );
+
+    // Once her email is on the beta allowlist, the same write succeeds.
+    const superadminDb = testEnv
+      .authenticatedContext("user_parth", { role: "superadmin" })
+      .firestore();
+    await superadminDb.doc("admin/betaAllowlist").set({ emails: ["alice@antara.app"] });
+
     await assertSucceeds(
       aliceTx.set({
         amount: 250,
@@ -65,7 +84,19 @@ describe("Firestore Security Rules Tests", () => {
         timestamp: new Date().toISOString(),
       })
     );
-    await assertSucceeds(aliceTx.get());
+  });
+
+  test("Superadmin CAN write to any user's transactions even when not beta-allowlisted", async () => {
+    const superadminDb = testEnv
+      .authenticatedContext("user_parth", { role: "superadmin" })
+      .firestore();
+    await assertSucceeds(
+      superadminDb.doc("users/user_alice/transactions/tx_admin").set({
+        amount: 100,
+        category: "miscellaneous",
+        timestamp: new Date().toISOString(),
+      })
+    );
   });
 
   test("User Bob CANNOT read or write Alice's transactions", async () => {
