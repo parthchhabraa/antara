@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0A0C10"/>
+      <stop offset="100%" stop-color="#12101c"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+
+  <rect width="1200" height="300" fill="url(#bg)"/>
+
+  <!-- faint grid -->
+  <g stroke="#ffffff08" stroke-width="1">
+    <line x1="0" y1="75" x2="1200" y2="75"/>
+    <line x1="0" y1="150" x2="1200" y2="150"/>
+    <line x1="0" y1="225" x2="1200" y2="225"/>
+  </g>
+
+  <!-- burn-gauge motif -->
+  <g transform="translate(150,150)">
+    <circle r="88" fill="none" stroke="#ffffff14" stroke-width="8"/>
+    <circle r="88" fill="none" stroke="url(#arc)" stroke-width="8" stroke-linecap="round"
+      stroke-dasharray="553" stroke-dashoffset="553" transform="rotate(-90)">
+      <animate attributeName="stroke-dashoffset" values="553;150;553" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <!-- split-A mark, simplified -->
+    <path d="M0 -46 L-34 46 L-8 46 L0 6 L8 46 L34 46 Z" fill="#171717"/>
+    <path d="M0 -46 L34 46 L8 46 L0 6 L-8 46 L-34 46 Z" fill="#0E87B0" opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" dur="0.01s" fill="freeze"/>
+    </path>
+    <path d="M2 -44 L34 46 L8 46 L2 6 Z" fill="#0E87B0"/>
+    <rect x="-20" y="10" width="40" height="14" fill="#0A0C10"/>
+
+    <!-- orbiting dots (Pull motif) -->
+    <circle cx="0" cy="-110" r="4" fill="#8B5CF6">
+      <animate attributeName="opacity" values="0.2;1;0.2" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="95" cy="35" r="4" fill="#22D3EE">
+      <animate attributeName="opacity" values="0.2;1;0.2" dur="2.4s" begin="0.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="-95" cy="35" r="4" fill="#F59E0B">
+      <animate attributeName="opacity" values="0.2;1;0.2" dur="2.4s" begin="1.6s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- wordmark -->
+  <g transform="translate(300,0)">
+    <text x="0" y="145" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="72" fill="#F3F1F8" letter-spacing="2">ANTARA</text>
+    <text x="4" y="178" font-family="Arial, sans-serif" font-weight="600" font-size="20" fill="#8B5CF6" letter-spacing="10">MONEY</text>
+    <text x="4" y="215" font-family="Arial, sans-serif" font-size="17" fill="#9AA0A6">Predictive spend tracking, built for Indian teens.</text>
+  </g>
+
+  <!-- status chip -->
+  <g transform="translate(890,40)">
+    <rect width="230" height="34" rx="17" fill="#8B5CF61a" stroke="#8B5CF6" stroke-width="1"/>
+    <circle cx="20" cy="17" r="5" fill="#22D3EE">
+      <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="36" y="23" font-family="Arial, sans-serif" font-size="14" fill="#E5E7EB" font-weight="600">LIVE BETA · antara.money</text>
+  </g>
+</svg>
