@@ -8,9 +8,18 @@ import { MobileFrame } from "@/components/MobileFrame";
 import { PullCanvas } from "@/components/PullCanvas";
 import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
+import { TransactionEditSheet } from "@/components/TransactionEditSheet";
 import { PageTransition } from "@/components/PageTransition";
 import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
-import { calculateBurnMetrics, addLiveTransaction, computeStreakUpdate, streakToastMessage, saveStreakUpdate } from "@/lib/api";
+import {
+  calculateBurnMetrics,
+  addLiveTransaction,
+  deleteLiveTransaction,
+  updateLiveTransaction,
+  computeStreakUpdate,
+  streakToastMessage,
+  saveStreakUpdate,
+} from "@/lib/api";
 import { Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -21,6 +30,7 @@ export default function PullPage() {
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string>("gaming-inapp");
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const transactions = isDemoMode ? demoTxs : liveTxs;
@@ -85,6 +95,29 @@ export default function PullPage() {
       setToast(milestoneLine);
       window.setTimeout(() => setToast(null), 3400);
     }
+  };
+
+  // Step 13 §2 — same handlers, same reasoning, as Today's page.tsx (streak
+  // fields untouched on purpose; burn/pace figures recompute automatically
+  // since they're derived from `transactions` on every render).
+  const handleDeleteTx = async (txId: string) => {
+    if (isDemoMode) {
+      setDemoTxs((prev) => prev.filter((t) => t.id !== txId));
+    } else if (user) {
+      await deleteLiveTransaction(user.uid, txId);
+    }
+    setToast("Entry deleted.");
+    window.setTimeout(() => setToast(null), 2400);
+  };
+
+  const handleEditTx = async (txId: string, updates: Partial<Omit<Transaction, "id">>) => {
+    if (isDemoMode) {
+      setDemoTxs((prev) => prev.map((t) => (t.id === txId ? { ...t, ...updates } : t)));
+    } else if (user) {
+      await updateLiveTransaction(user.uid, txId, updates);
+    }
+    setToast("Entry updated.");
+    window.setTimeout(() => setToast(null), 2400);
   };
 
   const metrics = calculateBurnMetrics(transactions, monthlyBudget, today);
@@ -181,7 +214,18 @@ export default function PullPage() {
           onCommit={handleCommit}
           safeDaily={metrics.safeDaily}
         />
-        <CategoryDetailSheet category={detailCategory} entries={detailEntries} onClose={() => setDetailCategoryId(null)} />
+        <CategoryDetailSheet
+          category={detailCategory}
+          entries={detailEntries}
+          onClose={() => setDetailCategoryId(null)}
+          onSelectEntry={setEditingTx}
+        />
+        <TransactionEditSheet
+          transaction={editingTx}
+          onClose={() => setEditingTx(null)}
+          onSave={handleEditTx}
+          onDelete={handleDeleteTx}
+        />
 
         {toast && (
           <motion.div

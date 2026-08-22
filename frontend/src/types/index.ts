@@ -31,6 +31,11 @@ export interface UserProfile {
   photoURL: string | null;
   role: 'superadmin' | 'user' | 'beta_tester';
   is_demo_mode: boolean;
+  // Step 13: user-editable (BudgetSheet, via AuthContext's setMonthlyBudget).
+  // 0 is a real sentinel for a real account that hasn't set one yet — see
+  // needsBudgetSetup in AuthContext.tsx — never treat 0 as "the budget is
+  // zero," only demo/guest/superadmin profiles and profiles past onboarding
+  // should ever be read as a real spending number.
   monthly_budget: number;
   created_at: string;
   // Daily logging streak (Step 8). Only tracked for real signed-in accounts, never demo/guest

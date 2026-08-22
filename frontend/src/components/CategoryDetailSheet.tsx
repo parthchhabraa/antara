@@ -10,9 +10,13 @@ interface CategoryDetailSheetProps {
   category: Category | null;
   entries: Transaction[]; // already filtered to this category, newest first
   onClose: () => void;
+  // Step 13 — tapping an entry opens TransactionEditSheet (rendered by the
+  // parent page, above this sheet) for edit/delete. Optional so any future
+  // read-only caller of this component doesn't have to wire it up.
+  onSelectEntry?: (tx: Transaction) => void;
 }
 
-export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({ category, entries, onClose }) => {
+export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({ category, entries, onClose, onSelectEntry }) => {
   return (
     <AnimatePresence>
       {category && (
@@ -77,12 +81,21 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({ catego
                       : "Comfortable. Keep it here and you finish the month with room to spare."}
                   </div>
 
+                  {entries.length > 0 && onSelectEntry && (
+                    <div className="mt-3 text-[11px] text-gray-600">tap an entry to edit or delete</div>
+                  )}
                   <div className="mt-2 flex flex-col">
                     {entries.length === 0 ? (
                       <p className="py-6 text-center text-xs text-gray-500">Nothing logged here yet this month.</p>
                     ) : (
                       entries.map((e) => (
-                        <div key={e.id} className="flex gap-3 py-3 border-b border-white/5 last:border-0">
+                        <button
+                          key={e.id}
+                          type="button"
+                          onClick={() => onSelectEntry?.(e)}
+                          disabled={!onSelectEntry}
+                          className="flex gap-3 py-3 border-b border-white/5 last:border-0 text-left w-full active:opacity-60 transition-opacity disabled:active:opacity-100"
+                        >
                           <div className="flex-1 min-w-0">
                             <div className="text-[13px] text-gray-100">{e.subcategory || category.name}</div>
                             <div className="text-[11px] text-gray-500 mt-0.5">
@@ -91,7 +104,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({ catego
                             </div>
                           </div>
                           <span className="text-sm font-medium text-white shrink-0">{FORMAT_INR(e.amount)}</span>
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>

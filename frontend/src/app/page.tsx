@@ -8,22 +8,35 @@ import { MobileFrame } from "@/components/MobileFrame";
 import { BurnGauge } from "@/components/BurnGauge";
 import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
+import { TransactionEditSheet } from "@/components/TransactionEditSheet";
+import { BudgetSheet } from "@/components/BudgetSheet";
 import { WhyPredictionSheet } from "@/components/WhyPredictionSheet";
 import { NewUserOnboardingSheet } from "@/components/NewUserOnboardingSheet";
 import { AntaraWordmark } from "@/components/AntaraWordmark";
 import { CountUpNumber } from "@/components/CountUpNumber";
 import { PageTransition } from "@/components/PageTransition";
 import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
-import { calculateBurnMetrics, addLiveTransaction, computeStreakUpdate, streakToastMessage, saveStreakUpdate } from "@/lib/api";
+import {
+  calculateBurnMetrics,
+  addLiveTransaction,
+  deleteLiveTransaction,
+  updateLiveTransaction,
+  computeStreakUpdate,
+  streakToastMessage,
+  saveStreakUpdate,
+} from "@/lib/api";
 import { Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function TodayPage() {
-  const { user, profile, isDemoMode, signInWithGoogle, refreshClaims, isNewUser, dismissNewUserBanner } = useAuth();
+  const { user, profile, isDemoMode, signInWithGoogle, refreshClaims, isNewUser, dismissNewUserBanner, setMonthlyBudget } =
+    useAuth();
   const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
   const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [isBudgetEditOpen, setIsBudgetEditOpen] = useState(false);
   const [isWhyOpen, setIsWhyOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // `user` is null AND isDemoMode is true for every fresh/unauthenticated
@@ -116,6 +129,33 @@ export default function TodayPage() {
     window.setTimeout(() => setToast(null), 3400);
   };
 
+  // Step 13 §2 — deliberately do not touch streak fields here (see the
+  // comment on deleteLiveTransaction in lib/api.ts): the streak reflects
+  // "logged something that day," already true regardless of what happens to
+  // this specific entry later. Burn rate / "Why this pace?" need no special
+  // handling either — both are recomputed from `transactions` on every
+  // render, and removing/editing this row updates that array directly (demo:
+  // local state; live: onSnapshot fires after the Firestore write resolves).
+  const handleDeleteTx = async (txId: string) => {
+    if (isDemoMode) {
+      setDemoTxs((prev) => prev.filter((t) => t.id !== txId));
+    } else if (user) {
+      await deleteLiveTransaction(user.uid, txId);
+    }
+    setToast("Entry deleted.");
+    window.setTimeout(() => setToast(null), 2400);
+  };
+
+  const handleEditTx = async (txId: string, updates: Partial<Omit<Transaction, "id">>) => {
+    if (isDemoMode) {
+      setDemoTxs((prev) => prev.map((t) => (t.id === txId ? { ...t, ...updates } : t)));
+    } else if (user) {
+      await updateLiveTransaction(user.uid, txId, updates);
+    }
+    setToast("Entry updated.");
+    window.setTimeout(() => setToast(null), 2400);
+  };
+
   const detailCategory = STARTER_CATEGORIES.find((c) => c.id === detailCategoryId) || null;
   const detailEntries = detailCategoryId ? transactions.filter((t) => t.category === detailCategoryId) : [];
 
@@ -161,6 +201,17 @@ export default function TodayPage() {
             >
               Continue in Demo Mode
             </button>
+            <p className="text-center text-[11px] text-gray-600 mt-3">
+              By continuing you agree to our{" "}
+              <a href="/terms" className="text-gray-400 underline">
+                Terms
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" className="text-gray-400 underline">
+                Privacy Policy
+              </a>
+              .
+            </p>
           </motion.div>
         </div>
       </MobileFrame>
@@ -203,11 +254,19 @@ export default function TodayPage() {
         <div className="flex flex-col items-center py-3.5">
           <BurnGauge burnPct={metrics.burnPct} />
         </div>
-        <div className="text-center text-[13px] text-gray-400 leading-relaxed -mt-1 mb-4">
+        <div className="text-center text-[13px] text-gray-400 leading-relaxed -mt-1 mb-2">
           You're running {FORMAT_INR(metrics.weekRate)} a day.
           <br />
           Safe is {FORMAT_INR(metrics.safeDaily)}.
         </div>
+        {/* Step 13 §1 — the edit affordance the brief asked for: budget isn't
+            locked in at onboarding, it's always one tap away from here. */}
+        <button
+          onClick={() => setIsBudgetEditOpen(true)}
+          className="block mx-auto mb-4 text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+        >
+          Budget {FORMAT_INR(monthlyBudget)}/mo · Edit
+        </button>
 
         {/* Money runs out */}
         <div className="rounded-2xl border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
@@ -294,7 +353,28 @@ export default function TodayPage() {
           onCommit={handleCommit}
           safeDaily={metrics.safeDaily}
         />
-        <CategoryDetailSheet category={detailCategory} entries={detailEntries} onClose={() => setDetailCategoryId(null)} />
+        <CategoryDetailSheet
+          category={detailCategory}
+          entries={detailEntries}
+          onClose={() => setDetailCategoryId(null)}
+          onSelectEntry={setEditingTx}
+        />
+        <TransactionEditSheet
+          transaction={editingTx}
+          onClose={() => setEditingTx(null)}
+          onSave={handleEditTx}
+          onDelete={handleDeleteTx}
+        />
+        <BudgetSheet
+          isOpen={isBudgetEditOpen}
+          mode="edit"
+          currentAmount={monthlyBudget}
+          onClose={() => setIsBudgetEditOpen(false)}
+          onSave={async (amount) => {
+            await setMonthlyBudget(amount);
+            setIsBudgetEditOpen(false);
+          }}
+        />
         <WhyPredictionSheet
           isOpen={isWhyOpen}
           onClose={() => setIsWhyOpen(false)}

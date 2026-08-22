@@ -26,6 +26,18 @@ service cloud.firestore {
         request.auth.token.email in get(/databases/$(database)/documents/admin/betaAllowlist).data.emails;
     }
 
+    // Step 12: public-launch toggle. Defaults closed (missing doc, or the
+    // field itself missing/false, all read as "not enabled") — this is the
+    // actual enforcement point, not just the client-side UI gate in
+    // AuthContext.tsx. A user let into "Live Mode" by the client without
+    // also passing this (or isBetaAllowlisted()) still can't write real
+    // transactions; the two gates are independent and this one can't be
+    // bypassed by editing client code.
+    function isPublicSignupEnabled() {
+      return exists(/databases/$(database)/documents/admin/launchConfig) &&
+        get(/databases/$(database)/documents/admin/launchConfig).data.publicSignupEnabled == true;
+    }
+
     // User profile documents
     match /users/{userId} {
       allow read: if isOwner(userId) || isSuperAdmin();
@@ -34,11 +46,15 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
 
       // Transactions subcollection: a valid token + ownership is not enough on
-      // its own - the caller must also be on the beta allowlist (superadmin
-      // always bypasses, matching isSuperAdmin() elsewhere in this file).
+      // its own - the caller must also be on the beta allowlist OR public
+      // signup must be enabled (superadmin always bypasses, matching
+      // isSuperAdmin() elsewhere in this file). Beta-allowlist gating code is
+      // untouched by Step 12 — this only adds an additional, independently
+      // toggled path in, exactly as the brief asked ("don't delete the
+      // beta-allowlist gating code").
       match /transactions/{txId} {
         allow read: if isOwner(userId) || isSuperAdmin();
-        allow write: if isSuperAdmin() || (isOwner(userId) && isBetaAllowlisted());
+        allow write: if isSuperAdmin() || (isOwner(userId) && (isBetaAllowlisted() || isPublicSignupEnabled()));
       }
     }
 
@@ -56,6 +72,20 @@ service cloud.firestore {
 
     // Admin Beta Allowlist
     match /admin/betaAllowlist {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // Step 12: public-launch config. Readable by any authenticated user —
+    // has to be, since a brand-new (possibly not-yet-allowlisted) sign-in
+    // needs to read this doc to find out whether they're let in via the
+    // public path, before we know anything else about them. Same read
+    // posture as admin/betaAllowlist above for the same reason. Write is
+    // superadmin-only. Deliberately its own doc, not folded into
+    // admin/dataConfig (Step 10, superadmin-read-only ML training config) —
+    // that doc's read rule is superadmin-only, which would make it
+    // unreadable by exactly the users who need to check this flag.
+    match /admin/launchConfig {
       allow read: if isAuthenticated();
       allow write: if isSuperAdmin();
     }

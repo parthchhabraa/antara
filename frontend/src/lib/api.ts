@@ -1,5 +1,5 @@
 import { User as FirebaseUser } from "firebase/auth";
-import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { Transaction, UserProfile } from "@/types";
 import { STARTER_CATEGORIES } from "./constants";
 import { db } from "./firebase";
@@ -230,6 +230,29 @@ export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id"
   await addDoc(txCol, tx);
 }
 
+// Step 13 — delete/edit. Deliberately does NOT touch streak fields: the
+// streak records "did you log something on that calendar day," which
+// already happened and shouldn't be un-happened by later deleting or
+// editing the entry that caused it. Retroactively recomputing streak state
+// from the full transaction history on every delete would also mean a
+// months-old cleanup edit could silently break a *current* streak the user
+// has no reason to think is at risk. Burn rate and "Why this pace?" are
+// different: those are live aggregates recomputed from the current
+// transaction list on every render (calculateBurnMetrics, WhyPredictionSheet),
+// so a delete or edit here is reflected there automatically — no separate
+// recompute call needed, just don't skip refreshing the underlying list.
+export async function deleteLiveTransaction(uid: string, txId: string): Promise<void> {
+  await deleteDoc(doc(db, "users", uid, "transactions", txId));
+}
+
+export async function updateLiveTransaction(
+  uid: string,
+  txId: string,
+  updates: Partial<Omit<Transaction, "id">>
+): Promise<void> {
+  await updateDoc(doc(db, "users", uid, "transactions", txId), updates);
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // ML "Why" prediction — revived in Step 8. Calls the backend's
 // /api/v1/predict/spend (see backend/app/main.py, backend/app/ml/engine.py)
@@ -422,6 +445,18 @@ export async function saveStreakUpdate(uid: string, result: StreakUpdateResult):
     } as Partial<UserProfile>,
     { merge: true }
   );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Step 13 — editable monthly budget. Shared by the once-at-onboarding
+// BudgetSheet (AppBootGate's pendingBudgetSetup gate) and the always-
+// available "Edit" affordance on the Today screen — same write, same
+// validation, just triggered from two different UI moments.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function saveMonthlyBudget(uid: string, amount: number): Promise<void> {
+  const userRef = doc(db, "users", uid);
+  await setDoc(userRef, { monthly_budget: amount } as Partial<UserProfile>, { merge: true });
 }
 
 // ────────────────────────────────────────────────────────────────────────

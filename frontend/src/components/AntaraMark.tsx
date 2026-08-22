@@ -7,24 +7,30 @@ interface AntaraMarkProps {
   className?: string;
 }
 
-// The real Antara "A" mark — Step 11, corrected after the actual source file
-// turned up on origin/main (commit e8f43f6, "logos upload") mid-review. The
-// first version of this component was a hand-measured SVG reconstruction
-// (traced from survey.antara.money's own approximation of the mark) —
-// close, but its blue was #3E7C99 against the real file's #0E87B0, and the
-// leg geometry wasn't quite right either. Once the real `logoAntara.png`
-// was available (confirmed via ImageMagick: real alpha transparency, gap
-// band genuinely transparent not painted white — srgba(0,0,0,0) sampled
-// directly), rendering it directly is both simpler and exactly correct,
-// so this now points at the actual asset instead of approximating it.
+// The real Antara "A" mark — Step 12. Traced directly from the byte-exact
+// source file (frontend/public/brand/originals/logoAntara.png) via potrace
+// (color-isolated black/blue masks, sharp-corner mode since the source has
+// no curves), not hand-measured. This replaced Step 11's hand-measured
+// approximation after a pixel-diff check showed it was a real, meaningful
+// deviation — 34.7% of the canvas differed (10% fuzz threshold, so this
+// isn't just anti-aliasing noise): the approximation used a plain
+// rectangular gap and #3E7C99 blue, where the real mark has a stepped/
+// notched gap on the inner edges and a more vivid #0E87B0 blue. This traced
+// version diffs at 5.3% against the source — confirmed by inspecting the
+// diff image directly that the remaining difference is only rasterizer
+// anti-aliasing at the outer edges, not a shape mismatch.
+//
+// Used for in-app UI (header, loader) specifically because it's vector —
+// crisp at any size with no separate raster export needed. The favicon/
+// icon/social-preview files are generated straight from the real PNG raster
+// instead (frontend/public/brand/, regenerate via ImageMagick if the source
+// ever changes) since those are fixed-size deliverables, not something
+// rendered at arbitrary sizes in the running app.
 export const AntaraMark: React.FC<AntaraMarkProps> = ({ size = 32, className = "" }) => (
-  // eslint-disable-next-line @next/next/no-img-element
-  <img
-    src="/brand/logo-mark-1024.png"
-    alt="Antara"
-    width={size}
-    height={size}
-    className={className}
-    style={{ width: size, height: size, objectFit: "contain" }}
-  />
+  <svg width={size} height={size} viewBox="0 0 756 723" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Antara" className={className}>
+    <g transform="translate(0.000000,723.000000) scale(0.100000,-0.100000)">
+      <path d="M3743 7047 l-23 -38 0 -13 0 -14 -12 -23 -13 -24 -20 -30 -21 -30 -39 -78 -39 -78 -18 -19 -18 -19 0 -10 0 -10 -26 -48 -26 -48 -9 -9 -9 -10 0 -21 0 -21 -9 -10 -9 -9 -28 -50 -27 -50 -8 -15 -7 -15 -18 -40 -17 -40 -17 -25 -17 -25 -14 -40 -14 -40 -22 -37 -23 -38 0 -5 0 -4 -46 -78 -46 -78 -36 -65 -35 -65 -28 -50 -28 -50 -16 -35 -17 -35 -11 -25 -12 -25 -22 -37 -23 -38 0 -14 0 -15 -19 -35 -20 -35 -24 -38 -23 -38 -18 -40 -18 -40 -17 -35 -18 -35 -36 -68 -37 -67 0 -13 0 -13 -17 -20 -18 -19 -24 -53 -25 -53 -13 -11 -13 -10 0 -14 0 -14 -26 -41 -25 -40 -21 -37 -21 -37 -32 -60 -32 -60 -26 -50 -25 -50 -29 -60 -29 -61 -16 -29 -16 -30 -26 -55 -27 -55 -12 -20 -12 -20 -6 -5 -6 -5 -14 -40 -14 -40 -20 -35 -20 -35 -15 -30 -14 -30 -17 -25 -16 -25 -27 -48 -26 -48 0 -11 0 -10 -33 -47 -33 -46 -28 -60 -29 -60 -17 -35 -17 -35 -26 -50 -25 -50 -13 -30 -13 -30 -33 -53 -33 -52 0 -15 0 -14 -27 -48 -27 -48 -18 -37 -18 -38 -21 -42 -21 -43 -32 -60 -33 -60 -24 -40 -25 -40 -16 -35 -17 -35 -18 -20 -18 -20 -14 -30 -13 -30 -16 -30 -16 -29 -29 -61 -29 -60 -11 -20 -11 -20 -84 -170 -84 -170 -17 -35 -18 -35 -22 -40 -23 -40 -14 -16 -14 -16 0 -12 0 -13 -19 -26 -19 -27 -42 -80 -42 -80 -17 -25 -17 -25 -29 -60 -30 -60 -7 -3 -8 -4 0 -21 0 -22 -20 -25 -20 -25 0 -8 0 -7 -25 -40 -25 -40 0 -15 0 -15 -12 -23 -13 -22 -11 -15 -12 -15 -21 -38 -21 -38 0 -17 0 -18 -9 -9 -9 -10 -24 -45 -25 -45 -23 -40 -23 -40 -35 -65 -35 -65 -35 -65 -35 -65 -14 -30 -14 -30 -11 -20 -11 -20 -35 -65 -34 -65 -9 -9 -9 -10 0 -18 0 -18 -35 -55 -36 -55 979 0 979 0 32 11 31 11 0 16 0 17 20 25 20 25 0 10 0 11 38 74 39 75 10 20 11 20 23 50 23 50 23 37 23 38 0 18 0 18 9 9 9 10 28 50 27 50 19 33 18 33 0 20 0 21 24 47 24 46 20 45 19 45 72 145 71 145 0 13 0 14 19 26 19 27 41 78 42 78 8 17 8 17 24 50 23 50 23 37 23 38 0 18 0 19 7 7 7 6 12 35 11 34 -5 6 -5 5 -555 0 -554 0 -29 31 -29 31 0 433 0 434 26 20 27 21 766 0 767 0 10 9 9 9 24 4 23 3 18 35 18 35 22 50 22 50 16 35 16 35 18 27 18 26 0 16 0 16 23 38 23 37 23 50 23 50 15 30 15 30 29 26 29 26 -2 1789 -3 1789 -22 -38z" fill="#1F1E1C" />
+      <path d="M3824 6951 l-9 -6 -13 -28 -12 -28 0 -1698 0 -1697 29 -22 30 -22 14 -32 14 -33 18 -45 17 -45 10 -19 10 -19 26 -46 26 -46 16 -35 17 -35 21 -45 21 -45 14 -25 15 -25 19 -40 19 -40 789 -5 790 -5 16 -8 16 -8 12 -25 11 -25 0 -379 0 -379 10 -6 10 -6 0 -18 0 -18 -16 -31 -15 -32 -22 -15 -21 -15 -558 0 -558 0 0 -15 0 -16 33 -52 33 -52 28 -60 27 -60 20 -38 19 -39 0 -14 0 -15 25 -37 25 -37 0 -11 0 -12 19 -39 19 -38 17 -45 17 -45 14 -25 14 -25 31 -65 32 -65 20 -40 20 -40 25 -50 26 -50 10 -25 10 -25 31 -50 30 -50 11 -25 10 -25 27 -55 27 -55 0 -15 0 -15 20 -25 20 -25 0 -8 0 -7 34 -73 33 -72 28 -68 27 -67 9 -6 9 -5 0 -22 0 -22 31 -38 31 -37 968 2 968 3 20 18 21 19 -20 36 -21 35 -24 32 -24 32 0 11 0 11 -27 48 -26 48 -9 18 -8 17 -10 20 -10 20 0 11 0 11 -22 31 -23 32 -12 24 -13 23 0 13 0 13 -45 76 -45 77 0 14 0 15 -23 38 -22 37 -15 30 -15 30 -30 50 -31 50 -14 30 -14 30 -17 25 -16 25 -33 60 -33 60 -20 35 -20 35 -25 45 -25 45 -19 33 -18 33 0 15 0 14 -25 40 -25 40 0 5 0 5 -22 48 -22 47 -30 50 -31 50 -11 25 -10 25 -39 80 -39 80 -21 30 -21 30 -60 120 -59 119 -22 24 -23 25 0 21 0 21 -20 25 -20 25 0 8 0 7 -25 40 -25 40 0 14 0 15 -19 35 -20 35 -23 38 -23 38 -11 25 -11 25 -38 80 -38 80 -9 17 -8 18 -33 62 -34 63 -24 40 -24 40 -15 30 -15 30 -24 40 -24 40 -32 60 -32 60 -21 36 -20 36 -10 19 -10 19 -84 170 -85 170 -10 20 -11 20 -29 60 -30 60 -37 70 -38 70 -8 10 -7 10 -27 48 -26 48 0 10 0 10 -24 32 -24 32 -28 50 -27 50 -19 33 -18 33 0 15 0 16 -19 26 -18 27 -27 48 -26 48 0 15 0 15 -33 52 -32 52 -11 25 -11 25 -32 65 -31 65 -25 40 -24 40 -74 145 -74 145 -27 45 -26 45 -30 65 -31 65 -21 40 -21 40 -25 50 -25 50 -13 26 -14 27 -20 41 -20 41 -21 43 -21 42 -35 65 -35 65 -8 10 -8 10 -42 80 -42 80 -9 9 -9 10 0 13 0 12 -45 70 -45 70 0 20 0 21 -9 0 -9 0 -5 18 -6 17 -30 53 -31 53 0 11 0 11 -45 91 -45 91 -29 16 -29 17 -8 -7z" fill="#0E87B0" />
+    </g>
+  </svg>
 );
