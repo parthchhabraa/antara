@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" width="900" height="420">
+  <rect width="900" height="420" fill="#0A0C10"/>
+  <text x="30" y="36" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#F3F1F8">Population archetype clusters</text>
+  <text x="30" y="58" font-family="Arial, sans-serif" font-size="12.5" fill="#9AA0A6">Real n=36 · same 5 archetypes used per-user in the app's "Pull" screen</text>
+
+  <g transform="translate(220,240)">
+    <circle r="120" fill="none" stroke="#1a1e24" stroke-width="34"/>
+    <g transform="rotate(-90)">
+      <circle r="120" fill="none" stroke="#8B5CF6" stroke-width="34" stroke-dasharray="272.3 481.7" stroke-dashoffset="0"/>
+      <circle r="120" fill="none" stroke="#22D3EE" stroke-width="34" stroke-dasharray="230.4 523.6" stroke-dashoffset="-272.3"/>
+      <circle r="120" fill="none" stroke="#F59E0B" stroke-width="34" stroke-dasharray="146.6 607.4" stroke-dashoffset="-502.7"/>
+      <circle r="120" fill="none" stroke="#F87171" stroke-width="34" stroke-dasharray="62.8 691.2" stroke-dashoffset="-649.3"/>
+      <circle r="120" fill="none" stroke="#34D399" stroke-width="34" stroke-dasharray="41.9 712.1" stroke-dashoffset="-712.1"/>
+    </g>
+    <text x="0" y="-6" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#F3F1F8">36</text>
+    <text x="0" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#9AA0A6">respondents</text>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="15" fill="#E5E7EB">
+    <circle cx="500" cy="150" r="7" fill="#8B5CF6"/><text x="518" y="155">Exam Grinder — 13 (36%)</text>
+    <circle cx="500" cy="190" r="7" fill="#22D3EE"/><text x="518" y="195">Social Trendsetter — 11 (31%)</text>
+    <circle cx="500" cy="230" r="7" fill="#F59E0B"/><text x="518" y="235">Gamer &amp; Foodie — 7 (19%)</text>
+    <circle cx="500" cy="270" r="7" fill="#F87171"/><text x="518" y="275">Commuter Nomad — 3 (8%)</text>
+    <circle cx="500" cy="310" r="7" fill="#34D399"/><text x="518" y="315">Zen Saver — 2 (6%)</text>
+  </g>
+  <text x="500" y="360" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">A directional signal at n=36, not yet a trained classifier.</text>
+</svg>
