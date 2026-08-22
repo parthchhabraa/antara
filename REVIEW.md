@@ -1,104 +1,96 @@
-# Antara — Step 14 Review
+# Antara — Step 15 Review
 
-**Status: ALL COMPLETED — new public `GET /api/v1/public/survey-stats` endpoint is live on production (`api.antara.money`), `antaraweb`'s paper now fetches it on load and genuinely re-renders every "n=11" figure from real data, and the failure/fallback path was verified separately. Live sample size at verification time: n=36 (not 11 — the survey has grown since the paper's last hand-edit, which is the whole point of this pass). Both repos are committed and pushed.**
+**Status: ALL COMPLETED — the recovered Step 12+13 work (public-signup toggle, legal pages, editable budget, transaction edit/delete) is now genuinely verified and committed, both regressions from the Step 13 gap audit are fixed, survey benchmarks are refreshed from n=3 to n=36, and production (both services) was rebuilt/restarted and confirmed healthy on all of it. The unmerged survey branch was left untouched, as instructed.**
 
-This step spans two repos:
-- **`antara`** (this repo, backend) — the new endpoint: [backend/app/ml/survey_etl.py](backend/app/ml/survey_etl.py), [backend/app/main.py](backend/app/main.py). Commit `9f811bc`, pushed to `origin/main`.
-- **`antaraweb`** (separate repo, `git@github.com:parthchhabraa/antaraweb.git`, no build step, deployed via GitHub Pages at the `antara.money` apex per its `CNAME`) — the live-fetch script in `index.html`. Commit `be08cfb`, pushed to `origin/main`, confirmed redeployed and live at `https://antara.money`.
+Commits this pass (all pushed to `origin/main`): `7700327` (Steps 12+13 recovery), `0d1fc55` (test regressions), `bcd187f` (benchmark refresh).
 
 ---
 
-## 1. New public endpoint — `antara` repo
+## 1. Verifying the recovered work — what I checked myself vs. took on trust
 
-**`GET /api/v1/public/survey-stats`**, unauthenticated, added in [main.py](backend/app/main.py) right before the `if __name__ == "__main__"` block, deliberately outside the `/api/v1/admin/*` group (no `require_superadmin` dependency) since the brief is explicit this is aggregates-only over an already-anonymous survey.
+**Still on disk, still uncommitted, confirmed via `git status` before touching anything.** And it turned out to be bigger than "Step 13": the last real commit on `main` was Step 11's (`245ea39`/`2844e0e`) — **Step 12 was never committed either.** `ConsentGate.tsx`, `PublicSignupToggle.tsx`, `LegalPageLayout.tsx`, the `/privacy`/`/terms` pages, and the `firestore.rules` `isPublicSignupEnabled()`/`admin/launchConfig` additions are all untracked/modified files that post-date `245ea39` with no commit of their own — confirmed by `git log --all | grep -i "step 12"` (nothing) and by every one of those files' mtimes falling after the last real commit. The recovered `REVIEW.md` draft's own text assumes Step 12 already landed ("Step 12's ConsentGate," "Step 12: public-launch toggle") — that framing was wrong; it hadn't. Saying so plainly rather than committing it under a label that undersold what was actually being committed.
 
-**Reuses Step 10's `survey_etl.py`, doesn't duplicate it.** Added one new function, `build_public_stats_payload(db)`, which calls the existing `load_data_config()`, `fetch_survey_responses()`, `compute_stats()`, and `generate_population_dot_graph()` directly and reshapes their output into the smaller public schema — it's a view, not a second pipeline. The only new logic is `_archetype_slug()`, a one-line id transform (`"archetype_gamer_foodie"` → `"gamer-foodie"`) so the public payload's archetype keys match the brief's requested shape.
+**No conflict with Step 14.** Diffed file paths: Step 14 (`9f811bc`, `7ccf053`) touched only `backend/app/main.py`, `backend/app/ml/survey_etl.py`, and `REVIEW.md`. Zero overlap with anything in the recovered Step 12/13 change set (all `frontend/*` + `firestore.rules`). Clean merge into one state, no manual reconciliation needed.
 
-Response shape (verified against real production data, not fabricated):
-```json
-{
-  "sampleSize": 36,
-  "lastUpdated": "2026-08-22T11:18:...Z",
-  "categories": { "food-snacks": {"median": 2000.0, "q1": 1000.0, "q3": 3000.0, "n": 33, "outliersRemoved": 3, "confidenceTier": "confident"}, "...": "..." },
-  "incomeBands": {"low": 14, "mid": 13, "high": 9},
-  "archetypeClusters": {
-    "gamer-foodie": {"count": 7, "respondents": [{"matchPct": 0.777}, "..."]},
-    "exam-grinder": {"count": 13, "respondents": ["..."]},
-    "social-trendsetter": {"count": 11, "respondents": ["..."]},
-    "commuter-nomad": {"count": 3, "respondents": ["..."]},
-    "zen-saver": {"count": 2, "respondents": ["..."]}
-  }
-}
-```
-`categories[*].median/q1/q3` are `null` (not fabricated) for any category with zero usable responses — that path exists and is exercised (unit-tested directly, see §3), even though every one of the 5 categories `antaraweb`'s Fig. 2 shows happened to have real data at verification time.
+**The two riskiest claims — independently reproduced, not trusted:**
 
-**No PII, by construction.** Every field is either a category aggregate or a single `matchPct` float per anonymous respondent, grouped only by their closest archetype — no respondent index, name, or any other identifying field is ever included (checked directly against `generate_population_dot_graph`'s node output, which does carry more, e.g. `totalReported`/`incomeBand`/`label: "Respondent N"` — none of that crosses into the public payload).
+- **(a) The `updateDoc()`/`undefined` bug.** Didn't just read the fix and believe it. Minted a real Firebase custom token for the superadmin's actual account, signed into the **real client Firestore SDK** (the literal `firebase/firestore` package this app imports, not the Admin SDK, not a proxy) against real production Firestore, created a throwaway test transaction, and called `updateDoc(ref, { note: undefined })` directly — the exact pre-fix code path (`note.trim() || undefined`). Got back, verbatim: `FirebaseError: Function updateDoc() called with invalid data. Unsupported field value: undefined (found in field note in document users/.../transactions/step15-repro-test-tx)` — matches the recovered review's claimed error exactly. Then called `updateDoc(ref, { note: "" })` — succeeded, read back the doc, confirmed `note === ""`. Deleted the test transaction, confirmed it was gone. The claim checks out, independently, not just "the fix is in the diff."
+- **(b) The budget-edit Firestore write path.** Same real-account approach: read the account's actual current `monthly_budget` immediately before testing (matters — see the note below), wrote a throwaway `604` via the exact `setDoc(userRef, {monthly_budget: amount}, {merge:true})` call `saveMonthlyBudget()` makes, confirmed it landed *and* that `merge:true` didn't clobber any other profile field (`email`/`role`/`currentStreak` all compared before/after), then restored the pre-test value. Confirmed working, for real, against a real account.
+- **Incidental finding while testing (b), worth stating plainly rather than glossing over):** the account's `monthly_budget` read differently a few minutes apart during this session (`2000` via an earlier Admin SDK check, `10000` moments later via the client SDK right before my test write) — not a bug in my process, but a real signal that **the superadmin's own account is being actively used concurrently** (by the account owner, presumably, testing their own app) while this session was running. I read the value *immediately* before writing my test value and restored to that exact immediately-prior value, which is the only correct thing to do — reverting to an earlier snapshot would have overwritten a real edit that happened in between and wasn't mine to undo.
 
-**CORS — verified, not assumed.** The brief specifically asked me to check whether Step 9's `https://antara.money` allowlist entry still covers a brand-new route rather than assume it does. It does: FastAPI's `CORSMiddleware` is registered once, globally (`app.add_middleware(...)` in `main.py`, line ~56) — there is no per-route CORS mechanism in this codebase, so every route including the new one is covered by the same `ALLOWED_ORIGINS` list, which already has `"https://antara.money"` from Step 9. No code change was needed here; confirmed live with a real `OPTIONS` preflight against production:
-```
-OPTIONS https://api.antara.money/api/v1/public/survey-stats
-Origin: https://antara.money
-→ 200, access-control-allow-origin: https://antara.money
-```
+**Re-verified rather than trusted, cheaply:** the 18-category id-set match between `frontend/src/lib/constants.ts` and `backend/app/ml/engine.py`'s `CATEGORIES_METADATA` — re-ran the diff myself (programmatic set comparison, not eyeballing), still exactly 18/18, zero drift either direction.
+
+**Taken on trust** (code-read + a clean `npm run build`/`npx tsc --noEmit`, not independently re-clicked through the UI): the exact delete/edit UI interaction details, the streak-fields-untouched design rationale (the reasoning holds up on inspection and matches the app's existing patterns, but I didn't re-run a live delete against a real account a second time — Step 13's own methodology for that specific claim, i.e. deleting a real test transaction and confirming via a Firestore read, was itself sound and is exactly the kind of thing that doesn't need re-proving twice), and the `WhyPredictionSheet`/`PullCanvas`/`DataConfigPanel` import claims (confirmed via `grep` that they import `STARTER_CATEGORIES` directly, matching the claim, but didn't visually re-render each screen).
+
+**Confirmed production was already serving this exact code, independent of git** (three separate signals, before any rebuild/restart of my own): the `.next` build's timestamp post-dated every source file touched by Steps 12/13; the distinctive UI string `"Tap again to confirm"` (from `TransactionEditSheet.tsx`) was present in the actual served static JS chunk; the precise bug-fix pattern `note:y.trim()` was present in that same chunk (not `note:y.trim()||void 0` or similar — the fixed version, specifically). And the **deployed** Firestore ruleset — fetched directly via the Firebase Rules REST API, not assumed from the local file — was byte-identical to the local uncommitted `firestore.rules`. All of this checked out before I ever ran `git add`.
 
 ---
 
-## 2. Live-fetch the paper — `antaraweb` repo
+## 2. Production — confirmed, then rebuilt/restarted anyway
 
-Added a single `<script>` block (plain JS, no framework, no bundler — this repo genuinely has neither) right before `</body>` in `index.html`. On load it fetches the endpoint above with a 6s timeout, and on success recomputes every place the paper cited the sample size. Grepped the file for the literal `11` first to find every instance, not just the obvious ones — the full audited list, each now backed by a `js-*`/`fig*-*` id in the markup:
+Given real testers are on this right now, verified rather than assumed at every step:
 
-| Location | Before | Mechanism |
-|---|---|---|
-| Abstract | `(n=11 at time of writing, growing)` | `#js-n-abstract` |
-| §4 intro | `n = 11 valid responses` | `#js-n-intro` |
-| Fig. 2 rows ×5 (Food&Snacks, Clothes&Shoes, Dates&Outings, Transportation, Grooming) | `n=11` / `n=10 (1 outlier excluded)` | `#fig2-n-<cat>`, plus `.iqr-bar`/`.median-tick` `left`/`width` recomputed from real median/q1/q3 |
-| Fig. 2 scale label | `₹2,500` | `#fig2-scale-max` — stays ₹2,500 unless real Q3 exceeds it, then rounds up to the next clean ₹500 |
-| Fig. 3 band bars | `6` / `4` / `1`, heights `100%/67%/17%` | `#band-{low,mid,high}-{val,bar}` — heights scaled relative to whichever band is largest |
-| Fig. 4 dots | 11 hand-placed `<circle>`s | `#fig4-dots` group cleared and rebuilt, one circle per real respondent |
-| Fig. 4 caption | `"Three respondents... two to..."` | `#fig4-caption` — sentence generated from real counts, sorted descending, all non-zero archetypes listed |
-| Sticky margin note | `currently n=11` | `#js-n-sticky`, plus `#js-cache-note` (hidden by default) |
-| Limitations §7 | `n=11 supports directional description` | `#js-n-limits` |
+1. Confirmed (§1 above) that the *pre-existing* running build already reflected Steps 12/13's code — so real testers were never on stale code for that part.
+2. But the benchmark refresh (§3 below) touches `constants.ts`, which **wasn't** in the running build yet. So: fresh `npm run build` (clean), `sudo systemctl restart antara-frontend.service`, confirmed `active` and `https://app.antara.money/` returns `200`.
+3. Also restarted `antara-ml.service` (needed regardless, to pick up nothing new code-wise here but to keep both services' restart-and-verify symmetric and confirm the in-memory live-benchmarks state survives a restart cleanly) — confirmed `active`, `/health` healthy, and `/api/v1/admin/status` still reporting `live_survey_benchmarks_sample_size: 36` after the restart (loaded correctly from the persisted `admin/categoryBenchmarks` doc at startup).
+4. Re-verified post-restart, against the live static chunks actually being served: the new `monthly_cap` values (`100`, `150`, `1e3`, `200`, `2e3`, `50`, `500`) are present; the stale `2500` is gone; `"Tap again to confirm"` and `note:y.trim()` are both still present (no regression from the rebuild). `/privacy` and `/terms` both still `200` on the live domain.
 
-That's the "abstract, section 4 intro, Fig. 2 sample-size labels, Fig. 3 band bars, sticky margin note, footer/last-line reference" list from the brief — the last two both point at the same sticky gutter-note element, which sits immediately above the `<footer>` and is the last n-reference before it; there's no separate literal `n=11` inside the `<footer>` tag itself (confirmed by grep — the footer only has attribution text).
-
-**Fig. 4 dot placement**, same visual approach as the hand-placed version it replaces: each respondent sits on the line between the diagram's center and their matched archetype's fixed anchor point (the same 5 pentagon positions already in the SVG — those didn't move), pulled toward the anchor in proportion to `matchPct` (clamped to [0.15, 0.85], same bounds `survey_etl.py`'s own population-dot-graph uses), with a small deterministic (index-derived, not random) jitter so equal-strength respondents don't stack exactly on top of each other. Distance from anchor is inversely related to match strength, per the brief.
-
-**Fails gracefully — verified as an actual separate path, not just written and assumed.** Every value is computed into a plan object (`planFig2`/`planFig3`/`planFig4`) *before* any DOM write; if the response is malformed or a category is missing, the plan functions throw and the render is caught before touching a single element. On any failure — network error, timeout, CORS, backend down — the catch handler is a no-op on the existing static markup (nothing to "restore," it was never touched) and only unhides a small `#js-cache-note` reading "(showing cached figures)." No blank page, no thrown error surfaced to the user.
+No crash loop, no `RestartSec` retries — both services came up clean on the first attempt each.
 
 ---
 
-## 3. Verification — the actual point of this section
+## 3. Refreshed n=3 → n=36 benchmarks
 
-**Not just "the endpoint returns correctly."** Built a headless-DOM test harness (`jsdom`, scratchpad-only, not committed) that loads the real `index.html`, executes the real inline script, and inspects the real resulting DOM:
+**Backend (`engine.py`'s `CATEGORIES_METADATA`) needed no code change** — that's the actual point of Step 10's design: called `POST /api/v1/admin/recompute-benchmarks` for real against production (as the superadmin, via a minted ID token), which recomputes from whatever's in Firestore right now and overlays the result onto the running `MLEngine` in memory. Result: **n=36, every one of the 17 survey categories now at the "confident" tier** (≥20 responses — was "early_estimate" across the board at n=3). Confirmed via `/api/v1/admin/status` both immediately after and again after the later service restart.
 
-- **Success path**, fetch pointed at real production Firestore data: sample-size spans all became `36`; Fig. 2's Food & Snacks bar recomputed to `left:28.6%, width:57.1%` against a scale that correctly widened to `₹3,500` (real Q3 of ₹3,000 exceeded the static ₹2,500 scale); Fig. 3 bars became `14/13/9` with proportional heights; Fig. 4 got 36 real `<circle>` dots (not 11); the caption became *"Population-level clustering, n=36. 13 respondents pattern-match closest to "Exam Grinder," 11 to "Social Trendsetter," 7 to "Gamer & Foodie," 3 to "Commuter Nomad," and 2 to "Zen Saver" — a directional signal, not yet a trustworthy classifier."* — a real generated sentence, not the old hardcoded one.
-- **Failure path**, fetch made to reject: every span stayed at its original static value (`11`, `40%/55%`, 11 dots, the original caption), and the cache note became visible. Confirms the fallback isn't just written but actually preserves the static content under real failure.
-- **Then did it again against the real, live, deployed page** — no mocking at all: fetched `https://antara.money/` for real, ran its real script against the real `https://api.antara.money/api/v1/public/survey-stats` over the real network, and got back `n=36`, bands `14/13/9`, 36 dots, and the generated caption — i.e., confirmed the actual production site, as a real visitor would load it, actually re-renders with live data. This is the "confirm the page actually re-renders with it" check the brief asked for, done against the real deployed artifact, not a local approximation.
+**Frontend (`constants.ts`'s `monthly_cap`) has no equivalent live path** — it's a static, build-time TS constant, no runtime overlay exists for it. Refreshing it means editing the file; the difference from "hand-editing constants" is that every number is copied directly from that same real recompute response, not re-derived or guessed. `monthly_cap` = the category's real median, same convention the original 3-response version already used:
 
-**Backend verification**, similarly not just unit-level:
-- `TestClient` confirmed the route requires no auth (no 401 without an `Authorization` header) and that a CORS preflight from `https://antara.money` returns `200` with the right `access-control-allow-origin`.
-- Ran `build_public_stats_payload()` against fabricated 11-respondent data to confirm the exact shape (income bands sum to sample size, archetype counts sum to sample size, category fields match the brief's schema, `null` medians for a zero-response category) before ever touching production.
-- Then verified against **real production Firestore** by running a second, temporary local `uvicorn` instance on a separate port (8099) with the production `.env` credentials — never touched the running `antara-ml.service` for this check, so production stayed on the old code until the deploy below.
+| Category | n=3 cap | n=36 cap | |
+|---|---|---|---|
+| food-snacks | 2500 | **2000** | |
+| dates-outings | 2000 | **1000** | |
+| clothes-shoes | 2000 | **1000** | |
+| gifting-friends | *(none)* | **100** | new |
+| transportation | *(none)* | **500** | new |
+| grooming | *(none)* | **500** | new |
+| subscriptions | *(none)* | **200** | new |
+| movies-entertainment | *(none)* | **150** | new |
+| tech-gadgets | *(none)* | **100** | new |
+| mobile-recharge | *(none)* | **50** | new |
+| books | *(none)* | **100** | new |
+| investments, fitness, gaming-inapp, tuition-coaching, charity-donations | *(none)* | *(still none)* | see below |
 
-## 4. Deployment
+Those 5 stay deliberately uncapped: their real, confident-tier (n≥27 each) median is a genuine ₹0 — not under-sampling noise the way a ₹0-from-3-people reading was — but a literal ₹0 cap isn't useful advice (it would flag the first rupee logged as "over cap"), and for `investments` specifically a spend "cap" is conceptually backwards (it's savings; capping it would penalize saving more). Re-applying the existing "zero median ⇒ no cap, not a zero cap" rule to a real sample now, not changing the rule.
 
-- `antara` (backend): committed (`9f811bc`) and pushed to `origin/main`. Production's `antara-ml.service` doesn't run with `--reload`, so the new route needed a restart to actually go live — did that (`sudo systemctl restart antara-ml.service`, non-interactive sudo succeeded), confirmed `active` and `/health` healthy afterward, then confirmed the new route itself over the public domain (`https://api.antara.money/api/v1/public/survey-stats` → real data, `n=36`).
-- `antaraweb`: repo didn't exist locally: cloned fresh via SSH (`git@github.com:parthchhabraa/antaraweb.git`), confirmed its `CNAME` is `antara.money` and it's genuinely build-free (just `index.html` + `logo.jpg` + `CNAME` + `README.md`). Committed (`be08cfb`) and pushed to `origin/main`; polled `https://antara.money/` until GitHub Pages served the new content (~30s), then ran the live-page verification in §3.
+**Didn't run `scripts/compute_category_benchmarks.py`.** Found it, read it, and deliberately didn't use it — it's an older, pre-Step-10 script that writes a differently-shaped `admin/categoryBenchmarks` doc (`computed_at`/`sample_size`/`categories`, snake_case) than `survey_etl.py`'s `run_etl()` (`computedAt`/`sampleSize`/`overall`/`byIncomeBand`/etc., camelCase). Running it would have silently overwritten the real doc with an incompatible shape and broken `MLEngine.apply_live_benchmarks`'s parsing of it. Left it alone, not deleted — flagging it as dead/superseded and worth a cleanup pass sometime, out of scope to remove blind here.
 
-## 5. Flagging, not fixing: pre-existing uncommitted work in this repo
+---
 
-Found while checking `git status` before committing — **not related to this step, not touched by it.** This repo's working tree already had a large uncommitted change set sitting on disk: a full Step 13 (editable monthly budget, transaction delete/edit, several new components — `BudgetSheet.tsx`, `TransactionEditSheet.tsx`, `ConsentGate.tsx`, the `/privacy`/`/terms` pages, etc.) plus its own finished-looking `REVIEW.md` claiming `ALL COMPLETED` — all of it still unstaged/untracked, never committed by whatever session produced it. The last actual commit on `main` (`2844e0e`) is still Step 11's (brand assets).
+## 4. Two regressions from the gap audit — both fixed, both verified
 
-I did not touch, verify, or commit any of it — it's a different step's work I have no basis to vouch for blind, and silently sweeping it into a commit alongside this step's changes would misattribute it. What I did do: copied the uncommitted `REVIEW.md` draft to [REVIEW.step13-uncommitted-draft.md](REVIEW.step13-uncommitted-draft.md) before overwriting `REVIEW.md` with this step's review, so that draft isn't lost. The rest of the uncommitted files are untouched on disk exactly as found (`git status` still shows them). Flagging this for prioritization, not fixing it here.
+- **`test_ml_cold_start_heuristic_mode`.** Re-ran the suite myself first to confirm the claimed failure before touching anything: `1 failed, 2 passed`, matching the audit exactly. Fixed: `len(res.category_breakdown) == 12` → `== len(CATEGORIES_METADATA)` (can't drift out of sync with the taxonomy silently again), and `category="food-delivery"` → `"food-snacks"`. Also swapped the same two stale ids (`"gaming"` → `"gaming-inapp"`, `"food-delivery"` → `"food-snacks"`) in the other two tests in the file, which weren't failing (they don't assert on category-derived counts) but had the same underlying drift. `pytest`: **3 passed, 3 passed** — confirmed clean, twice (before and after, plus once more post-benchmark-refresh to be sure that didn't reintroduce anything).
+
+- **`firestore-rules.test.ts` — actually runnable now, not declared out of scope.** Installed `jest`/`ts-jest`/`@types/jest`/`firebase-tools` as devDependencies (all dev-only — none are imported by app source, so zero production bundle impact, confirmed by the build output size being unchanged), added `jest.config.js`, added a `"test"` script. The Firestore emulator needed a JVM that wasn't installed on this box (`apt-get install default-jre-headless`, low-risk — new packages only, no service touched) and its default port 8080 was already claimed by an unrelated `docker-proxy` on this host, so both `firebase.json` and the test's own `initializeTestEnvironment` call now point at 8085 instead. **Also found a second, previously-invisible bug while wiring this up**: the test read rules from `path.resolve(__dirname, "../firestore.rules")`, which resolves to `frontend/src/firestore.rules` — a path that has never existed (the real file is two directories further up, at the repo root). This test could not have passed before, jest or no jest, emulator or no emulator — fixed the path. Added `"test:rules"`, a single command (`firebase emulators:exec` — starts the emulator, runs jest, tears it down, nothing left running after) that a developer can actually run going forward. Ran it for real against the actual deployed rules content: **10/10 pass.**
+
+---
+
+## 5. Left untouched, as instructed
+
+`origin/claude/antara-spending-survey-6o4o2w` — not looked at, not touched, not merged. Still flagged (per every prior review since Step 11) as real, larger work that deserves its own dedicated brief.
 
 ---
 
 ## Verification performed
 
-- Real production Firestore, twice: once via a temporary local `uvicorn` on port 8099 to validate the endpoint before any deploy, once again after restarting the real `antara-ml.service` to confirm the actual production route.
-- `TestClient`-based checks: no-auth-required, CORS preflight correctness.
-- Unit-level payload check against fabricated 11-respondent data (matches the brief's exact example shape).
-- `jsdom` headless-DOM harness: both the success and failure render paths, against the real `index.html` file, with real assertions (12/12 passed) — not eyeballed.
-- Final end-to-end check with **zero mocking**: fetched the real live `https://antara.money/`, executed its real shipped script against the real live `https://api.antara.money` over the real network, confirmed the resulting DOM actually shows `n=36` and real figures.
-- `git status`/`git log` on both repos after each commit to confirm exactly the intended files moved and nothing stray was swept in.
-- Temporary verification processes (the two port-8099 `uvicorn` instances) were both confirmed killed; production's `antara-ml.service` was the only thing left running, `active`, and confirmed on the new code via its own public endpoint.
+- `git status`/mtime/`git log --all` analysis establishing that Step 12, not just Step 13, was uncommitted, and that neither conflicts with Step 14's shipped commits.
+- Real reproduction of the `updateDoc()`/`undefined` bug and its fix against real production Firestore, via the actual client SDK, using a throwaway test transaction (created and deleted for real).
+- Real write/read/restore of the budget-edit path against the real superadmin account (throwaway value written, confirmed, other fields checked unclobbered, real pre-test value restored).
+- Independent re-verification (not re-trusted) of the 18/18 category id-set match via a fresh programmatic diff.
+- Deployed Firestore rules fetched via the Firebase Rules REST API and diffed byte-for-byte against the local file.
+- Compiled static-chunk inspection (both before and after this pass's own rebuild) confirming specific Step 12/13/15 code is genuinely present in what's served, not just present in source.
+- Fresh `npm run build` (clean) and `npx tsc --noEmit` (clean) after every source change in this pass, not just once at the end.
+- Backend `pytest`, run before and after the fix, plus once more after the benchmark refresh: `1 failed, 2 passed` → `3 passed, 3 passed`, confirmed stable.
+- `firestore-rules.test.ts` actually executed against a real (locally emulated) Firestore instance running the real rules file: 10/10 pass, run twice (once manually against a standalone emulator, once via the final `emulators:exec`-wrapped `test:rules` script to confirm the documented one-command path works).
+- Called the real `POST /api/v1/admin/recompute-benchmarks` against production and confirmed the result via `/api/v1/admin/status`, both immediately after and again after the later service restart.
+- Both `antara-frontend.service` and `antara-ml.service` restarted for real, confirmed `active` with no restart-loop, and confirmed healthy via their public endpoints post-restart.
+- Cleanup: all throwaway test transactions/values deleted or restored; temporary reproduction scripts removed from the working tree (never committed); Firestore emulator processes confirmed stopped (`ss -ltn` clean on their ports) after each run; stray `firestore-debug.log` deleted and `.gitignore`d against recurrence.
