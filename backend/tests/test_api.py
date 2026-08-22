@@ -1,14 +1,14 @@
 import pytest
 from datetime import datetime, timedelta
-from app.ml.engine import MLEngine
+from app.ml.engine import MLEngine, CATEGORIES_METADATA
 from app.schemas import TransactionItem
 
 def test_ml_cold_start_heuristic_mode():
     # User with only 2 days of transactions (less than 14 days threshold)
     now = datetime.utcnow()
     transactions = [
-        TransactionItem(amount=350.0, category="food-delivery", note="Swiggy pizza", timestamp=now),
-        TransactionItem(amount=120.0, category="food-delivery", note="Chai & Samosa", timestamp=now - timedelta(days=1)),
+        TransactionItem(amount=350.0, category="food-snacks", note="Swiggy pizza", timestamp=now),
+        TransactionItem(amount=120.0, category="food-snacks", note="Chai & Samosa", timestamp=now - timedelta(days=1)),
         TransactionItem(amount=299.0, category="mobile-recharge", note="Jio 1.5GB/day", timestamp=now - timedelta(days=2)),
     ]
 
@@ -19,7 +19,14 @@ def test_ml_cold_start_heuristic_mode():
     assert res.confidence_score <= 0.55
     assert res.last_retrained_at is None
     assert any("Early estimate" in ins for ins in res.smart_insights)
-    assert len(res.category_breakdown) == 12
+    # Step 15 — was a hardcoded `== 12`, stale since Step 9's 18-category
+    # realignment (this broke silently and went unnoticed until Step 13's
+    # gap audit actually ran the suite). category_breakdown has one entry
+    # per CATEGORIES_METADATA key by construction (engine.py's
+    # calculate_spend_predictions iterates that dict directly), so asserting
+    # against its real length can't drift out of sync with the taxonomy
+    # again the way a hardcoded number just did.
+    assert len(res.category_breakdown) == len(CATEGORIES_METADATA)
 
 def test_ml_trained_embedding_mode():
     # User with 18 days of transactions spanning multiple categories
@@ -29,7 +36,7 @@ def test_ml_trained_embedding_mode():
         transactions.append(
             TransactionItem(
                 amount=100.0 + (i * 20),
-                category="gaming" if i % 2 == 0 else "food-delivery",
+                category="gaming-inapp" if i % 2 == 0 else "food-snacks",
                 note=f"Day {i} activity",
                 timestamp=now - timedelta(days=18 - i)
             )
@@ -47,8 +54,8 @@ def test_ml_dot_graph_cold_start_vs_trained():
     now = datetime.utcnow()
     # Cold start graph
     cold_txs = [
-        TransactionItem(amount=450.0, category="gaming", timestamp=now),
-        TransactionItem(amount=300.0, category="food-delivery", timestamp=now - timedelta(days=1))
+        TransactionItem(amount=450.0, category="gaming-inapp", timestamp=now),
+        TransactionItem(amount=300.0, category="food-snacks", timestamp=now - timedelta(days=1))
     ]
     cold_graph = MLEngine.generate_dot_graph("cold_user_2", cold_txs)
     assert cold_graph.is_cold_start is True
@@ -57,7 +64,7 @@ def test_ml_dot_graph_cold_start_vs_trained():
 
     # Trained graph (>14 days)
     mature_txs = [
-        TransactionItem(amount=150.0, category="gaming", timestamp=now - timedelta(days=d))
+        TransactionItem(amount=150.0, category="gaming-inapp", timestamp=now - timedelta(days=d))
         for d in range(16)
     ]
     mature_graph = MLEngine.generate_dot_graph("mature_user_2", mature_txs)

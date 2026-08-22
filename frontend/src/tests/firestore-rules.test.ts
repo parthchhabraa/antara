@@ -11,8 +11,13 @@ describe("Firestore Security Rules Tests", () => {
   let testEnv: RulesTestEnvironment;
 
   beforeAll(async () => {
+    // Step 15 — was `"../firestore.rules"`, which resolves to
+    // frontend/src/firestore.rules: never existed. The real file is at the
+    // repo root (../../../ from src/tests/), two directories further up
+    // than this pointed at — this file could never have actually run
+    // before now, jest or no jest, emulator or no emulator.
     const rules = fs.readFileSync(
-      path.resolve(__dirname, "../firestore.rules"),
+      path.resolve(__dirname, "../../../firestore.rules"),
       "utf8"
     );
     testEnv = await initializeTestEnvironment({
@@ -20,7 +25,12 @@ describe("Firestore Security Rules Tests", () => {
       firestore: {
         rules,
         host: "127.0.0.1",
-        port: 8080,
+        // Step 15 — was 8080, which is already bound by an unrelated
+        // service on this box (a docker-proxy, per `ss -ltnp`); this test's
+        // own port choice shouldn't have to know or care what else is
+        // running here, so it's pinned to the less commonly-claimed 8085
+        // instead, matching firebase.json's emulator config.
+        port: 8085,
       },
     });
   });
