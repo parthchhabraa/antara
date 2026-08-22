@@ -27,15 +27,24 @@ import { Category, Transaction } from "@/types";
 // Kept, not in the survey at all: miscellaneous (catch-all safety net).
 //
 // benchmark_pct/median_spend_inr for the ML engine (backend/app/ml/engine.py)
-// and `monthly_cap` below are now real numbers computed from actual survey
-// responses (scripts/compute_category_benchmarks.py) — no longer guessed —
-// but as of this pass that's only **3 responses**. Categories where those 3
-// respondents happened to report ₹0 (mobile-recharge, books, fantasy-betting,
-// tuition-coaching) deliberately have no `monthly_cap` here still: a ₹0
-// median from 3 people is under-sampling, not a real "nobody spends here"
-// signal, and setting a cap of ₹0 would flag literally the first rupee
-// logged as "over cap." Re-run the compute script and update both files as
-// more survey responses come in.
+// and `monthly_cap` below are real numbers computed from actual survey
+// responses — no longer guessed. Refreshed 2026-08-22 (Step 15) against
+// n=36 (every category now at the "confident" tier, ≥20 responses) via
+// backend/app/ml/survey_etl.py's real compute path — the same Step 10
+// admin/dataConfig recompute mechanism the backend's live benchmarks use
+// (POST /api/v1/admin/recompute-benchmarks), not scripts/
+// compute_category_benchmarks.py (an older, pre-Step-10 script that writes
+// a differently-shaped admin/categoryBenchmarks doc — superseded, left
+// alone, not run this pass to avoid clobbering survey_etl.py's schema).
+// `monthly_cap` is still set to the category's real median (same
+// convention the original 3-response version used, just re-applied to a
+// real sample now) EXCEPT where the real, confident-tier median is
+// genuinely ₹0 — investments, fitness, gaming-inapp, tuition-coaching, and
+// charity-donations all report a true ₹0 median at n≥27 each, not
+// under-sampling noise anymore, but a ₹0 cap still isn't useful "spend
+// advice" (it would flag literally the first rupee logged as over cap), so
+// those categories deliberately stay uncapped. Re-run the recompute
+// endpoint and refresh both files again as the sample keeps growing.
 export const STARTER_CATEGORIES: Category[] = [
   {
     id: "food-snacks",
@@ -46,7 +55,7 @@ export const STARTER_CATEGORIES: Category[] = [
     subcategories: ["Swiggy/Zomato", "Street Food/Chaat", "Chips & Cold Drinks", "Cafe & Snacks", "Groceries"],
     is_essential: false,
     description: "Daily food, drinks, snacks, deliveries, and chai/tiffin.",
-    monthly_cap: 2500 // survey median, n=3
+    monthly_cap: 2000 // survey median, n=36 (Step 15, was 2500 at n=3)
   },
   {
     id: "dates-outings",
@@ -57,7 +66,7 @@ export const STARTER_CATEGORIES: Category[] = [
     subcategories: ["Cafes/Restaurants Together", "Outing Tickets"],
     is_essential: false,
     description: "Spending on dates or outings with friends — separate from solo food or movies.",
-    monthly_cap: 2000 // survey median, n=3
+    monthly_cap: 1000 // survey median, n=36 (Step 15, was 2000 at n=3)
   },
   {
     id: "clothes-shoes",
@@ -68,7 +77,7 @@ export const STARTER_CATEGORIES: Category[] = [
     subcategories: ["Myntra/Ajio/Urbanic", "Thrifting/Streetwear", "Sneakers", "Watches/Jewelry"],
     is_essential: false,
     description: "Clothing, sneakers, streetwear, and style accessories.",
-    monthly_cap: 2000 // survey median, n=3
+    monthly_cap: 1000 // survey median, n=36 (Step 15, was 2000 at n=3)
   },
   {
     id: "gifting-friends",
@@ -78,7 +87,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#EAB308",
     subcategories: ["Birthday Gifts", "Lent to a Friend", "Splitting a Bill Upfront", "Festival Gifting"],
     is_essential: false,
-    description: "Cash, UPI, or gifts to friends — lending, splitting a bill, or giving something for an occasion."
+    description: "Cash, UPI, or gifts to friends — lending, splitting a bill, or giving something for an occasion.",
+    monthly_cap: 100 // survey median, n=36 (Step 15, new — n=3 was too thin to set one)
   },
   {
     id: "fitness",
@@ -88,6 +98,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#84CC16",
     subcategories: ["Gym Membership", "Sports Gear", "Fitness Classes", "Protein Powder & Supplements"],
     is_essential: false,
+    // No monthly_cap: real median (n=36, confident tier) is ₹0 — see the
+    // header comment above for why that stays uncapped rather than capped at 0.
     description: "Gym memberships, sports gear, fitness classes, and supplements."
   },
   {
@@ -98,7 +110,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#06B6D4",
     subcategories: ["Metro SmartCard", "Auto/Rickshaw", "Uber/Ola", "Bus Pass", "Fuel/Scooty"],
     is_essential: true,
-    description: "Daily commute, public transport, cabs, and fuel."
+    description: "Daily commute, public transport, cabs, and fuel.",
+    monthly_cap: 500 // survey median, n=36 (Step 15, new — n=3 was too thin to set one)
   },
   {
     id: "grooming",
@@ -108,7 +121,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#A855F7",
     subcategories: ["Salon & Haircut", "Skincare & Grooming", "Pharmacy & Health"],
     is_essential: false,
-    description: "Skin, hair, grooming products, and haircuts."
+    description: "Skin, hair, grooming products, and haircuts.",
+    monthly_cap: 500 // survey median, n=36 (Step 15, new — n=3 was too thin to set one)
   },
   {
     id: "subscriptions",
@@ -120,7 +134,8 @@ export const STARTER_CATEGORIES: Category[] = [
     // undermined the "category colors are a separate palette" rule this file otherwise follows.
     subcategories: ["Spotify/Apple Music", "Netflix/Prime", "YouTube Premium", "Discord Nitro", "Cloud Storage"],
     is_essential: false,
-    description: "Monthly entertainment, audio, and streaming subscriptions."
+    description: "Monthly entertainment, audio, and streaming subscriptions.",
+    monthly_cap: 200 // survey median, n=36 (Step 15, new — n=3 was too thin to set one)
   },
   {
     id: "movies-entertainment",
@@ -130,7 +145,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#F59E0B",
     subcategories: ["Movie Tickets", "Events/Concerts", "One-off Rentals"],
     is_essential: false,
-    description: "Movie tickets, events, and one-off entertainment — separate from monthly OTT subscriptions."
+    description: "Movie tickets, events, and one-off entertainment — separate from monthly OTT subscriptions.",
+    monthly_cap: 150 // survey median, n=36 (Step 15, new — n=3 was too thin to set one)
   },
   {
     id: "tech-gadgets",
@@ -140,7 +156,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#0EA5E9",
     subcategories: ["Earphones/Headphones", "Phone Case & Accessories", "Chargers & Cables", "Small Electronics"],
     is_essential: false,
-    description: "Gadgets, accessories, and small electronics purchases."
+    description: "Gadgets, accessories, and small electronics purchases.",
+    monthly_cap: 100 // survey median, n=36 (Step 15, new — n=3 was too thin to set one)
   },
   {
     id: "gaming-inapp",
@@ -150,6 +167,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#EC4899",
     subcategories: ["BGMI UC", "Valorant Points", "PlayStore Top-up", "Steam Games", "Skins & Passes"],
     is_essential: false,
+    // No monthly_cap: real median (n=36, confident tier) is ₹0 — see the
+    // header comment above for why that stays uncapped rather than capped at 0.
     description: "In-game currency, battle passes, game purchases, and skins."
   },
   {
@@ -160,6 +179,9 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#22C55E",
     subcategories: ["Emergency Fund", "Digital Gold", "Mutual Funds/SIP", "Pocket Money Savings"],
     is_essential: true,
+    // No monthly_cap: real median (n=36, confident tier) is ₹0, and this
+    // category conceptually shouldn't have a spend "cap" at all — capping
+    // savings would penalize saving more, the opposite of the intent.
     description: "Money set aside, recurring deposits, or teen investment."
   },
   {
@@ -170,6 +192,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#F472B6",
     subcategories: ["Temple/Religious Donations", "NGO/Charity Drives", "Crowdfunding"],
     is_essential: false,
+    // No monthly_cap: real median (n=36, confident tier) is ₹0 — see the
+    // header comment above for why that stays uncapped rather than capped at 0.
     description: "Religious donations, charity drives, and crowdfunding contributions."
   },
   {
@@ -180,7 +204,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#3B82F6",
     subcategories: ["Jio/Airtel/Vi Prepaid", "Add-on Data Packs", "Family Plan", "Hotspot"],
     is_essential: true,
-    description: "Mobile plans, data top-ups, and connectivity."
+    description: "Mobile plans, data top-ups, and connectivity.",
+    monthly_cap: 50 // survey median, n=36 (Step 15, new — n=3 previously reported ₹0, too thin to trust)
   },
   {
     id: "books",
@@ -190,7 +215,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#14B8A6",
     subcategories: ["Notebooks & Pens", "Reference Books", "Photocopy/Printouts", "Novel/Manga"],
     is_essential: true,
-    description: "Notebooks, stationery, textbooks, and reading."
+    description: "Notebooks, stationery, textbooks, and reading.",
+    monthly_cap: 100 // survey median, n=36 (Step 15, new — n=3 previously reported ₹0, too thin to trust)
   },
   {
     id: "fantasy-betting",
@@ -200,6 +226,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#EF4444",
     subcategories: ["Dream11/Fantasy Sports", "Online Betting/Poker"],
     is_essential: false,
+    // No monthly_cap: real median (n=36, confident tier) is ₹0 — see the
+    // header comment above for why that stays uncapped rather than capped at 0.
     description: "Fantasy sports entries and online betting."
   },
   {
@@ -210,6 +238,8 @@ export const STARTER_CATEGORIES: Category[] = [
     color: "#10B981",
     subcategories: ["Coaching Installments", "Mock Tests & Series", "Exam Application Fees", "Online Courses"],
     is_essential: true,
+    // No monthly_cap: real median (n=36, confident tier) is ₹0 — see the
+    // header comment above for why that stays uncapped rather than capped at 0.
     description: "Tuition, competitive exam prep, registrations, and courses."
   },
   {
