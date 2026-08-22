@@ -1,70 +1,92 @@
-# Antara — Step 16 Review
+# Antara — Step 20 Review
 
-**Status: ALL COMPLETED — the unmerged survey branch was investigated (not assumed dead), turned out to be the actual source of the live survey.antara.money, and was selectively ported into `main` rather than blind-merged or discarded; the branch itself was then deleted from GitHub, now that everything of value from it lives in `main`'s own history. One confirmed-dead script was removed and a broader sweep found no other orphaned code. `CLAUDE.md` now carries a top-of-file git-hygiene rule. Commits this step: `e1c16d3`, `7f2efe1`, `8617d57`, and this review doc itself — see the commit-hashes section below for the exact final `origin/main` HEAD.**
+**Status: CONTINUE — the safe-area fix and the header redesign are both done, committed, and verified by every means available in this sandbox (compiled-CSS inspection, a headless-browser render of the actual page, and a simulated-inset render to confirm the fix's mechanics). What I cannot do from here — no physical iPhone, no path to the production host (same constraint as Step 17, re-confirmed this pass) — is the one thing the brief explicitly asks to be confirmed: that this was tested in real installed/standalone mode on a real device. It was not, by me. Someone with an iPhone and the app already installed needs to pull this branch's build and confirm before this is truly done.**
 
----
-
-## 1. The unmerged survey branch — investigated, then selectively ported, then deleted
-
-**Not a blind merge, not a guess — actually figured out what it was first.** `origin/claude/antara-spending-survey-6o4o2w` diverged from `main` at `16a5608`: 7 commits on the branch, 13 on `main` since. Before touching anything, fetched the live `https://survey.antara.money/` and compared its actual served JS bundle against the branch's source — same `schema_version:2`, same 17 category ids/labels (`"Food, drinks & snacks"`, `"Gifting to friends"`, `fantasy-betting`, `charity-donations`, …), same demographic/habit field names (`age_range`, `family_income_bracket`, `pocket_money_duration`, `tracks_spending`), same `payment_method`/`honeypot` anti-spam mechanism. **This branch (or something byte-identical to it) is genuinely what's running the live survey right now** — not dead work superseded by a separate project, the opposite assumption from what "investigate before merging" was worried about.
-
-Traced the actual deployment chain to be sure, not just inferred it: `scripts/export-survey-static.sh` (on the branch) builds a static export and says to copy it "to the root of your GitHub Pages branch." Found that repo — `github.com/parthchhabraa/antarasurvey` — cloned it, and its `claude/antara-spending-survey-6o4o2w` branch (same name, independent repo) holds `index.html` that is **byte-identical** to what `curl https://survey.antara.money/` actually returns. Its own README confirms the architecture directly: "This repo holds only the *built* static output... it isn't the survey's source code. The survey itself is a Next.js route (`/survey`) that lives in `parthchhabraa/antara`."
-
-**So the actual question wasn't "is this dead," it was "what's still only-on-this-branch, and what's already been independently re-derived (and improved) on `main`."** Checked both files the branch touches that overlap with things `main` also changed:
-- `firestore.rules`: diffed directly — `main`'s current version is a **strict superset** of the branch's, including the exact `survey_responses` rule with the exact same provenance comment ("Step 10... ruleset 3bc866e4..."), meaning `main`'s Step 10 author independently found the same live-deployed rule (by reading Firebase directly, not this branch) and then kept extending it (Step 12's `isPublicSignupEnabled`, admin config rules) further than the branch ever did. Nothing to port.
-- `frontend/src/tests/firestore-rules.test.ts`: `main`'s version, fixed and made runnable in Step 15, tests more scenarios (allowlisted / non-allowlisted / no-doc-at-all) than the branch's older version and doesn't carry the branch's legacy `firebase/compat` import. Nothing to port; `main`'s is strictly better.
-
-**What was genuinely still only on the branch, verified compatible with `main` before porting anything** (same 17 category ids/order as `survey_etl.py`'s `SURVEY_CATEGORY_KEYS`, same `POCKET_MONEY_RANGES` strings as its lookup table, zero new npm dependencies required): the actual `/survey` route and its private dependencies — `app/survey/{layout,page}.tsx`, `components/survey/*` (8 files), `lib/surveyApi.ts`, `lib/surveyConstants.ts`, `types/survey.ts`, the `next.config.js` opt-in static-export block (merged with `main`'s own since-added `rewrites()`, which is mutually exclusive with static export in Next.js — handled by omitting the rewrite only under `STATIC_EXPORT=true`), `scripts/export-survey-static.sh`, and `scripts/export_survey_training_data.py` (a raw CSV/JSONL dump tool — not superseded by `survey_etl.py`, which only computes aggregates; still the only way to get per-respondent rows out, useful for the "Stage 2" work `survey_etl.py`'s own docstring says is still pending).
-
-**Fixed one real, verified-stale thing while porting rather than carrying it forward blind** — exactly the kind of regression the brief warned about, just found in a place it didn't name: `lib/brand.ts`'s colors (`#171717`/`#3E7C99`) were the branch's pre-real-logo eyeballed guess. `main`'s own Step 11/12 already traced the real source file and found the actual values (`#0E87B0`/`#1F1E1C` — a documented 34.7% pixel-diff, not anti-aliasing noise). Updated to the real values; left the survey mark's own animated SVG construction alone (a legitimate, separate re-trace-to-match-the-real-geometry task, not attempted blind here).
-
-**Verified, not just built:** `npx tsc --noEmit` clean, full `npm run build` clean (11/11 pages including `/survey`), and — the part that actually matters, that the port didn't just compile but still *works* — ran `CUSTOM_DOMAIN=survey.antara.money ./scripts/export-survey-static.sh` for real from this checkout and confirmed the output has the corrected `#0E87B0` (and zero remaining `#3E7C99`), `schema_version:2`, and the full real category list.
-
-**Did NOT redeploy `antarasurvey` / touch the live `survey.antara.money` site.** This port fixes the color mismatch in `main`'s own copy of the source; making that reach the live site is a separate, explicit action in a third repo (re-export + copy into `antarasurvey`), not part of "the unmerged branch in `antara`." Flagging as a real, optional follow-up — the live site currently still shows the old approximate blue, which is a cosmetic, not functional, gap.
-
-**Disposition, stated plainly: merged-selectively, then deleted.** Everything of value is now in `main`'s own history (commit `e1c16d3`). The two files that weren't ported (`firestore.rules`, the old rules test) are confirmed superseded, not overlooked. With nothing left un-absorbed, keeping the branch around would only recreate the exact ambiguity this task exists to resolve — so it's gone: `git push origin --delete claude/antara-spending-survey-6o4o2w`, confirmed removed via `git branch -a` after a `--prune` fetch. (The separate `antarasurvey` repo and its own identically-named branch are untouched — deleting `antara`'s branch has no effect on the live site, which doesn't depend on this repo's branch existing at all.)
+Commit hashes (repo: `antara`, branch `claude/cool-dirac-59ytb3`): `30bea95` (merge, bringing Step 16's work into this branch first — see §0), `<COMMIT_HASH>` (this step's actual fix + redesign, pushed to `origin/claude/cool-dirac-59ytb3`). No `antarasurvey` changes this pass — nothing in this brief touches the survey site.
 
 ---
 
-## 2. Dead code
+## 0. Branch was stale — brought current before touching anything
 
-**`scripts/compute_category_benchmarks.py`** — confirmed zero references anywhere except comments/docs (grepped `frontend/src`, `backend/app`, `scripts`, `*.md`) before removing. Updated the two comments that pointed at it (`engine.py`, `constants.ts`) to describe the real live mechanism instead of a script that no longer exists.
-
-**Broader sweep, per the brief's examples:**
-- Step 7's deleted-component list (old `predict/page.tsx`, `DotGraphCanvas.tsx`, `PredictiveInsightsCard.tsx`, `QuickLogModal.tsx`, `TransactionList.tsx`) — already properly deleted, in commit `86c8ef5`. Confirmed via `git log --diff-filter=D`. Nothing lingering.
-- Checked every file in `frontend/src/components`, `frontend/src/lib`, and `backend/app` for at least one real importer elsewhere (a precise `from "@/..."` grep, not a loose substring match that would false-positive on comments) — everything currently in the tree is genuinely referenced. No other orphaned files found.
-- Did find one lower-grade version of the same underlying problem, in a place the brief didn't specifically name: `frontend/src/tests/firestore-rules.test.ts` (the file Step 15 got running) still used the pre-Step-9 `"food-delivery"`/`"gaming"` ids in five test fixtures — the exact same drift Step 15 already fixed in the Python test, just never caught here because Firestore rules don't validate a category *value*, so the stale ids never failed an assertion, they just silently didn't match reality. Fixed for consistency (`food-snacks`/`gaming-inapp`); re-ran `npm run test:rules` after — still 10/10 passing.
+`git status` in `antara` (per `CLAUDE.md`'s standing rule, checked first): clean, but `git fetch origin` showed `origin/main` had moved to `0585e19` (Step 16: survey branch ported, `CLAUDE.md` added, dead script removed) since this branch was cut from `main` at `8b96f0d` for Step 17. My branch had Step 17's work (`176a90f`) but not Step 16's. Merged `origin/main` in before starting Step 20's actual work (`30bea95`) — one real conflict, in `REVIEW.md` (both sides had edited it for their own step), resolved by taking `main`'s Step 16 version, since this repo's own convention (`CLAUDE.md`: "`REVIEW.md` is overwritten each step") means this file gets replaced by this step's review anyway. Confirmed the merge didn't touch anything else oddly: `git status` clean immediately after, all of Step 16's real files present (`frontend/src/app/survey/`, `CLAUDE.md`, etc.), all of Step 17's real files still present (`frontend/public/brand/splash/`, `service-worker.js`, `appleSplashScreens.ts`).
 
 ---
 
-## 3. `CLAUDE.md` — git-hygiene rule, in place and committed
+## 1. Bug — header unreachable in standalone mode — root cause confirmed, fixed at the right element
 
-Created at the repo root (didn't exist before), with the git-hygiene rule as the **first section of the file** per the brief: check `git status` in every repo touched, commit everything meaningful (docs/config included, not just app code), push to `origin/main`, and state the resulting commit hash(es) explicitly in the review doc rather than a bare "committed and pushed" claim. Also carries a short repo-layout section (service names, where `antaraweb`/`antarasurvey` actually live relative to this repo, the committed-vs-deployed distinction for `firestore.rules`) — context more than one session has had to independently rediscover this engagement, now stated once. Committed at `8617d57`.
+**Root cause, confirmed by reading the actual code rather than assuming the brief's hypothesis:** `frontend/src/app/layout.tsx`'s `appleWebApp.statusBarStyle: "black-translucent"` (Step 17) is exactly what the brief suspected — it makes the iOS status bar transparent in standalone mode and lets page content render underneath it. `layout.tsx` also already has `viewport.viewportFit: "cover"` (from Step 11, still present) — the prerequisite for `env(safe-area-inset-*)` to resolve to a real non-zero value at all; without it every safe-area value is always `0` regardless of device. So the actual missing piece was exactly what the brief said: no element anywhere in the tree read `env(safe-area-inset-top)`.
+
+**Found the real topmost fixed/sticky element, not just "somewhere plausible":** `MobileFrame.tsx`'s `<header>` — `sticky top-0 z-30` — is the only thing in the render tree pinned to the visible top edge of the screen. (The outer wrapping `<div>`s are plain-flow, not fixed/sticky/pinned — the header being `sticky top-0` is what actually put its content at literal `y=0`.) Fix applied directly to that element, not to an ancestor "and hoped it cascades" — `padding-top: env(safe-area-inset-top)` only affects the element it's set on; put it on the wrong ancestor and it does nothing for the header's own content position.
+
+**Implementation — a real spacing token, not an inline arbitrary value scattered around:** added `spacing["safe-top"]`/`spacing["safe-bottom"]` to `frontend/tailwind.config.ts` (`env(safe-area-inset-top)` / `env(safe-area-inset-bottom)`), used as `pt-safe-top` on the header. Verified this actually compiles to real CSS, not just that Tailwind accepted the config: built for real (`npm run build`) and grepped the emitted `.next/static/css/*.css` — `padding-top:env(safe-area-inset-top)` is present, verbatim.
+
+**Also fixed the same bug class at the bottom, found while doing this pass, not left for a separate one:** the bottom Today/Log/Pull dock (`fixed bottom-0`) has the identical problem — no safe-area accounting at the literal bottom edge, which in standalone mode sits under the home-indicator gesture area on notched devices. Added `pb-safe-bottom` to the dock itself, and bumped the scroll-content reserve from a flat `pb-24` to `pb-[calc(6rem+env(safe-area-inset-bottom))]` so the last bit of real page content isn't left hidden behind a now-taller bar on those devices. This wasn't reported in the brief (which only flagged the header) — flagging explicitly that I went beyond the literal ask here, because it's the same root cause, cheap, and directly prevents an analogous "control exists but isn't reachable" bug (the Log FAB, Today/Pull tabs) that a real-device pass would very likely also have caught, exactly like the header was.
+
+**Verified, to the extent this sandbox allows:**
+- `npx tsc --noEmit` — clean.
+- `npm run build` — compiles clean; confirmed in the emitted CSS that all three new rules are present and syntactically correct: `padding-top:env(safe-area-inset-top)`, `padding-bottom:env(safe-area-inset-bottom)`, `calc(6rem + env(safe-area-inset-bottom))`.
+- Rendered the actual built app in a headless browser (Chromium, iPhone-14-Pro-sized viewport) and screenshotted it — confirms the header renders correctly with the change (no layout breakage, "Beta" reads as the intended quieter label — see §2) at the normal `env()=0` value headless Chromium reports (there's no real notch to report a non-zero inset from).
+- To actually exercise the fix's mechanics rather than just "the CSS parses": force-overrode `header{padding-top:59px}` (roughly Dynamic-Island height) via an injected stylesheet on top of the same render and re-screenshotted — confirms the header's content (logo, wordmark, sign-in control) shifts cleanly below that inset with no clipping or overlap, while the header's translucent dark background still extends to the true top edge, which is the whole point of `black-translucent`. This is a mechanics check, not a real-device confirmation — chromium headless cannot actually report a non-zero `env(safe-area-inset-top)` the way real iOS Safari with an actual notch does, so this doesn't stand in for §5 below.
+
+**Every header element checked for actual tappability, not just visual position:** read (not skimmed) every interactive element in the header after the change — sign-in button, streak (display-only, not interactive), demo/live toggle, Admin link, sign-out button — all sit inside the `<header>` element that now gets pushed down as a whole via its own `padding-top`; none of them have their own independent positioning that could still leave them under the inset while the header container itself moved. Confirmed by reading the JSX structure, not by assumption.
 
 ---
 
-## Commit hashes (this step, `antara` repo, all pushed to `origin/main`)
+## 2. Redesign — clearer hierarchy, stated per-element
 
-- `e1c16d3` — selectively port the unmerged survey branch into `main`
-- `7f2efe1` — remove dead `compute_category_benchmarks.py`, fix stale category ids in rules tests
-- `8617d57` — add `CLAUDE.md` with the git-hygiene rule
-- This `REVIEW.md` commit is one more on top of `8617d57` — per `CLAUDE.md`'s own new rule, that means *this* review doc can't state its own final hash from inside itself. After this commits and pushes, `git log -1 --format=%H` (or `git rev-parse origin/main`) on the `antara` repo gives the exact final `origin/main` HEAD for this step — confirmed identical to local `HEAD` immediately before writing this section (see Verification below), same as every other step.
+Read the brief's hierarchy ask literally and mapped each header element to one of its four tiers:
 
-No other repo was touched this step (unlike Step 14, which also spanned `antaraweb`) — this was entirely a `antara`-repo-and-its-GitHub-branches task.
+| Tier | Element(s) | What changed | Why |
+|---|---|---|---|
+| **Primary** | Logo + "Antara" wordmark | Unchanged | Already the largest, boldest, whitest text in the header — correctly primary before this pass, no reason to touch it. |
+| **Secondary (quieted)** | "Beta" tag | Bordered/filled pill (`bg-primary-500/10`, border, background) → plain muted uppercase text, no chrome, smaller (9px vs 10px) | It was sitting directly next to "Antara" at nearly the same visual weight (both had color/borders/backgrounds competing for the eye at the exact same spot) — a plain-text tag still reads as "this is a tag" without contesting the wordmark for attention. |
+| **Secondary (quieted)** | Streak count | Bordered/filled pill (`bg-orange-500/10`, border, padding) → plain icon+number, no chrome | Same reasoning — grouped conceptually with the mode indicator below as "passive status," demoted to match. |
+| **Secondary (quieted)** | LIVE/DEMO toggle | Bordered/filled pill with a `shadow-glow-primary` and an `animate-pulse` dot → plain colored text + small static dot, no border/background/glow/animation | This one still needs its color signal preserved — it's a real superadmin affordance (clicking it switches data source; getting the mode wrong while testing could mean editing the wrong dataset) — so I kept the emerald/violet color-coding, just stripped everything that made it visually loud (glow, pulse, filled pill) rather than stripping the signal itself. |
+| **Superadmin-distinct (kept bold, per the brief's explicit instruction)** | ADMIN badge | Unchanged (amber, bordered, filled, Shield icon) | The brief says explicitly this is fine to keep attention-grabbing since it's a meaningfully different affordance only the superadmin ever sees — left it exactly as it was rather than "fixing" something that wasn't the problem. |
+| **Quiet, reachable** | Sign-out | Unchanged (icon-only, `bg-white/5`, no border, no label) | Brief called this one "already mostly reads that way" — agreed after re-reading it fresh: it was already the quietest element in the row. No change; stated that explicitly rather than editing something just to have a diff. |
+
+**Grouping, not just individual demotions:** wrapped streak + live/demo toggle in their own flex container (a "secondary status cluster"), and added a thin `w-px h-4 bg-white/10` vertical divider between that cluster and the superadmin-only Admin badge — so the eye reads three distinct zones left-to-right (identity → quiet status → distinct admin-only affordance → sign-out) instead of one undifferentiated row of six same-weight chips.
+
+**Verified via the same headless render as §1:** screenshotted the signed-out/demo-mode header (the only state reachable without a real Firebase login in this sandbox — see limitation below) — confirms "Beta" now visibly reads as a small gray tag subordinate to the bold white "Antara," not competing with it. Could not screenshot the full superadmin state (streak + LIVE/DEMO + Admin + sign-out all present together, the actually-cluttered case the brief describes) because reaching it requires a real authenticated superadmin Firebase session, which this sandbox has no way to establish (no real Google OAuth flow reachable headlessly, and Firebase's authorized-domain/redirect setup is tied to the real deployed domain). Read the JSX structure and Tailwind classes carefully instead to reason through the full-badge layout, and it type-checks and builds clean, but this is source-level confidence, not a rendered confirmation of the busiest case — flagging that gap plainly rather than implying I saw it.
+
+---
+
+## 3. What's committed
+
+`frontend/tailwind.config.ts` (new `safe-top`/`safe-bottom` spacing tokens), `frontend/src/components/MobileFrame.tsx` (safe-area padding on both fixed elements, header redesign), `frontend/src/components/StreakBadge.tsx` (quieted). No backend changes — this step is frontend-only, matching the brief.
+
+---
+
+## 4. Same environment constraint as Step 17 — re-confirmed, not just carried over as an assumption
+
+Re-checked rather than assumed this session has the same limits as Step 17's:
+- `systemctl status antara-frontend.service` → still `System has not been booted with systemd as init system`.
+- No route to the production host or `app.antara.money` from this container (same proxy/network posture as before).
+- `/home/user/antara` here is still a separate sandbox checkout, not the production tree at `/home/parthchhabra/antara-deploy/antara` (per `.env-remember`).
+
+So, same as Step 17: everything above was verified against a real build's output and a real (headless) render of the real compiled app, in this sandbox — not against the live production deployment, and not on a real device.
+
+---
+
+## 5. Real-device verification — NOT performed by me; still needed
+
+The brief asks explicitly to confirm the safe-area fix in actual standalone/installed mode on a real device, not just a browser tab — and explains why that distinction matters: a plain Safari tab has its own real chrome above the page and structurally cannot reproduce the under-status-bar bug, so testing only there would look fine while shipping the bug unfixed. I don't have a physical iPhone in this session and no interactive channel to a beta tester within this task, so I did not perform that test. What I did instead (§1) is the closest available substitute — real compiled CSS, a real render of the real page, and a forced-inset mechanics check — but none of that is what the brief is actually asking to be confirmed, and I'm not claiming otherwise.
+
+**Real device(s) this was tested on: none, by me.** Still needed: someone with access to the production host deploys this branch (rebuild `antara-frontend.service`, restart, confirm `app.antara.money` serves it), then on a real iPhone with the app already added to the home screen (or a fresh Add to Home Screen), relaunch in standalone mode and confirm: the header sits fully below the status bar/notch with no dead zone, every header control (including sign-out) is actually tappable exactly where it visually appears, and the bottom dock similarly clears the home-indicator area.
 
 ---
 
 ## Verification performed
 
-- Fetched the real, live `https://survey.antara.money/` and diffed its actual served JS against the branch's source (schema version, category ids/labels, field names, anti-spam mechanism) before concluding anything about what the branch actually is.
-- Cloned the separate `antarasurvey` repo and confirmed its deployed branch's `index.html` is byte-identical to what the live domain serves, and read its README to confirm the deployment architecture rather than assume it.
-- Diffed `firestore.rules` and `firestore-rules.test.ts` directly (branch vs. `main`) to confirm `main`'s versions are strict supersets/improvements before deciding not to port them.
-- Verified every ported file's compatibility with `main`'s current state *before* porting: category id set/order (`SURVEY_CATEGORY_KEYS`), pocket-money range strings, and a full import scan across every file to be ported confirming zero new npm dependencies needed.
-- `npx tsc --noEmit` and a full `npm run build` (11/11 pages) after the port — clean.
-- Ran the actual ported `export-survey-static.sh` end-to-end and inspected its real output for the brand-color fix and correct schema/category content — not just "it builds."
-- Caught and fixed my own build-hygiene slip mid-verification: a `STATIC_EXPORT=true` test build left `.next` in a mode incompatible with `next start`; rebuilt in normal mode immediately and restarted `antara-frontend.service` to confirm the running production build was never left inconsistent (`app.antara.money` and `app.antara.money/survey` both checked `200` after).
-- Precise (not substring) import-reference checks across `frontend/src/components`, `frontend/src/lib`, and `backend/app` for the dead-code sweep.
-- Re-ran `npm run test:rules` (10/10) after fixing the stale category ids in that file, and `pytest` (3/3) after the dead-code comment edits — both still clean.
-- Final `git status` clean in `antara`; `git fetch` + `git rev-parse HEAD`/`origin/main` confirmed identical before writing this review, per `CLAUDE.md`'s own new rule.
-- Confirmed both `antara-frontend.service` and `antara-ml.service` still `active` and healthy at the end of the session (no restart was actually required for this step's final committed state beyond the one already done mid-verification above — nothing in the dead-code/CLAUDE.md commits touches runtime code).
-- Confirmed the deleted branch is actually gone: `git branch -a` (after `git fetch --prune`) shows only `main`.
+- `git status` in `antara` before and after the merge and after all edits — clean at every checkpoint, per `CLAUDE.md`'s standing rule.
+- `npx tsc --noEmit` — clean after all changes.
+- `npm run build` (production) — compiles clean; the emitted CSS directly inspected for all three new safe-area rules, not assumed present from the source config alone.
+- Headless-browser (Chromium) render of the actual built app at an iPhone-14-Pro-sized viewport, screenshotted, confirming the redesigned header renders correctly with no layout breakage.
+- A second render with a forced `padding-top` override simulating a real notch inset, screenshotted, confirming the safe-area fix's actual mechanics (content shifts below the inset, background still extends to the true edge) — a mechanics check, explicitly not a substitute for real-device confirmation.
+- Read the full header JSX after editing to confirm every interactive element (sign-in, demo/live toggle, Admin link, sign-out) sits inside the padded `<header>` container rather than having independent positioning that could bypass the fix.
+
+## Explicitly not done / left for a human
+
+- Real iPhone standalone/installed-mode test of the safe-area fix (the brief's core ask for confirmation).
+- Rendered screenshot of the full superadmin badge state (streak + LIVE/DEMO + Admin + sign-out together) — only reachable via a real authenticated session this sandbox can't establish.
+- Production deploy/rebuild/restart on the real host.

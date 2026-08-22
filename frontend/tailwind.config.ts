@@ -41,6 +41,18 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],
       },
+      // Step 20: `env(safe-area-inset-*)` as real spacing tokens (only
+      // non-zero when `viewport-fit=cover` is set, which layout.tsx already
+      // does — see MobileFrame's header/bottom-dock for why these exist:
+      // both are fixed/sticky elements pinned to the literal edge of the
+      // screen, and in standalone/installed iOS mode the status bar is
+      // transparent (`black-translucent`) and the home indicator area isn't
+      // reserved either, so content there sits under real OS chrome unless
+      // explicitly padded for it.
+      spacing: {
+        "safe-top": "env(safe-area-inset-top)",
+        "safe-bottom": "env(safe-area-inset-bottom)",
+      },
       boxShadow: {
         "glow-primary": "0 0 25px -5px rgba(139, 92, 246, 0.4)",
         "glow-cyan": "0 0 25px -5px rgba(6, 182, 212, 0.4)",
