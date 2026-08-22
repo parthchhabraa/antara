@@ -2,7 +2,7 @@
 
 **Status: CONTINUE — the safe-area fix and the header redesign are both done, committed, and verified by every means available in this sandbox (compiled-CSS inspection, a headless-browser render of the actual page, and a simulated-inset render to confirm the fix's mechanics). What I cannot do from here — no physical iPhone, no path to the production host (same constraint as Step 17, re-confirmed this pass) — is the one thing the brief explicitly asks to be confirmed: that this was tested in real installed/standalone mode on a real device. It was not, by me. Someone with an iPhone and the app already installed needs to pull this branch's build and confirm before this is truly done.**
 
-Commit hashes (repo: `antara`, branch `claude/cool-dirac-59ytb3`): `30bea95` (merge, bringing Step 16's work into this branch first — see §0), `<COMMIT_HASH>` (this step's actual fix + redesign, pushed to `origin/claude/cool-dirac-59ytb3`). No `antarasurvey` changes this pass — nothing in this brief touches the survey site.
+Commit hashes (repo: `antara`, branch `claude/cool-dirac-59ytb3`): `30bea95` (merge, bringing Step 16's work into this branch first — see §0), `a28df3a` (this step's actual fix + redesign, pushed to `origin/claude/cool-dirac-59ytb3`). No `antarasurvey` changes this pass — nothing in this brief touches the survey site.
 
 ---
 
