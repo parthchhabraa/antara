@@ -13,6 +13,9 @@ build/
 dist/
 tsconfig.tsbuildinfo
 
+# scripts/export-survey-static.sh's default output dir (Step 16)
+publish/
+
 # OS and IDE files
 .DS_Store
 *.pem

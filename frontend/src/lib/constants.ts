@@ -32,10 +32,10 @@ import { Category, Transaction } from "@/types";
 // n=36 (every category now at the "confident" tier, ≥20 responses) via
 // backend/app/ml/survey_etl.py's real compute path — the same Step 10
 // admin/dataConfig recompute mechanism the backend's live benchmarks use
-// (POST /api/v1/admin/recompute-benchmarks), not scripts/
-// compute_category_benchmarks.py (an older, pre-Step-10 script that writes
-// a differently-shaped admin/categoryBenchmarks doc — superseded, left
-// alone, not run this pass to avoid clobbering survey_etl.py's schema).
+// (POST /api/v1/admin/recompute-benchmarks). Not scripts/
+// compute_category_benchmarks.py — an older, pre-Step-10 script that wrote
+// a differently-shaped admin/categoryBenchmarks doc; superseded, and
+// removed entirely in Step 16 (confirmed unreferenced first).
 // `monthly_cap` is still set to the category's real median (same
 // convention the original 3-response version used, just re-applied to a
 // real sample now) EXCEPT where the real, confident-tier median is
