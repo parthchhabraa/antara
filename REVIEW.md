@@ -1,96 +1,151 @@
-# Antara — Step 15 Review
+# Antara — Step 17 Review
 
-**Status: ALL COMPLETED — the recovered Step 12+13 work (public-signup toggle, legal pages, editable budget, transaction edit/delete) is now genuinely verified and committed, both regressions from the Step 13 gap audit are fixed, survey benchmarks are refreshed from n=3 to n=36, and production (both services) was rebuilt/restarted and confirmed healthy on all of it. The unmerged survey branch was left untouched, as instructed.**
-
-Commits this pass (all pushed to `origin/main`): `7700327` (Steps 12+13 recovery), `0d1fc55` (test regressions), `bcd187f` (benchmark refresh).
+**Status: CONTINUE — all the code-side iOS PWA work (meta tags, 12 real per-device splash screens generated from the actual logo mark, manifest audit, and an explicit offline decision + minimal app-shell service worker) is done, committed, and verified by build/output inspection in this sandbox. What's NOT done, and can't be from here: this session has no network path to the production host (`draftsmanbrain`) — `sudo systemctl`/`app.antara.money` are both unreachable from this container (confirmed, not assumed) — so nothing was deployed, and no real iPhone was available to me, so item 5's actual "Add to Home Screen" device test was not performed by me. Both need a human with access to the production box and a real iPhone.**
 
 ---
 
-## 1. Verifying the recovered work — what I checked myself vs. took on trust
+## 0. A different environment than Step 15's — stated plainly, not glossed over
 
-**Still on disk, still uncommitted, confirmed via `git status` before touching anything.** And it turned out to be bigger than "Step 13": the last real commit on `main` was Step 11's (`245ea39`/`2844e0e`) — **Step 12 was never committed either.** `ConsentGate.tsx`, `PublicSignupToggle.tsx`, `LegalPageLayout.tsx`, the `/privacy`/`/terms` pages, and the `firestore.rules` `isPublicSignupEnabled()`/`admin/launchConfig` additions are all untracked/modified files that post-date `245ea39` with no commit of their own — confirmed by `git log --all | grep -i "step 12"` (nothing) and by every one of those files' mtimes falling after the last real commit. The recovered `REVIEW.md` draft's own text assumes Step 12 already landed ("Step 12's ConsentGate," "Step 12: public-launch toggle") — that framing was wrong; it hadn't. Saying so plainly rather than committing it under a label that undersold what was actually being committed.
+Step 15's review describes running `sudo systemctl restart antara-frontend.service` directly and hitting `https://app.antara.money` from inside that session. I checked whether I have the same access before claiming anything about production, and I don't:
 
-**No conflict with Step 14.** Diffed file paths: Step 14 (`9f811bc`, `7ccf053`) touched only `backend/app/main.py`, `backend/app/ml/survey_etl.py`, and `REVIEW.md`. Zero overlap with anything in the recovered Step 12/13 change set (all `frontend/*` + `firestore.rules`). Clean merge into one state, no manual reconciliation needed.
+- `systemctl status antara-frontend.service` → `System has not been booted with systemd as init system (PID 1). Can't operate.` This container has no systemd at all.
+- `curl https://app.antara.money/` → connection failure through this session's outbound proxy (`CONNECT tunnel failed, response 403`), not a 200 and not a real app response.
+- `curl http://100.103.94.116:3001/` (the Tailscale IP from `.env-remember`) → also unreachable; no `tailscale` binary here, no tailnet route.
+- The real deploy path per `.env-remember` is `/home/parthchhabra/antara-deploy/antara` on a bare-metal home server — not this container. `/home/user/antara` in this session is a separate, freshly-provisioned checkout (no `node_modules`, no running production process tied to it) that happens to already be on the right branch — a session-start convenience, not the production tree.
 
-**The two riskiest claims — independently reproduced, not trusted:**
-
-- **(a) The `updateDoc()`/`undefined` bug.** Didn't just read the fix and believe it. Minted a real Firebase custom token for the superadmin's actual account, signed into the **real client Firestore SDK** (the literal `firebase/firestore` package this app imports, not the Admin SDK, not a proxy) against real production Firestore, created a throwaway test transaction, and called `updateDoc(ref, { note: undefined })` directly — the exact pre-fix code path (`note.trim() || undefined`). Got back, verbatim: `FirebaseError: Function updateDoc() called with invalid data. Unsupported field value: undefined (found in field note in document users/.../transactions/step15-repro-test-tx)` — matches the recovered review's claimed error exactly. Then called `updateDoc(ref, { note: "" })` — succeeded, read back the doc, confirmed `note === ""`. Deleted the test transaction, confirmed it was gone. The claim checks out, independently, not just "the fix is in the diff."
-- **(b) The budget-edit Firestore write path.** Same real-account approach: read the account's actual current `monthly_budget` immediately before testing (matters — see the note below), wrote a throwaway `604` via the exact `setDoc(userRef, {monthly_budget: amount}, {merge:true})` call `saveMonthlyBudget()` makes, confirmed it landed *and* that `merge:true` didn't clobber any other profile field (`email`/`role`/`currentStreak` all compared before/after), then restored the pre-test value. Confirmed working, for real, against a real account.
-- **Incidental finding while testing (b), worth stating plainly rather than glossing over):** the account's `monthly_budget` read differently a few minutes apart during this session (`2000` via an earlier Admin SDK check, `10000` moments later via the client SDK right before my test write) — not a bug in my process, but a real signal that **the superadmin's own account is being actively used concurrently** (by the account owner, presumably, testing their own app) while this session was running. I read the value *immediately* before writing my test value and restored to that exact immediately-prior value, which is the only correct thing to do — reverting to an earlier snapshot would have overwritten a real edit that happened in between and wasn't mine to undo.
-
-**Re-verified rather than trusted, cheaply:** the 18-category id-set match between `frontend/src/lib/constants.ts` and `backend/app/ml/engine.py`'s `CATEGORIES_METADATA` — re-ran the diff myself (programmatic set comparison, not eyeballing), still exactly 18/18, zero drift either direction.
-
-**Taken on trust** (code-read + a clean `npm run build`/`npx tsc --noEmit`, not independently re-clicked through the UI): the exact delete/edit UI interaction details, the streak-fields-untouched design rationale (the reasoning holds up on inspection and matches the app's existing patterns, but I didn't re-run a live delete against a real account a second time — Step 13's own methodology for that specific claim, i.e. deleting a real test transaction and confirming via a Firestore read, was itself sound and is exactly the kind of thing that doesn't need re-proving twice), and the `WhyPredictionSheet`/`PullCanvas`/`DataConfigPanel` import claims (confirmed via `grep` that they import `STARTER_CATEGORIES` directly, matching the claim, but didn't visually re-render each screen).
-
-**Confirmed production was already serving this exact code, independent of git** (three separate signals, before any rebuild/restart of my own): the `.next` build's timestamp post-dated every source file touched by Steps 12/13; the distinctive UI string `"Tap again to confirm"` (from `TransactionEditSheet.tsx`) was present in the actual served static JS chunk; the precise bug-fix pattern `note:y.trim()` was present in that same chunk (not `note:y.trim()||void 0` or similar — the fixed version, specifically). And the **deployed** Firestore ruleset — fetched directly via the Firebase Rules REST API, not assumed from the local file — was byte-identical to the local uncommitted `firestore.rules`. All of this checked out before I ever ran `git add`.
+So: everything below was verified against a real `next build` output and real served files from a local dev/prod server *in this sandbox*, not against the live `app.antara.money` domain. Saying that once here rather than letting later "confirmed" language imply more than it means.
 
 ---
 
-## 2. Production — confirmed, then rebuilt/restarted anyway
+## 1. iOS-specific meta tags — added via Next's `appleWebApp` metadata field
 
-Given real testers are on this right now, verified rather than assumed at every step:
+`frontend/src/app/layout.tsx`'s `metadata.appleWebApp`:
 
-1. Confirmed (§1 above) that the *pre-existing* running build already reflected Steps 12/13's code — so real testers were never on stale code for that part.
-2. But the benchmark refresh (§3 below) touches `constants.ts`, which **wasn't** in the running build yet. So: fresh `npm run build` (clean), `sudo systemctl restart antara-frontend.service`, confirmed `active` and `https://app.antara.money/` returns `200`.
-3. Also restarted `antara-ml.service` (needed regardless, to pick up nothing new code-wise here but to keep both services' restart-and-verify symmetric and confirm the in-memory live-benchmarks state survives a restart cleanly) — confirmed `active`, `/health` healthy, and `/api/v1/admin/status` still reporting `live_survey_benchmarks_sample_size: 36` after the restart (loaded correctly from the persisted `admin/categoryBenchmarks` doc at startup).
-4. Re-verified post-restart, against the live static chunks actually being served: the new `monthly_cap` values (`100`, `150`, `1e3`, `200`, `2e3`, `50`, `500`) are present; the stale `2500` is gone; `"Tap again to confirm"` and `note:y.trim()` are both still present (no regression from the rebuild). `/privacy` and `/terms` both still `200` on the live domain.
+```ts
+appleWebApp: {
+  capable: true,
+  title: "Antara",
+  statusBarStyle: "black-translucent",
+  startupImage: APPLE_SPLASH_SCREENS,
+},
+```
 
-No crash loop, no `RestartSec` retries — both services came up clean on the first attempt each.
+Confirmed this actually renders the right tags by building for real (`npm run build`) and grepping the generated `.next/server/app/index.html`, not by trusting the Next.js docs:
 
----
+```
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Antara"/>
+```
 
-## 3. Refreshed n=3 → n=36 benchmarks
+- `capable: true` → `apple-mobile-web-app-capable`. This is the one that actually removes Safari's chrome on a home-screen launch — `manifest.json`'s `display: "standalone"` is an Android/Chrome-only read; iOS ignores it and needs this meta tag instead.
+- `black-translucent` for the status bar — checked against the app's actual rendered background rather than picking it by name: `MobileFrame.tsx`'s inner container (`bg-[#0A0C10]`) is what fills the screen edge-to-edge on phone widths (the outer `#060709` only shows as thin margins past `max-w-md`, which never happens on an actual phone screen). `black-translucent` lets that near-black content extend up under the status bar instead of Safari painting a separate opaque bar — the right choice for a dark-themed app where the top of the screen isn't a fixed light-colored header.
+- `title: "Antara"` — 6 characters, not close to iOS's ~11-12 character home-screen label wrap point; no truncation risk, checked by comparison, not just assumed.
 
-**Backend (`engine.py`'s `CATEGORIES_METADATA`) needed no code change** — that's the actual point of Step 10's design: called `POST /api/v1/admin/recompute-benchmarks` for real against production (as the superadmin, via a minted ID token), which recomputes from whatever's in Firestore right now and overlays the result onto the running `MLEngine` in memory. Result: **n=36, every one of the 17 survey categories now at the "confident" tier** (≥20 responses — was "early_estimate" across the board at n=3). Confirmed via `/api/v1/admin/status` both immediately after and again after the later service restart.
-
-**Frontend (`constants.ts`'s `monthly_cap`) has no equivalent live path** — it's a static, build-time TS constant, no runtime overlay exists for it. Refreshing it means editing the file; the difference from "hand-editing constants" is that every number is copied directly from that same real recompute response, not re-derived or guessed. `monthly_cap` = the category's real median, same convention the original 3-response version already used:
-
-| Category | n=3 cap | n=36 cap | |
-|---|---|---|---|
-| food-snacks | 2500 | **2000** | |
-| dates-outings | 2000 | **1000** | |
-| clothes-shoes | 2000 | **1000** | |
-| gifting-friends | *(none)* | **100** | new |
-| transportation | *(none)* | **500** | new |
-| grooming | *(none)* | **500** | new |
-| subscriptions | *(none)* | **200** | new |
-| movies-entertainment | *(none)* | **150** | new |
-| tech-gadgets | *(none)* | **100** | new |
-| mobile-recharge | *(none)* | **50** | new |
-| books | *(none)* | **100** | new |
-| investments, fitness, gaming-inapp, tuition-coaching, charity-donations | *(none)* | *(still none)* | see below |
-
-Those 5 stay deliberately uncapped: their real, confident-tier (n≥27 each) median is a genuine ₹0 — not under-sampling noise the way a ₹0-from-3-people reading was — but a literal ₹0 cap isn't useful advice (it would flag the first rupee logged as "over cap"), and for `investments` specifically a spend "cap" is conceptually backwards (it's savings; capping it would penalize saving more). Re-applying the existing "zero median ⇒ no cap, not a zero cap" rule to a real sample now, not changing the rule.
-
-**Didn't run `scripts/compute_category_benchmarks.py`.** Found it, read it, and deliberately didn't use it — it's an older, pre-Step-10 script that writes a differently-shaped `admin/categoryBenchmarks` doc (`computed_at`/`sample_size`/`categories`, snake_case) than `survey_etl.py`'s `run_etl()` (`computedAt`/`sampleSize`/`overall`/`byIncomeBand`/etc., camelCase). Running it would have silently overwritten the real doc with an incompatible shape and broken `MLEngine.apply_live_benchmarks`'s parsing of it. Left it alone, not deleted — flagging it as dead/superseded and worth a cleanup pass sometime, out of scope to remove blind here.
+Added `viewport.themeColor: "#0A0C10"` alongside these (Next 14 moved `themeColor` out of `metadata` into `viewport`) — not explicitly asked for, but one line, and it's what keeps Safari/Chrome's own address-bar chrome dark instead of defaulting to white, which is the same "no jarring light UI around a dark app" goal as the status-bar-style choice right above it. Confirmed rendered: `<meta name="theme-color" content="#0A0C10"/>`.
 
 ---
 
-## 4. Two regressions from the gap audit — both fixed, both verified
+## 2. Splash screens — 12 real PNGs, generated from the real logo mark, on the real background
 
-- **`test_ml_cold_start_heuristic_mode`.** Re-ran the suite myself first to confirm the claimed failure before touching anything: `1 failed, 2 passed`, matching the audit exactly. Fixed: `len(res.category_breakdown) == 12` → `== len(CATEGORIES_METADATA)` (can't drift out of sync with the taxonomy silently again), and `category="food-delivery"` → `"food-snacks"`. Also swapped the same two stale ids (`"gaming"` → `"gaming-inapp"`, `"food-delivery"` → `"food-snacks"`) in the other two tests in the file, which weren't failing (they don't assert on category-derived counts) but had the same underlying drift. `pytest`: **3 passed, 3 passed** — confirmed clean, twice (before and after, plus once more post-benchmark-refresh to be sure that didn't reintroduce anything).
+No universal iOS splash size exists — Safari matches one `<link rel="apple-touch-startup-image" media="...">` by exact `(device-width, device-height, -webkit-device-pixel-ratio, orientation)`; get a number wrong and it silently falls back to a blank white screen for that device, no error.
 
-- **`firestore-rules.test.ts` — actually runnable now, not declared out of scope.** Installed `jest`/`ts-jest`/`@types/jest`/`firebase-tools` as devDependencies (all dev-only — none are imported by app source, so zero production bundle impact, confirmed by the build output size being unchanged), added `jest.config.js`, added a `"test"` script. The Firestore emulator needed a JVM that wasn't installed on this box (`apt-get install default-jre-headless`, low-risk — new packages only, no service touched) and its default port 8080 was already claimed by an unrelated `docker-proxy` on this host, so both `firebase.json` and the test's own `initializeTestEnvironment` call now point at 8085 instead. **Also found a second, previously-invisible bug while wiring this up**: the test read rules from `path.resolve(__dirname, "../firestore.rules")`, which resolves to `frontend/src/firestore.rules` — a path that has never existed (the real file is two directories further up, at the repo root). This test could not have passed before, jest or no jest, emulator or no emulator — fixed the path. Added `"test:rules"`, a single command (`firebase emulators:exec` — starts the emulator, runs jest, tears it down, nothing left running after) that a developer can actually run going forward. Ran it for real against the actual deployed rules content: **10/10 pass.**
+**What I built:** `scripts/generate_apple_splash_screens.py` (Pillow) composites `frontend/public/brand/logo-mark-1024.png` — the real mark, confirmed via alpha-channel bounding box that it's a clean cutout with transparent corners, not a placeholder — centered at 34% of the shorter viewport dimension, onto a solid `#0A0C10` canvas (matching `manifest.json`'s `background_color`/`theme_color` and the actual `MobileFrame` inner background, not white, not a guess). Output: `frontend/public/brand/splash/*.png`, 12 files, ~880KB total.
+
+**Device coverage** (portrait only — home-screen launches are overwhelmingly portrait, and this list already covers essentially every iPhone/iPad Apple currently supports installing a home-screen web app on): iPhone SE/6-8, XR/11, X/XS/11 Pro/12-13 mini, XS Max/11 Pro Max, 12/13/14, 12-13 Pro Max/14 Plus, 14 Pro/15/15 Pro/16, 14 Pro Max/15 Pro Max/15 Plus/16 Plus, plus iPad 10.2", Air 10.9", Pro 11", Pro 12.9".
+
+`frontend/src/lib/appleSplashScreens.ts` holds the same 12-entry device table (kept in sync with the generator script by a comment in both files pointing at each other) and derives each `media` query programmatically — not 12 hand-typed strings that could drift from the actual file sizes.
+
+**Verified, not assumed:**
+- Re-ran the checked-in `scripts/generate_apple_splash_screens.py` from its final repo location and diffed output against what I'd generated while iterating — identical.
+- Visually inspected one output (`iphone-14pro-15-16.png`, 1179×2556) — dark background, logo mark centered, correctly proportioned, no white edges or stretching.
+- Built the app for real and grepped the actual HTML output: all 12 `<link rel="apple-touch-startup-image" href="/brand/splash/*.png" media="...">` tags present, each `media` string matching the device table exactly (spot-checked several, not just the first one).
+- Served the built app locally (`next start`) and `curl`'d one splash PNG directly: `200`.
 
 ---
 
-## 5. Left untouched, as instructed
+## 3. Manifest completeness — checked against every criterion, nothing needed fixing
 
-`origin/claude/antara-spending-survey-6o4o2w` — not looked at, not touched, not merged. Still flagged (per every prior review since Step 11) as real, larger work that deserves its own dedicated brief.
+`frontend/public/manifest.json` (unchanged this pass — read it against all four criteria before touching anything, and none needed a fix):
+
+| Criterion | Value | OK? |
+|---|---|---|
+| `display` | `"standalone"` | ✅ |
+| `start_url` | `"/"` | ✅ — `frontend/src/app/page.tsx` (the `/` route) *is* the Today screen, and internally renders either the signed-in dashboard or the sign-in hero depending on auth state (confirmed by reading `page.tsx`'s own render logic) — not a placeholder/random route. |
+| `background_color` / `theme_color` | `#0A0C10` | ✅ — matches `MobileFrame`'s actual inner background, the same value used for the splash screens and the new `viewport.themeColor` above. Re-checked this wasn't a stale/guessed value by grepping every hex color the app actually renders with (`grep -rn "060709\|0A0C10"` across `src/`) — `#0A0C10` is the real value used by the visible content area, not an arbitrary pick. |
+| Icons | `192x192`, `512x512`, `512x512 purpose=maskable` | ✅ — all three files exist in `frontend/public/brand/`, already generated in Step 11. |
+
+Nothing to fix here — stating that explicitly rather than making a cosmetic edit just to have something to show for this section.
+
+---
+
+## 4. Offline behavior — decided explicitly: yes, app-shell only, not transaction sync
+
+**Decision: basic offline support, scoped to the app shell.** Reasoning:
+
+- This is a financial app with live Firestore data (`onSnapshot` in `page.tsx`) — genuinely offline-capable transaction entry/sync is a real feature (conflict handling, retry queues, staleness UI) and explicitly out of scope per the brief.
+- But *zero* offline handling means a flaky mobile connection — not full offline, just a dropped packet at the wrong moment on a phone network, which is common — could show Safari's own "You Are Not Connected to the Internet" full-page error inside what's supposed to look like a native app. That undermines the entire point of this step (genuinely feels like an app) for a cost (a same-origin-only, GET-only, ~70-line service worker) that's small and free, matching the "no cost" constraint the whole step operates under.
+- Full offline transaction sync was correctly ruled out by the brief as a bigger feature, and I didn't build any part of it — no offline writes, no sync queue, no conflict resolution.
+
+**What I built:** `frontend/public/service-worker.js`, registered by a new tiny client component (`frontend/src/components/ServiceWorkerRegister.tsx`, mounted in `layout.tsx`). Scope, deliberately narrow:
+- HTML navigations: network-first, falling back to the last cached shell only if the network request itself fails — this is what removes the white blank-page gap offline.
+- Hashed Next.js build assets (`/_next/static/*`), `/brand/*` images, `/manifest.json`, `/favicon.ico`: cache-first (content-hashed filenames are immutable, so a cache hit never needs re-fetching).
+- Everything else — `/api/*` (the ML backend), and anything cross-origin (Firestore/Auth's own requests to `googleapis.com`) — is explicitly passed through, never intercepted, never cached. A logged transaction, a live `onSnapshot` update, an ML prediction call always hits the real network; this app never silently serves a stale balance or prediction as if it were live.
+
+**Explicitly did NOT enable Firestore's own IndexedDB offline persistence** (`enableIndexedDbPersistence`/`persistentLocalCache`, currently off in `frontend/src/lib/firebase.ts`) even though it's a single official SDK call. Reasoning stated plainly rather than left implicit: that's *data*-level offline support (last-known transaction list rendering from a local cache across reloads) — a real step closer to the "transaction sync" territory the brief explicitly fenced off, with its own staleness-indicator and write-queue UX questions this step doesn't answer. What I built (shell caching) gets the "app doesn't visibly break with a flaky connection" outcome without touching how financial data itself is read or trusted offline.
+
+**Verified, not assumed:**
+- Read the actual fetch-interception logic line by line for the "never touches `/api/` or cross-origin" claim, rather than asserting it — the `fetch` handler returns (no `respondWith` call) for both cases before reaching any caching logic.
+- Built and served the app locally, then `curl`'d `/service-worker.js` directly: `200`, correct content.
+- Confirmed via `npx tsc --noEmit` (clean) that the new client component and its `navigator.serviceWorker` usage type-check correctly, including the SSR/unsupported-browser guard (`typeof window === "undefined"`).
+
+**Not verified:** actual offline behavior in a real browser (toggling airplane mode mid-session, confirming the cached shell repaints, confirming a real transaction write still goes through the instant network returns) — that needs a real browser with a real network to toggle, which this sandbox doesn't have a way to do headlessly for a full PWA lifecycle (install → use online → go offline → relaunch). Flagged here rather than claimed.
+
+---
+
+## 5. Real-device verification — NOT performed by me; needs a human with an iPhone
+
+I do not have a physical iPhone/iPad in this session, and no interactive channel to either of the two beta testers mentioned in the brief within this task. I'm stating this directly rather than inferring a result from the build output, which is not the same thing as a real Safari "Add to Home Screen" test.
+
+What I could and did verify from this sandbox, as partial evidence the pieces are wired correctly:
+- A full production build (`npm run build`) compiles clean, typechecks clean (`npx tsc --noEmit`), and the generated static HTML contains every expected tag (§1–§2 above), inspected directly, not inferred from the source.
+- Every new static asset (`/service-worker.js`, each splash PNG, `/manifest.json`) is actually served with `200` by a locally-running `next start` instance in this container.
+
+None of that is a substitute for item 5's actual ask. **Still needed, by someone with the right access:**
+1. Deploy this branch to the real production host (`draftsmanbrain`, per `.env-remember`) — rebuild `antara-frontend.service`, restart it, confirm `https://app.antara.money` serves the new build. I could not do this step; this session has no route to that host (§0).
+2. On a real iPhone: Safari → `https://app.antara.money` → Share → Add to Home Screen → confirm: a real icon appears (not a screenshot thumbnail), tapping it launches full-screen with no Safari address/tab bar, no white flash before first paint, the status bar area reads dark/translucent rather than a stray white strip, and sign-in via Google + logging a transaction work identically to the plain-Safari-tab version.
+
+**Real device(s) this was tested on: none.** I'm not claiming otherwise.
+
+---
+
+## What's committed
+
+Branch `claude/cool-dirac-59ytb3`, off `origin/main`'s `8b96f0d` (Step 15's final commit — no Step 16 commit exists on `main` as of this pass). New/changed files, no unrelated changes:
+
+- `frontend/src/app/layout.tsx` — `appleWebApp` metadata, `viewport.themeColor`, mounts `ServiceWorkerRegister`.
+- `frontend/src/lib/appleSplashScreens.ts` — new, the 12-device splash table + media-query generation.
+- `frontend/public/brand/splash/*.png` — new, 12 generated splash screens.
+- `frontend/src/components/ServiceWorkerRegister.tsx` — new, client-side SW registration.
+- `frontend/public/service-worker.js` — new, the app-shell-only service worker.
+- `scripts/generate_apple_splash_screens.py` — new, reproducible splash generator (Pillow), kept in sync with `appleSplashScreens.ts`'s device table by a cross-referencing comment in both.
+
+No backend changes — this step is entirely frontend/static-asset scoped, matching the brief.
 
 ---
 
 ## Verification performed
 
-- `git status`/mtime/`git log --all` analysis establishing that Step 12, not just Step 13, was uncommitted, and that neither conflicts with Step 14's shipped commits.
-- Real reproduction of the `updateDoc()`/`undefined` bug and its fix against real production Firestore, via the actual client SDK, using a throwaway test transaction (created and deleted for real).
-- Real write/read/restore of the budget-edit path against the real superadmin account (throwaway value written, confirmed, other fields checked unclobbered, real pre-test value restored).
-- Independent re-verification (not re-trusted) of the 18/18 category id-set match via a fresh programmatic diff.
-- Deployed Firestore rules fetched via the Firebase Rules REST API and diffed byte-for-byte against the local file.
-- Compiled static-chunk inspection (both before and after this pass's own rebuild) confirming specific Step 12/13/15 code is genuinely present in what's served, not just present in source.
-- Fresh `npm run build` (clean) and `npx tsc --noEmit` (clean) after every source change in this pass, not just once at the end.
-- Backend `pytest`, run before and after the fix, plus once more after the benchmark refresh: `1 failed, 2 passed` → `3 passed, 3 passed`, confirmed stable.
-- `firestore-rules.test.ts` actually executed against a real (locally emulated) Firestore instance running the real rules file: 10/10 pass, run twice (once manually against a standalone emulator, once via the final `emulators:exec`-wrapped `test:rules` script to confirm the documented one-command path works).
-- Called the real `POST /api/v1/admin/recompute-benchmarks` against production and confirmed the result via `/api/v1/admin/status`, both immediately after and again after the later service restart.
-- Both `antara-frontend.service` and `antara-ml.service` restarted for real, confirmed `active` with no restart-loop, and confirmed healthy via their public endpoints post-restart.
-- Cleanup: all throwaway test transactions/values deleted or restored; temporary reproduction scripts removed from the working tree (never committed); Firestore emulator processes confirmed stopped (`ss -ltn` clean on their ports) after each run; stray `firestore-debug.log` deleted and `.gitignore`d against recurrence.
+- `npx tsc --noEmit` — clean, after the `layout.tsx`/new-file changes.
+- `npm run build` (production) — compiles clean; inspected the actual generated `.next/server/app/index.html` for every expected meta/link tag rather than trusting the metadata config alone.
+- `next start` against that build, `curl`'d directly: `/service-worker.js` → 200, `/brand/splash/iphone-14pro-15-16.png` → 200, `/manifest.json` → 200 with the expected body.
+- Re-ran the checked-in generator script from its final repo path and diffed output against the earlier iteration — byte-identical.
+- Visual inspection of one generated splash PNG.
+- Read (not skimmed) the service worker's fetch handler to confirm the "never caches `/api/*` or cross-origin requests" claim before writing it down as a claim.
+- Checked this session's actual access to production before describing it: `systemctl` (unavailable — no systemd), `curl https://app.antara.money` (proxy-blocked, not 200), Tailscale IP (unreachable, no client) — all confirmed unreachable, not assumed unreachable.
+
+## Explicitly not done / left for a human
+
+- Production deploy/rebuild/restart on the real host.
+- Real iPhone/iPad "Add to Home Screen" test (icon, full-screen launch, splash gap, status bar, sign-in/logging parity).
+- Real airplane-mode offline behavior test of the new service worker.
