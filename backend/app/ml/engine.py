@@ -15,18 +15,23 @@ from app.schemas import (
 # list that didn't exactly match the survey webapp once it existed — see
 # frontend/src/lib/constants.ts for the full old-id -> new-id mapping.
 #
-# benchmark_pct/median_spend_inr below are now REAL numbers, computed by
-# scripts/compute_category_benchmarks.py from actual survey_responses
-# documents — not guessed. As of this pass that script ran against **3**
-# responses (sample_size noted per category below) — genuinely thin. Where
-# those 3 respondents happened to report ₹0 for a category, benchmark_pct is
-# 0.0, not a small guessed placeholder. `_expected_cat_spend()` and the
-# risk-flagging logic below treat both `None` *and* `0.0` as "no usable
-# baseline yet" (see `has_benchmark` in calculate_spend_predictions /
-# generate_dot_graph) — a 0.0 from under-sampling must not be read as "this
-# category should be 0," which would flag the first rupee logged as
-# infinitely over budget. Re-run the compute script and update this dict as
-# survey_responses grows; each entry below is dated to the last computation.
+# benchmark_pct/median_spend_inr below are the static cold-start fallback —
+# only ever used if Firestore is unreachable or admin/categoryBenchmarks
+# hasn't been computed yet. In normal operation these values are overlaid
+# in memory at startup and on every superadmin recompute by
+# survey_etl.py's real Stage-1 pipeline (Step 10; POST
+# /api/v1/admin/recompute-benchmarks; see MLEngine.apply_live_benchmarks) —
+# that's the actual, current source of truth, not this dict. The numbers
+# below were originally computed by a one-off script
+# (scripts/compute_category_benchmarks.py, against just 3 responses at the
+# time) that predates survey_etl.py's live pipeline and has since been
+# removed (Step 16) as dead/superseded — don't try to resurrect it to
+# "refresh" these; call the recompute endpoint instead. Where a category
+# shows 0.0 here, `_expected_cat_spend()` and the risk-flagging logic below
+# treat both `None` *and* `0.0` as "no usable baseline yet" (see
+# `has_benchmark` in calculate_spend_predictions / generate_dot_graph) — a
+# 0.0 must not be read as "this category should be 0," which would flag
+# the first rupee logged as infinitely over budget.
 CATEGORIES_METADATA = {
     "food-snacks": {"name": "Food, drinks & snacks", "color": "#F97316", "essential": False, "benchmark_pct": 0.2809, "median_spend_inr": 2500.0},  # n=3, 2026-08-21
     "dates-outings": {"name": "Dating & going out", "color": "#FB7185", "essential": False, "benchmark_pct": 0.1873, "median_spend_inr": 2000.0},  # n=3, 2026-08-21

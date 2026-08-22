@@ -1,151 +1,70 @@
-# Antara — Step 17 Review
+# Antara — Step 16 Review
 
-**Status: CONTINUE — all the code-side iOS PWA work (meta tags, 12 real per-device splash screens generated from the actual logo mark, manifest audit, and an explicit offline decision + minimal app-shell service worker) is done, committed, and verified by build/output inspection in this sandbox. What's NOT done, and can't be from here: this session has no network path to the production host (`draftsmanbrain`) — `sudo systemctl`/`app.antara.money` are both unreachable from this container (confirmed, not assumed) — so nothing was deployed, and no real iPhone was available to me, so item 5's actual "Add to Home Screen" device test was not performed by me. Both need a human with access to the production box and a real iPhone.**
-
----
-
-## 0. A different environment than Step 15's — stated plainly, not glossed over
-
-Step 15's review describes running `sudo systemctl restart antara-frontend.service` directly and hitting `https://app.antara.money` from inside that session. I checked whether I have the same access before claiming anything about production, and I don't:
-
-- `systemctl status antara-frontend.service` → `System has not been booted with systemd as init system (PID 1). Can't operate.` This container has no systemd at all.
-- `curl https://app.antara.money/` → connection failure through this session's outbound proxy (`CONNECT tunnel failed, response 403`), not a 200 and not a real app response.
-- `curl http://100.103.94.116:3001/` (the Tailscale IP from `.env-remember`) → also unreachable; no `tailscale` binary here, no tailnet route.
-- The real deploy path per `.env-remember` is `/home/parthchhabra/antara-deploy/antara` on a bare-metal home server — not this container. `/home/user/antara` in this session is a separate, freshly-provisioned checkout (no `node_modules`, no running production process tied to it) that happens to already be on the right branch — a session-start convenience, not the production tree.
-
-So: everything below was verified against a real `next build` output and real served files from a local dev/prod server *in this sandbox*, not against the live `app.antara.money` domain. Saying that once here rather than letting later "confirmed" language imply more than it means.
+**Status: ALL COMPLETED — the unmerged survey branch was investigated (not assumed dead), turned out to be the actual source of the live survey.antara.money, and was selectively ported into `main` rather than blind-merged or discarded; the branch itself was then deleted from GitHub, now that everything of value from it lives in `main`'s own history. One confirmed-dead script was removed and a broader sweep found no other orphaned code. `CLAUDE.md` now carries a top-of-file git-hygiene rule. Commits this step: `e1c16d3`, `7f2efe1`, `8617d57`, and this review doc itself — see the commit-hashes section below for the exact final `origin/main` HEAD.**
 
 ---
 
-## 1. iOS-specific meta tags — added via Next's `appleWebApp` metadata field
+## 1. The unmerged survey branch — investigated, then selectively ported, then deleted
 
-`frontend/src/app/layout.tsx`'s `metadata.appleWebApp`:
+**Not a blind merge, not a guess — actually figured out what it was first.** `origin/claude/antara-spending-survey-6o4o2w` diverged from `main` at `16a5608`: 7 commits on the branch, 13 on `main` since. Before touching anything, fetched the live `https://survey.antara.money/` and compared its actual served JS bundle against the branch's source — same `schema_version:2`, same 17 category ids/labels (`"Food, drinks & snacks"`, `"Gifting to friends"`, `fantasy-betting`, `charity-donations`, …), same demographic/habit field names (`age_range`, `family_income_bracket`, `pocket_money_duration`, `tracks_spending`), same `payment_method`/`honeypot` anti-spam mechanism. **This branch (or something byte-identical to it) is genuinely what's running the live survey right now** — not dead work superseded by a separate project, the opposite assumption from what "investigate before merging" was worried about.
 
-```ts
-appleWebApp: {
-  capable: true,
-  title: "Antara",
-  statusBarStyle: "black-translucent",
-  startupImage: APPLE_SPLASH_SCREENS,
-},
-```
+Traced the actual deployment chain to be sure, not just inferred it: `scripts/export-survey-static.sh` (on the branch) builds a static export and says to copy it "to the root of your GitHub Pages branch." Found that repo — `github.com/parthchhabraa/antarasurvey` — cloned it, and its `claude/antara-spending-survey-6o4o2w` branch (same name, independent repo) holds `index.html` that is **byte-identical** to what `curl https://survey.antara.money/` actually returns. Its own README confirms the architecture directly: "This repo holds only the *built* static output... it isn't the survey's source code. The survey itself is a Next.js route (`/survey`) that lives in `parthchhabraa/antara`."
 
-Confirmed this actually renders the right tags by building for real (`npm run build`) and grepping the generated `.next/server/app/index.html`, not by trusting the Next.js docs:
+**So the actual question wasn't "is this dead," it was "what's still only-on-this-branch, and what's already been independently re-derived (and improved) on `main`."** Checked both files the branch touches that overlap with things `main` also changed:
+- `firestore.rules`: diffed directly — `main`'s current version is a **strict superset** of the branch's, including the exact `survey_responses` rule with the exact same provenance comment ("Step 10... ruleset 3bc866e4..."), meaning `main`'s Step 10 author independently found the same live-deployed rule (by reading Firebase directly, not this branch) and then kept extending it (Step 12's `isPublicSignupEnabled`, admin config rules) further than the branch ever did. Nothing to port.
+- `frontend/src/tests/firestore-rules.test.ts`: `main`'s version, fixed and made runnable in Step 15, tests more scenarios (allowlisted / non-allowlisted / no-doc-at-all) than the branch's older version and doesn't carry the branch's legacy `firebase/compat` import. Nothing to port; `main`'s is strictly better.
 
-```
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Antara"/>
-```
+**What was genuinely still only on the branch, verified compatible with `main` before porting anything** (same 17 category ids/order as `survey_etl.py`'s `SURVEY_CATEGORY_KEYS`, same `POCKET_MONEY_RANGES` strings as its lookup table, zero new npm dependencies required): the actual `/survey` route and its private dependencies — `app/survey/{layout,page}.tsx`, `components/survey/*` (8 files), `lib/surveyApi.ts`, `lib/surveyConstants.ts`, `types/survey.ts`, the `next.config.js` opt-in static-export block (merged with `main`'s own since-added `rewrites()`, which is mutually exclusive with static export in Next.js — handled by omitting the rewrite only under `STATIC_EXPORT=true`), `scripts/export-survey-static.sh`, and `scripts/export_survey_training_data.py` (a raw CSV/JSONL dump tool — not superseded by `survey_etl.py`, which only computes aggregates; still the only way to get per-respondent rows out, useful for the "Stage 2" work `survey_etl.py`'s own docstring says is still pending).
 
-- `capable: true` → `apple-mobile-web-app-capable`. This is the one that actually removes Safari's chrome on a home-screen launch — `manifest.json`'s `display: "standalone"` is an Android/Chrome-only read; iOS ignores it and needs this meta tag instead.
-- `black-translucent` for the status bar — checked against the app's actual rendered background rather than picking it by name: `MobileFrame.tsx`'s inner container (`bg-[#0A0C10]`) is what fills the screen edge-to-edge on phone widths (the outer `#060709` only shows as thin margins past `max-w-md`, which never happens on an actual phone screen). `black-translucent` lets that near-black content extend up under the status bar instead of Safari painting a separate opaque bar — the right choice for a dark-themed app where the top of the screen isn't a fixed light-colored header.
-- `title: "Antara"` — 6 characters, not close to iOS's ~11-12 character home-screen label wrap point; no truncation risk, checked by comparison, not just assumed.
+**Fixed one real, verified-stale thing while porting rather than carrying it forward blind** — exactly the kind of regression the brief warned about, just found in a place it didn't name: `lib/brand.ts`'s colors (`#171717`/`#3E7C99`) were the branch's pre-real-logo eyeballed guess. `main`'s own Step 11/12 already traced the real source file and found the actual values (`#0E87B0`/`#1F1E1C` — a documented 34.7% pixel-diff, not anti-aliasing noise). Updated to the real values; left the survey mark's own animated SVG construction alone (a legitimate, separate re-trace-to-match-the-real-geometry task, not attempted blind here).
 
-Added `viewport.themeColor: "#0A0C10"` alongside these (Next 14 moved `themeColor` out of `metadata` into `viewport`) — not explicitly asked for, but one line, and it's what keeps Safari/Chrome's own address-bar chrome dark instead of defaulting to white, which is the same "no jarring light UI around a dark app" goal as the status-bar-style choice right above it. Confirmed rendered: `<meta name="theme-color" content="#0A0C10"/>`.
+**Verified, not just built:** `npx tsc --noEmit` clean, full `npm run build` clean (11/11 pages including `/survey`), and — the part that actually matters, that the port didn't just compile but still *works* — ran `CUSTOM_DOMAIN=survey.antara.money ./scripts/export-survey-static.sh` for real from this checkout and confirmed the output has the corrected `#0E87B0` (and zero remaining `#3E7C99`), `schema_version:2`, and the full real category list.
+
+**Did NOT redeploy `antarasurvey` / touch the live `survey.antara.money` site.** This port fixes the color mismatch in `main`'s own copy of the source; making that reach the live site is a separate, explicit action in a third repo (re-export + copy into `antarasurvey`), not part of "the unmerged branch in `antara`." Flagging as a real, optional follow-up — the live site currently still shows the old approximate blue, which is a cosmetic, not functional, gap.
+
+**Disposition, stated plainly: merged-selectively, then deleted.** Everything of value is now in `main`'s own history (commit `e1c16d3`). The two files that weren't ported (`firestore.rules`, the old rules test) are confirmed superseded, not overlooked. With nothing left un-absorbed, keeping the branch around would only recreate the exact ambiguity this task exists to resolve — so it's gone: `git push origin --delete claude/antara-spending-survey-6o4o2w`, confirmed removed via `git branch -a` after a `--prune` fetch. (The separate `antarasurvey` repo and its own identically-named branch are untouched — deleting `antara`'s branch has no effect on the live site, which doesn't depend on this repo's branch existing at all.)
 
 ---
 
-## 2. Splash screens — 12 real PNGs, generated from the real logo mark, on the real background
+## 2. Dead code
 
-No universal iOS splash size exists — Safari matches one `<link rel="apple-touch-startup-image" media="...">` by exact `(device-width, device-height, -webkit-device-pixel-ratio, orientation)`; get a number wrong and it silently falls back to a blank white screen for that device, no error.
+**`scripts/compute_category_benchmarks.py`** — confirmed zero references anywhere except comments/docs (grepped `frontend/src`, `backend/app`, `scripts`, `*.md`) before removing. Updated the two comments that pointed at it (`engine.py`, `constants.ts`) to describe the real live mechanism instead of a script that no longer exists.
 
-**What I built:** `scripts/generate_apple_splash_screens.py` (Pillow) composites `frontend/public/brand/logo-mark-1024.png` — the real mark, confirmed via alpha-channel bounding box that it's a clean cutout with transparent corners, not a placeholder — centered at 34% of the shorter viewport dimension, onto a solid `#0A0C10` canvas (matching `manifest.json`'s `background_color`/`theme_color` and the actual `MobileFrame` inner background, not white, not a guess). Output: `frontend/public/brand/splash/*.png`, 12 files, ~880KB total.
-
-**Device coverage** (portrait only — home-screen launches are overwhelmingly portrait, and this list already covers essentially every iPhone/iPad Apple currently supports installing a home-screen web app on): iPhone SE/6-8, XR/11, X/XS/11 Pro/12-13 mini, XS Max/11 Pro Max, 12/13/14, 12-13 Pro Max/14 Plus, 14 Pro/15/15 Pro/16, 14 Pro Max/15 Pro Max/15 Plus/16 Plus, plus iPad 10.2", Air 10.9", Pro 11", Pro 12.9".
-
-`frontend/src/lib/appleSplashScreens.ts` holds the same 12-entry device table (kept in sync with the generator script by a comment in both files pointing at each other) and derives each `media` query programmatically — not 12 hand-typed strings that could drift from the actual file sizes.
-
-**Verified, not assumed:**
-- Re-ran the checked-in `scripts/generate_apple_splash_screens.py` from its final repo location and diffed output against what I'd generated while iterating — identical.
-- Visually inspected one output (`iphone-14pro-15-16.png`, 1179×2556) — dark background, logo mark centered, correctly proportioned, no white edges or stretching.
-- Built the app for real and grepped the actual HTML output: all 12 `<link rel="apple-touch-startup-image" href="/brand/splash/*.png" media="...">` tags present, each `media` string matching the device table exactly (spot-checked several, not just the first one).
-- Served the built app locally (`next start`) and `curl`'d one splash PNG directly: `200`.
+**Broader sweep, per the brief's examples:**
+- Step 7's deleted-component list (old `predict/page.tsx`, `DotGraphCanvas.tsx`, `PredictiveInsightsCard.tsx`, `QuickLogModal.tsx`, `TransactionList.tsx`) — already properly deleted, in commit `86c8ef5`. Confirmed via `git log --diff-filter=D`. Nothing lingering.
+- Checked every file in `frontend/src/components`, `frontend/src/lib`, and `backend/app` for at least one real importer elsewhere (a precise `from "@/..."` grep, not a loose substring match that would false-positive on comments) — everything currently in the tree is genuinely referenced. No other orphaned files found.
+- Did find one lower-grade version of the same underlying problem, in a place the brief didn't specifically name: `frontend/src/tests/firestore-rules.test.ts` (the file Step 15 got running) still used the pre-Step-9 `"food-delivery"`/`"gaming"` ids in five test fixtures — the exact same drift Step 15 already fixed in the Python test, just never caught here because Firestore rules don't validate a category *value*, so the stale ids never failed an assertion, they just silently didn't match reality. Fixed for consistency (`food-snacks`/`gaming-inapp`); re-ran `npm run test:rules` after — still 10/10 passing.
 
 ---
 
-## 3. Manifest completeness — checked against every criterion, nothing needed fixing
+## 3. `CLAUDE.md` — git-hygiene rule, in place and committed
 
-`frontend/public/manifest.json` (unchanged this pass — read it against all four criteria before touching anything, and none needed a fix):
-
-| Criterion | Value | OK? |
-|---|---|---|
-| `display` | `"standalone"` | ✅ |
-| `start_url` | `"/"` | ✅ — `frontend/src/app/page.tsx` (the `/` route) *is* the Today screen, and internally renders either the signed-in dashboard or the sign-in hero depending on auth state (confirmed by reading `page.tsx`'s own render logic) — not a placeholder/random route. |
-| `background_color` / `theme_color` | `#0A0C10` | ✅ — matches `MobileFrame`'s actual inner background, the same value used for the splash screens and the new `viewport.themeColor` above. Re-checked this wasn't a stale/guessed value by grepping every hex color the app actually renders with (`grep -rn "060709\|0A0C10"` across `src/`) — `#0A0C10` is the real value used by the visible content area, not an arbitrary pick. |
-| Icons | `192x192`, `512x512`, `512x512 purpose=maskable` | ✅ — all three files exist in `frontend/public/brand/`, already generated in Step 11. |
-
-Nothing to fix here — stating that explicitly rather than making a cosmetic edit just to have something to show for this section.
+Created at the repo root (didn't exist before), with the git-hygiene rule as the **first section of the file** per the brief: check `git status` in every repo touched, commit everything meaningful (docs/config included, not just app code), push to `origin/main`, and state the resulting commit hash(es) explicitly in the review doc rather than a bare "committed and pushed" claim. Also carries a short repo-layout section (service names, where `antaraweb`/`antarasurvey` actually live relative to this repo, the committed-vs-deployed distinction for `firestore.rules`) — context more than one session has had to independently rediscover this engagement, now stated once. Committed at `8617d57`.
 
 ---
 
-## 4. Offline behavior — decided explicitly: yes, app-shell only, not transaction sync
+## Commit hashes (this step, `antara` repo, all pushed to `origin/main`)
 
-**Decision: basic offline support, scoped to the app shell.** Reasoning:
+- `e1c16d3` — selectively port the unmerged survey branch into `main`
+- `7f2efe1` — remove dead `compute_category_benchmarks.py`, fix stale category ids in rules tests
+- `8617d57` — add `CLAUDE.md` with the git-hygiene rule
+- This `REVIEW.md` commit is one more on top of `8617d57` — per `CLAUDE.md`'s own new rule, that means *this* review doc can't state its own final hash from inside itself. After this commits and pushes, `git log -1 --format=%H` (or `git rev-parse origin/main`) on the `antara` repo gives the exact final `origin/main` HEAD for this step — confirmed identical to local `HEAD` immediately before writing this section (see Verification below), same as every other step.
 
-- This is a financial app with live Firestore data (`onSnapshot` in `page.tsx`) — genuinely offline-capable transaction entry/sync is a real feature (conflict handling, retry queues, staleness UI) and explicitly out of scope per the brief.
-- But *zero* offline handling means a flaky mobile connection — not full offline, just a dropped packet at the wrong moment on a phone network, which is common — could show Safari's own "You Are Not Connected to the Internet" full-page error inside what's supposed to look like a native app. That undermines the entire point of this step (genuinely feels like an app) for a cost (a same-origin-only, GET-only, ~70-line service worker) that's small and free, matching the "no cost" constraint the whole step operates under.
-- Full offline transaction sync was correctly ruled out by the brief as a bigger feature, and I didn't build any part of it — no offline writes, no sync queue, no conflict resolution.
-
-**What I built:** `frontend/public/service-worker.js`, registered by a new tiny client component (`frontend/src/components/ServiceWorkerRegister.tsx`, mounted in `layout.tsx`). Scope, deliberately narrow:
-- HTML navigations: network-first, falling back to the last cached shell only if the network request itself fails — this is what removes the white blank-page gap offline.
-- Hashed Next.js build assets (`/_next/static/*`), `/brand/*` images, `/manifest.json`, `/favicon.ico`: cache-first (content-hashed filenames are immutable, so a cache hit never needs re-fetching).
-- Everything else — `/api/*` (the ML backend), and anything cross-origin (Firestore/Auth's own requests to `googleapis.com`) — is explicitly passed through, never intercepted, never cached. A logged transaction, a live `onSnapshot` update, an ML prediction call always hits the real network; this app never silently serves a stale balance or prediction as if it were live.
-
-**Explicitly did NOT enable Firestore's own IndexedDB offline persistence** (`enableIndexedDbPersistence`/`persistentLocalCache`, currently off in `frontend/src/lib/firebase.ts`) even though it's a single official SDK call. Reasoning stated plainly rather than left implicit: that's *data*-level offline support (last-known transaction list rendering from a local cache across reloads) — a real step closer to the "transaction sync" territory the brief explicitly fenced off, with its own staleness-indicator and write-queue UX questions this step doesn't answer. What I built (shell caching) gets the "app doesn't visibly break with a flaky connection" outcome without touching how financial data itself is read or trusted offline.
-
-**Verified, not assumed:**
-- Read the actual fetch-interception logic line by line for the "never touches `/api/` or cross-origin" claim, rather than asserting it — the `fetch` handler returns (no `respondWith` call) for both cases before reaching any caching logic.
-- Built and served the app locally, then `curl`'d `/service-worker.js` directly: `200`, correct content.
-- Confirmed via `npx tsc --noEmit` (clean) that the new client component and its `navigator.serviceWorker` usage type-check correctly, including the SSR/unsupported-browser guard (`typeof window === "undefined"`).
-
-**Not verified:** actual offline behavior in a real browser (toggling airplane mode mid-session, confirming the cached shell repaints, confirming a real transaction write still goes through the instant network returns) — that needs a real browser with a real network to toggle, which this sandbox doesn't have a way to do headlessly for a full PWA lifecycle (install → use online → go offline → relaunch). Flagged here rather than claimed.
-
----
-
-## 5. Real-device verification — NOT performed by me; needs a human with an iPhone
-
-I do not have a physical iPhone/iPad in this session, and no interactive channel to either of the two beta testers mentioned in the brief within this task. I'm stating this directly rather than inferring a result from the build output, which is not the same thing as a real Safari "Add to Home Screen" test.
-
-What I could and did verify from this sandbox, as partial evidence the pieces are wired correctly:
-- A full production build (`npm run build`) compiles clean, typechecks clean (`npx tsc --noEmit`), and the generated static HTML contains every expected tag (§1–§2 above), inspected directly, not inferred from the source.
-- Every new static asset (`/service-worker.js`, each splash PNG, `/manifest.json`) is actually served with `200` by a locally-running `next start` instance in this container.
-
-None of that is a substitute for item 5's actual ask. **Still needed, by someone with the right access:**
-1. Deploy this branch to the real production host (`draftsmanbrain`, per `.env-remember`) — rebuild `antara-frontend.service`, restart it, confirm `https://app.antara.money` serves the new build. I could not do this step; this session has no route to that host (§0).
-2. On a real iPhone: Safari → `https://app.antara.money` → Share → Add to Home Screen → confirm: a real icon appears (not a screenshot thumbnail), tapping it launches full-screen with no Safari address/tab bar, no white flash before first paint, the status bar area reads dark/translucent rather than a stray white strip, and sign-in via Google + logging a transaction work identically to the plain-Safari-tab version.
-
-**Real device(s) this was tested on: none.** I'm not claiming otherwise.
-
----
-
-## What's committed
-
-Branch `claude/cool-dirac-59ytb3`, off `origin/main`'s `8b96f0d` (Step 15's final commit — no Step 16 commit exists on `main` as of this pass). New/changed files, no unrelated changes:
-
-- `frontend/src/app/layout.tsx` — `appleWebApp` metadata, `viewport.themeColor`, mounts `ServiceWorkerRegister`.
-- `frontend/src/lib/appleSplashScreens.ts` — new, the 12-device splash table + media-query generation.
-- `frontend/public/brand/splash/*.png` — new, 12 generated splash screens.
-- `frontend/src/components/ServiceWorkerRegister.tsx` — new, client-side SW registration.
-- `frontend/public/service-worker.js` — new, the app-shell-only service worker.
-- `scripts/generate_apple_splash_screens.py` — new, reproducible splash generator (Pillow), kept in sync with `appleSplashScreens.ts`'s device table by a cross-referencing comment in both.
-
-No backend changes — this step is entirely frontend/static-asset scoped, matching the brief.
+No other repo was touched this step (unlike Step 14, which also spanned `antaraweb`) — this was entirely a `antara`-repo-and-its-GitHub-branches task.
 
 ---
 
 ## Verification performed
 
-- `npx tsc --noEmit` — clean, after the `layout.tsx`/new-file changes.
-- `npm run build` (production) — compiles clean; inspected the actual generated `.next/server/app/index.html` for every expected meta/link tag rather than trusting the metadata config alone.
-- `next start` against that build, `curl`'d directly: `/service-worker.js` → 200, `/brand/splash/iphone-14pro-15-16.png` → 200, `/manifest.json` → 200 with the expected body.
-- Re-ran the checked-in generator script from its final repo path and diffed output against the earlier iteration — byte-identical.
-- Visual inspection of one generated splash PNG.
-- Read (not skimmed) the service worker's fetch handler to confirm the "never caches `/api/*` or cross-origin requests" claim before writing it down as a claim.
-- Checked this session's actual access to production before describing it: `systemctl` (unavailable — no systemd), `curl https://app.antara.money` (proxy-blocked, not 200), Tailscale IP (unreachable, no client) — all confirmed unreachable, not assumed unreachable.
-
-## Explicitly not done / left for a human
-
-- Production deploy/rebuild/restart on the real host.
-- Real iPhone/iPad "Add to Home Screen" test (icon, full-screen launch, splash gap, status bar, sign-in/logging parity).
-- Real airplane-mode offline behavior test of the new service worker.
+- Fetched the real, live `https://survey.antara.money/` and diffed its actual served JS against the branch's source (schema version, category ids/labels, field names, anti-spam mechanism) before concluding anything about what the branch actually is.
+- Cloned the separate `antarasurvey` repo and confirmed its deployed branch's `index.html` is byte-identical to what the live domain serves, and read its README to confirm the deployment architecture rather than assume it.
+- Diffed `firestore.rules` and `firestore-rules.test.ts` directly (branch vs. `main`) to confirm `main`'s versions are strict supersets/improvements before deciding not to port them.
+- Verified every ported file's compatibility with `main`'s current state *before* porting: category id set/order (`SURVEY_CATEGORY_KEYS`), pocket-money range strings, and a full import scan across every file to be ported confirming zero new npm dependencies needed.
+- `npx tsc --noEmit` and a full `npm run build` (11/11 pages) after the port — clean.
+- Ran the actual ported `export-survey-static.sh` end-to-end and inspected its real output for the brand-color fix and correct schema/category content — not just "it builds."
+- Caught and fixed my own build-hygiene slip mid-verification: a `STATIC_EXPORT=true` test build left `.next` in a mode incompatible with `next start`; rebuilt in normal mode immediately and restarted `antara-frontend.service` to confirm the running production build was never left inconsistent (`app.antara.money` and `app.antara.money/survey` both checked `200` after).
+- Precise (not substring) import-reference checks across `frontend/src/components`, `frontend/src/lib`, and `backend/app` for the dead-code sweep.
+- Re-ran `npm run test:rules` (10/10) after fixing the stale category ids in that file, and `pytest` (3/3) after the dead-code comment edits — both still clean.
+- Final `git status` clean in `antara`; `git fetch` + `git rev-parse HEAD`/`origin/main` confirmed identical before writing this review, per `CLAUDE.md`'s own new rule.
+- Confirmed both `antara-frontend.service` and `antara-ml.service` still `active` and healthy at the end of the session (no restart was actually required for this step's final committed state beyond the one already done mid-verification above — nothing in the dead-code/CLAUDE.md commits touches runtime code).
+- Confirmed the deleted branch is actually gone: `git branch -a` (after `git fetch --prune`) shows only `main`.

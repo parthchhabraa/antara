@@ -73,7 +73,7 @@ describe("Firestore Security Rules Tests", () => {
     await assertFails(
       txRef.set({
         amount: 500,
-        category: "food-delivery",
+        category: "food-snacks",
         timestamp: new Date().toISOString(),
       })
     );
@@ -88,7 +88,7 @@ describe("Firestore Security Rules Tests", () => {
     await assertSucceeds(
       aliceTx.set({
         amount: 250,
-        category: "food-delivery",
+        category: "food-snacks",
         note: "Swiggy snack",
         timestamp: new Date().toISOString(),
       })
@@ -105,7 +105,7 @@ describe("Firestore Security Rules Tests", () => {
     await assertFails(
       aliceTx.set({
         amount: 250,
-        category: "food-delivery",
+        category: "food-snacks",
         timestamp: new Date().toISOString(),
       })
     );
@@ -120,7 +120,7 @@ describe("Firestore Security Rules Tests", () => {
     await assertFails(
       aliceTx.set({
         amount: 250,
-        category: "food-delivery",
+        category: "food-snacks",
         timestamp: new Date().toISOString(),
       })
     );
@@ -135,7 +135,7 @@ describe("Firestore Security Rules Tests", () => {
     await assertSucceeds(
       aliceTx.set({
         amount: 250,
-        category: "food-delivery",
+        category: "food-snacks",
         timestamp: new Date().toISOString(),
       })
     );
@@ -151,7 +151,7 @@ describe("Firestore Security Rules Tests", () => {
     await assertFails(
       aliceTx.set({
         amount: 999,
-        category: "gaming",
+        category: "gaming-inapp",
         timestamp: new Date().toISOString(),
       })
     );
@@ -172,10 +172,10 @@ describe("Firestore Security Rules Tests", () => {
     const superadminDb = testEnv
       .authenticatedContext("user_parth", { role: "superadmin" })
       .firestore();
-    const catRef = superadminDb.doc("categories/food-delivery");
+    const catRef = superadminDb.doc("categories/food-snacks");
     await assertSucceeds(
       catRef.set({
-        name: "Food delivery & street food",
+        name: "Food, drinks & snacks",
         color: "#F97316",
         is_essential: false,
       })
