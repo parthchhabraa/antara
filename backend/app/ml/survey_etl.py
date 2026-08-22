@@ -405,6 +405,77 @@ def generate_population_dot_graph(responses: List[Dict[str, Any]], config: Dict[
     }
 
 
+def _archetype_slug(archetype_id: str) -> str:
+    """"archetype_gamer_foodie" -> "gamer-foodie" — the compact id used by
+    the public payload and by antaraweb's Fig. 4 anchors, derived from the
+    single PEER_ARCHETYPES id rather than maintained as a second list."""
+    return archetype_id.removeprefix("archetype_").replace("_", "-")
+
+
+def build_public_stats_payload(db) -> Dict[str, Any]:
+    """Shapes Step 10's Stage-1 stats + population dot-graph into the
+    minimal, PII-free aggregate payload served by the public
+    GET /api/v1/public/survey-stats endpoint (Step 14 — see backend/app/
+    main.py). Reuses compute_stats/generate_population_dot_graph directly;
+    this function is a view over their output, not a second pipeline.
+
+    Safe to expose unauthenticated: survey_responses carries no name/email/
+    uid (confirmed in this module's docstring above), and every field below
+    is either a category aggregate (median/q1/q3/n/confidence) or a single
+    per-respondent match percentage against a fixed archetype — never a raw
+    response, a respondent index, or anything else identifying.
+    """
+    config = load_data_config(db)
+    responses = fetch_survey_responses(db)
+    stats = compute_stats(responses, config)
+    dot_graph = generate_population_dot_graph(responses, config)
+
+    categories = {
+        cat_id: {
+            "median": None if c["insufficientData"] else c["median"],
+            "q1": None if c["insufficientData"] else c["q1"],
+            "q3": None if c["insufficientData"] else c["q3"],
+            "n": c["sampleSizeUsed"],
+            "outliersRemoved": c.get("outliersRemoved", 0),
+            "confidenceTier": c["confidenceTier"],
+        }
+        for cat_id, c in stats["overall"].items()
+    }
+
+    # byIncomeBand keys are the configured band labels ("Low"/"Mid"/"High"
+    # by default, or "Unknown") — lowercased for the public payload; a band
+    # with zero respondents is already absent from byIncomeBand (see
+    # compute_stats), so nothing here fabricates a phantom "unknown": 0.
+    income_bands = {
+        label.lower(): block["respondentCount"]
+        for label, block in stats["byIncomeBand"].items()
+    }
+
+    archetype_clusters: Dict[str, Any] = {
+        _archetype_slug(arc["id"]): {"count": 0, "respondents": []}
+        for arc in PEER_ARCHETYPES
+    }
+    id_by_name = {arc["name"]: arc["id"] for arc in PEER_ARCHETYPES}
+    for node in dot_graph["nodes"]:
+        if node["type"] != "survey_respondent":
+            continue
+        meta = node["metadata"]
+        slug = _archetype_slug(id_by_name[meta["bestMatchArchetype"]])
+        archetype_clusters[slug]["respondents"].append(
+            {"matchPct": round(meta["similarityPct"] / 100, 4)}
+        )
+    for block in archetype_clusters.values():
+        block["count"] = len(block["respondents"])
+
+    return {
+        "sampleSize": stats["sampleSize"],
+        "lastUpdated": stats["computedAt"],
+        "categories": categories,
+        "incomeBands": income_bands,
+        "archetypeClusters": archetype_clusters,
+    }
+
+
 def run_etl(db) -> Dict[str, Any]:
     """End-to-end: load config, fetch responses, compute, persist. Called
     both at backend startup and on-demand from the superadmin recompute

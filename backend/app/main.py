@@ -246,6 +246,34 @@ async def get_training_insights(admin_user: dict = Depends(require_superadmin)):
         "populationDotGraph": dot_graph,
     }
 
+# ── Step 14: public, unauthenticated survey stats for antaraweb ──
+# Powers the live figures on the antara.money research-paper site (separate
+# `antaraweb` repo — plain HTML/JS, fetches this directly from the browser).
+# Deliberately outside the /api/v1/admin/* group above: no require_superadmin
+# dependency, since this is aggregates-only over an already-anonymous survey
+# (see survey_etl.py's module docstring) — nothing here is more sensitive
+# than what /api/v1/admin/training-insights already exposes to admins, just
+# reshaped into a smaller, public-safe view via build_public_stats_payload.
+#
+# CORS: no route-level config needed or possible with FastAPI's
+# CORSMiddleware — it's applied once, globally, above (line ~56), so every
+# route including this one is already covered by ALLOWED_ORIGINS. Verified
+# (not assumed) that "https://antara.money" is still in that list from Step
+# 9 — it is (see ALLOWED_ORIGINS above) — so no addition was needed here.
+@app.get("/api/v1/public/survey-stats", tags=["Public"])
+async def get_public_survey_stats():
+    """
+    Unauthenticated, read-only aggregate view of the Stage-1 survey stats:
+    per-category median/Q1/Q3/n/confidence, income-band respondent counts,
+    and per-respondent archetype match percentages (no PII — see
+    survey_etl.build_public_stats_payload). Reuses Step 10's survey_etl
+    computation rather than duplicating it.
+    """
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+    return survey_etl.build_public_stats_payload(db)
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8001))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
