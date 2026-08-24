@@ -202,14 +202,18 @@ attempting a file-by-file sweep of the whole app:
 
 ## Commit hashes (`antara` repo, branch `claude/continue-sxrspn`)
 
-Everything above is one commit on this branch, pushed to
+Everything above (workstreams 1–3) is one commit on this branch, pushed to
 `origin/claude/continue-sxrspn`:
 
-- See `git log -1 --format=%H` immediately after this commit for the exact
-  hash — per this file's own top-of-file rule, this section can't state its
-  own commit's hash from inside itself. Confirmed identical to
-  `origin/claude/continue-sxrspn` immediately after pushing (see
-  Verification below).
+- `c2ce5c3` (full hash `c2ce5c38f5e5ea5fa1a67068d1dc279f4653fb9b`) — local
+  Ollama backend, `/survey` → `/review`, UI/copy polish pass.
+
+This `REVIEW.md` update is committed on top of `c2ce5c3` as a follow-up
+commit on the same branch/push — see `git log -1 --format=%H` on this repo
+for that exact hash if it matters standalone; the substantive work is all
+in `c2ce5c3` above. Confirmed `git rev-parse HEAD` == `git rev-parse
+origin/claude/continue-sxrspn` immediately after each push (see
+Verification below).
 
 `antarasurvey` — **not touched this session** (no redeploy was done; see §2).
 
