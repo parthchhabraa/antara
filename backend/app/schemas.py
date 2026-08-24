@@ -84,3 +84,34 @@ class HealthResponse(BaseModel):
     port: int
     version: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+# ── Phase 2: local-Ollama-backed features (see app/ml/ollama_client.py /
+# app/ml/llm_features.py) ──
+
+class CategorizeRequest(BaseModel):
+    description: str = Field(..., min_length=1, max_length=300)
+    amount: Optional[float] = None
+
+class CategorizeResponse(BaseModel):
+    category_id: Optional[str]
+    category_name: Optional[str]
+    confidence: float
+    needs_review: bool
+
+class InsightRequest(BaseModel):
+    user_id: str
+
+class InsightResponse(BaseModel):
+    user_id: str
+    insight: Optional[str]
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ChatRequest(BaseModel):
+    user_id: str
+    message: str = Field(..., min_length=1, max_length=500)
+
+class ChatResponse(BaseModel):
+    user_id: str
+    answer: str
+    grounded_on_transaction_count: int
+    generated_at: datetime = Field(default_factory=datetime.utcnow)

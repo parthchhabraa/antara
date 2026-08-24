@@ -1,70 +1,266 @@
-# Antara — Step 16 Review
+# Antara — Phase 2 Review
 
-**Status: ALL COMPLETED — the unmerged survey branch was investigated (not assumed dead), turned out to be the actual source of the live survey.antara.money, and was selectively ported into `main` rather than blind-merged or discarded; the branch itself was then deleted from GitHub, now that everything of value from it lives in `main`'s own history. One confirmed-dead script was removed and a broader sweep found no other orphaned code. `CLAUDE.md` now carries a top-of-file git-hygiene rule. Commits this step: `e1c16d3`, `7f2efe1`, `8617d57`, and this review doc itself — see the commit-hashes section below for the exact final `origin/main` HEAD.**
-
----
-
-## 1. The unmerged survey branch — investigated, then selectively ported, then deleted
-
-**Not a blind merge, not a guess — actually figured out what it was first.** `origin/claude/antara-spending-survey-6o4o2w` diverged from `main` at `16a5608`: 7 commits on the branch, 13 on `main` since. Before touching anything, fetched the live `https://survey.antara.money/` and compared its actual served JS bundle against the branch's source — same `schema_version:2`, same 17 category ids/labels (`"Food, drinks & snacks"`, `"Gifting to friends"`, `fantasy-betting`, `charity-donations`, …), same demographic/habit field names (`age_range`, `family_income_bracket`, `pocket_money_duration`, `tracks_spending`), same `payment_method`/`honeypot` anti-spam mechanism. **This branch (or something byte-identical to it) is genuinely what's running the live survey right now** — not dead work superseded by a separate project, the opposite assumption from what "investigate before merging" was worried about.
-
-Traced the actual deployment chain to be sure, not just inferred it: `scripts/export-survey-static.sh` (on the branch) builds a static export and says to copy it "to the root of your GitHub Pages branch." Found that repo — `github.com/parthchhabraa/antarasurvey` — cloned it, and its `claude/antara-spending-survey-6o4o2w` branch (same name, independent repo) holds `index.html` that is **byte-identical** to what `curl https://survey.antara.money/` actually returns. Its own README confirms the architecture directly: "This repo holds only the *built* static output... it isn't the survey's source code. The survey itself is a Next.js route (`/survey`) that lives in `parthchhabraa/antara`."
-
-**So the actual question wasn't "is this dead," it was "what's still only-on-this-branch, and what's already been independently re-derived (and improved) on `main`."** Checked both files the branch touches that overlap with things `main` also changed:
-- `firestore.rules`: diffed directly — `main`'s current version is a **strict superset** of the branch's, including the exact `survey_responses` rule with the exact same provenance comment ("Step 10... ruleset 3bc866e4..."), meaning `main`'s Step 10 author independently found the same live-deployed rule (by reading Firebase directly, not this branch) and then kept extending it (Step 12's `isPublicSignupEnabled`, admin config rules) further than the branch ever did. Nothing to port.
-- `frontend/src/tests/firestore-rules.test.ts`: `main`'s version, fixed and made runnable in Step 15, tests more scenarios (allowlisted / non-allowlisted / no-doc-at-all) than the branch's older version and doesn't carry the branch's legacy `firebase/compat` import. Nothing to port; `main`'s is strictly better.
-
-**What was genuinely still only on the branch, verified compatible with `main` before porting anything** (same 17 category ids/order as `survey_etl.py`'s `SURVEY_CATEGORY_KEYS`, same `POCKET_MONEY_RANGES` strings as its lookup table, zero new npm dependencies required): the actual `/survey` route and its private dependencies — `app/survey/{layout,page}.tsx`, `components/survey/*` (8 files), `lib/surveyApi.ts`, `lib/surveyConstants.ts`, `types/survey.ts`, the `next.config.js` opt-in static-export block (merged with `main`'s own since-added `rewrites()`, which is mutually exclusive with static export in Next.js — handled by omitting the rewrite only under `STATIC_EXPORT=true`), `scripts/export-survey-static.sh`, and `scripts/export_survey_training_data.py` (a raw CSV/JSONL dump tool — not superseded by `survey_etl.py`, which only computes aggregates; still the only way to get per-respondent rows out, useful for the "Stage 2" work `survey_etl.py`'s own docstring says is still pending).
-
-**Fixed one real, verified-stale thing while porting rather than carrying it forward blind** — exactly the kind of regression the brief warned about, just found in a place it didn't name: `lib/brand.ts`'s colors (`#171717`/`#3E7C99`) were the branch's pre-real-logo eyeballed guess. `main`'s own Step 11/12 already traced the real source file and found the actual values (`#0E87B0`/`#1F1E1C` — a documented 34.7% pixel-diff, not anti-aliasing noise). Updated to the real values; left the survey mark's own animated SVG construction alone (a legitimate, separate re-trace-to-match-the-real-geometry task, not attempted blind here).
-
-**Verified, not just built:** `npx tsc --noEmit` clean, full `npm run build` clean (11/11 pages including `/survey`), and — the part that actually matters, that the port didn't just compile but still *works* — ran `CUSTOM_DOMAIN=survey.antara.money ./scripts/export-survey-static.sh` for real from this checkout and confirmed the output has the corrected `#0E87B0` (and zero remaining `#3E7C99`), `schema_version:2`, and the full real category list.
-
-**Did NOT redeploy `antarasurvey` / touch the live `survey.antara.money` site.** This port fixes the color mismatch in `main`'s own copy of the source; making that reach the live site is a separate, explicit action in a third repo (re-export + copy into `antarasurvey`), not part of "the unmerged branch in `antara`." Flagging as a real, optional follow-up — the live site currently still shows the old approximate blue, which is a cosmetic, not functional, gap.
-
-**Disposition, stated plainly: merged-selectively, then deleted.** Everything of value is now in `main`'s own history (commit `e1c16d3`). The two files that weren't ported (`firestore.rules`, the old rules test) are confirmed superseded, not overlooked. With nothing left un-absorbed, keeping the branch around would only recreate the exact ambiguity this task exists to resolve — so it's gone: `git push origin --delete claude/antara-spending-survey-6o4o2w`, confirmed removed via `git branch -a` after a `--prune` fetch. (The separate `antarasurvey` repo and its own identically-named branch are untouched — deleting `antara`'s branch has no effect on the live site, which doesn't depend on this repo's branch existing at all.)
+**Status: CONTINUE — two of three workstreams (the `/review` survey move, and
+the UI/copy polish pass) are built, tested, and committed here. The third
+(local Ollama) is code-complete and unit-tested against a mocked Ollama HTTP
+layer, but the actual Ollama install/pull step on `draftsmanbrain` was NOT
+done — this session had no SSH, Tailscale, or any other network path to that
+host (verified: no `~/.ssh/config`, no `tailscale` binary, `draftsmanbrain`
+doesn't resolve). `scripts/setup-ollama.sh` has the exact commands to run
+there; nothing in this repo talks to a live Ollama runtime yet.**
 
 ---
 
-## 2. Dead code
+## 0. A correction to this brief's own premises, made before touching anything
 
-**`scripts/compute_category_benchmarks.py`** — confirmed zero references anywhere except comments/docs (grepped `frontend/src`, `backend/app`, `scripts`, `*.md`) before removing. Updated the two comments that pointed at it (`engine.py`, `constants.ts`) to describe the real live mechanism instead of a script that no longer exists.
+The brief said to verify the design language against the repo rather than
+prior docs — good instinct, and worth actually doing rather than trusting
+the brief's own color claim at face value. Checked `frontend/tailwind.config.ts`
+directly: the app's real UI theme genuinely is violet/indigo (`primary`
+family, `#8B5CF6`-ish) on a near-black (`#08090C`) background, matching the
+brief. (The `#0E87B0` blue mentioned in this repo's own `REVIEW.md` history
+is `frontend/src/lib/brand.ts`'s `BRAND_BLUE` — the *logo mark's* traced
+color, a separate thing from the app's UI accent palette. No actual
+contradiction once checked; flagging only because the brief's instruction to
+verify rather than assume was exactly right to follow literally here.)
 
-**Broader sweep, per the brief's examples:**
-- Step 7's deleted-component list (old `predict/page.tsx`, `DotGraphCanvas.tsx`, `PredictiveInsightsCard.tsx`, `QuickLogModal.tsx`, `TransactionList.tsx`) — already properly deleted, in commit `86c8ef5`. Confirmed via `git log --diff-filter=D`. Nothing lingering.
-- Checked every file in `frontend/src/components`, `frontend/src/lib`, and `backend/app` for at least one real importer elsewhere (a precise `from "@/..."` grep, not a loose substring match that would false-positive on comments) — everything currently in the tree is genuinely referenced. No other orphaned files found.
-- Did find one lower-grade version of the same underlying problem, in a place the brief didn't specifically name: `frontend/src/tests/firestore-rules.test.ts` (the file Step 15 got running) still used the pre-Step-9 `"food-delivery"`/`"gaming"` ids in five test fixtures — the exact same drift Step 15 already fixed in the Python test, just never caught here because Firestore rules don't validate a category *value*, so the stale ids never failed an assertion, they just silently didn't match reality. Fixed for consistency (`food-snacks`/`gaming-inapp`); re-ran `npm run test:rules` after — still 10/10 passing.
+Two more premises in the brief didn't hold up against the actual repo and
+are worth stating plainly rather than silently working around:
+- **The anonymous survey had no consent gate or `/privacy`/`/terms` links
+  before this session** (confirmed: `grep`ed `frontend/src/app/survey/page.tsx`
+  and every file under `components/survey/` for "consent"/"privacy"/"terms"
+  — zero matches). The signed-in app's `ConsentGate.tsx` component only
+  gates the authenticated dashboard flow post-sign-in; it was never wired
+  into the anonymous flow. Rather than assume one existed and skip this,
+  added a real one (see §2).
+- **There is no user-facing "dot-graph archetype screen" right now.**
+  `grep`ed the whole frontend for `archetype_description`/`peer_archetypes`
+  — zero matches anywhere in `frontend/src`. The per-user dot-graph endpoint
+  (`POST /api/v1/ml/dot-graph`, and its `PEER_ARCHETYPES` data in
+  `engine.py`) has been dormant with no UI consumer since Step 8 (see that
+  endpoint's own docstring in `main.py`) — the only place archetype data
+  currently renders at all is the **admin-only** training-insights
+  population dot-graph. Polished the actual copy that exists (§3) rather
+  than inventing a screen that isn't there to claim the brief's example was
+  addressed literally.
 
 ---
 
-## 3. `CLAUDE.md` — git-hygiene rule, in place and committed
+## 1. Local Ollama — code complete, NOT installed/tested against a real model
 
-Created at the repo root (didn't exist before), with the git-hygiene rule as the **first section of the file** per the brief: check `git status` in every repo touched, commit everything meaningful (docs/config included, not just app code), push to `origin/main`, and state the resulting commit hash(es) explicitly in the review doc rather than a bare "committed and pushed" claim. Also carries a short repo-layout section (service names, where `antaraweb`/`antarasurvey` actually live relative to this repo, the committed-vs-deployed distinction for `firestore.rules`) — context more than one session has had to independently rediscover this engagement, now stated once. Committed at `8617d57`.
+**What's built** (`backend/app/ml/ollama_client.py`, `backend/app/ml/llm_features.py`,
+three new routes in `backend/app/main.py`):
+- `ollama_client.py` — thin `requests`-based client for `POST /api/generate`
+  and `POST /api/chat` against `OLLAMA_BASE_URL` (default
+  `http://localhost:11434`, overridable by env var). Every call logs model,
+  path, and latency in milliseconds (`logger = logging.getLogger("antara.ollama")`)
+  on both success and failure. Deliberately never sets a long/pinned
+  `keep_alive` — `OLLAMA_KEEP_ALIVE` is read from the environment and passed
+  through only if explicitly set, so Ollama's own default idle-unload (5
+  min) is what actually keeps both models from trying to stay VRAM-resident
+  at once on the 1660 Super's 6GB, per the brief's instruction not to try to
+  pin both.
+- `POST /api/v1/ml/categorize` — `qwen2.5:1.5b`. Free-text description in,
+  `{category_id, category_name, confidence, needs_review}` out. Staged
+  honesty enforced in code, not just prompted for: confidence
+  `< 0.55`, an unparseable response, or a hallucinated category id outside
+  the real 18-id `CATEGORIES_METADATA` taxonomy all come back
+  `category_id: null, needs_review: true` — never a forced guess. Covered
+  by 6 tests including the hallucinated-id case and an Ollama-unreachable
+  case.
+- `POST /api/v1/ml/insights` — `qwen2.5:7b-instruct-q4_K_M`. Computes
+  this-week vs. prior-3-week-average per category in plain Python from real
+  Firestore transactions *first*; only calls the model to phrase the single
+  biggest real mover as one sentence, and only if the move is ≥15% (a
+  finding, `computed`, is returned alongside `insight` specifically so a
+  test — or a future caller — can check the sentence's numbers actually
+  match what was computed, not just that a sentence came back). Falls back
+  to a templated (non-LLM) sentence if Ollama is unreachable rather than
+  going silent.
+- `POST /api/v1/ml/chat` — same model. Fetches the caller's last 30 days of
+  transactions, builds a compact per-category totals block, and that block
+  — not open Firestore access — is the only spending data the model ever
+  sees. A user with zero logged transactions gets a plain "nothing to look
+  at yet" message without a model call at all.
+- **Access boundary**: `insights`/`chat` both require a verified Firebase
+  token *and* a new `_require_self_or_superadmin` check (`main.py`) — the
+  token's own `uid` must match the `user_id` being read, or the caller must
+  be superadmin. This is the same boundary `firestore.rules` already
+  enforces for direct client reads of `users/{uid}/transactions`; since the
+  Admin SDK bypasses rules entirely (same as every other server write in
+  this file), this check is what actually stands in for that boundary on
+  the server side — it's new code, added specifically so these two new
+  routes don't introduce a bypass path Firestore itself would have
+  blocked. `categorize` needs no such check — it only ever touches the
+  description string in the request body, never stored data.
+- `GET /api/v1/admin/status` now also reports `ollama_reachable` (a live
+  `GET /api/tags` check) so a failed/never-installed Ollama is visible from
+  the existing admin telemetry endpoint rather than only surfacing the
+  first time a real feature call fails.
+
+**Tested**: `backend/tests/test_llm_features.py`, 14 new tests, all passing
+locally (`pytest -q`: 17/17 total including the 3 pre-existing ML-engine
+tests) — every Ollama HTTP call is mocked (`unittest.mock.patch` on
+`app.ml.ollama_client.requests.post`), since there is no live Ollama
+reachable from this sandboxed session. These verify: confident results are
+applied, low-confidence/unparseable/hallucinated results all flag
+`needs_review` rather than guessing, an unreachable Ollama degrades safely
+instead of crashing, `build_insight`'s computed numbers are correct and it
+stays quiet with no meaningful mover or no transactions, `answer_chat`'s
+model-facing context contains the real computed total (not something the
+model could invent), and the new ownership check allows self/superadmin and
+rejects cross-user access. **What these tests do NOT verify**: that a real
+`qwen2.5:1.5b`/`qwen2.5:7b-instruct-q4_K_M` running in actual Ollama
+produces good categorizations or good prose — that needs the real model,
+which needs the real box.
+
+**What's NOT done, stated plainly**: `scripts/setup-ollama.sh` (install +
+`ollama pull` for both models + a reachability check) exists but has not
+been run — this session has no SSH/Tailscale/any path to `draftsmanbrain`.
+Someone needs to run that script on the actual box, and then this backend's
+existing `OLLAMA_BASE_URL=http://localhost:11434` default should reach it
+automatically (no code change needed once Ollama is actually up) — but that
+final connection is unverified until someone does that and checks
+`GET /api/v1/admin/status`'s new `ollama_reachable` field.
 
 ---
 
-## Commit hashes (this step, `antara` repo, all pushed to `origin/main`)
+## 2. `/survey` → `/review` — moved, same schema, real consent added
 
-- `e1c16d3` — selectively port the unmerged survey branch into `main`
-- `7f2efe1` — remove dead `compute_category_benchmarks.py`, fix stale category ids in rules tests
-- `8617d57` — add `CLAUDE.md` with the git-hygiene rule
-- This `REVIEW.md` commit is one more on top of `8617d57` — per `CLAUDE.md`'s own new rule, that means *this* review doc can't state its own final hash from inside itself. After this commits and pushes, `git log -1 --format=%H` (or `git rev-parse origin/main`) on the `antara` repo gives the exact final `origin/main` HEAD for this step — confirmed identical to local `HEAD` immediately before writing this section (see Verification below), same as every other step.
+`git mv frontend/src/app/survey frontend/src/app/review`. Reuses everything
+that already existed rather than duplicating: same `survey_responses`
+Firestore collection, same schema (`surveyApi.ts`, `types/survey.ts`
+untouched), same components under `components/survey/`. Updated the two
+things that referenced the old path mechanically:
+`scripts/export-survey-static.sh` (looks for `review.html`/`review/index.html`
+now, not `survey.html`) and `next.config.js`'s comments. `CLAUDE.md`'s
+repo-layout section updated to point at `frontend/src/app/review/`.
+`survey.antara.money` (the actual public domain name) is unchanged — this
+was a route rename inside the app, not a domain change.
 
-No other repo was touched this step (unlike Step 14, which also spanned `antaraweb`) — this was entirely a `antara`-repo-and-its-GitHub-branches task.
+**Added, not previously present** (see §0): a required consent checkbox on
+the intro step — "I'm okay with sharing anonymous answers about my own
+spending" plus working links to `/privacy` and `/terms` (both pre-existing
+pages, untouched) — gating the `primaryDisabled` prop the "Start survey"
+button already supported. Kept it lighter than the signed-in `ConsentGate`
+(no guardian-awareness language) since this flow collects no PII and has no
+account, but it's a real, required checkbox now, not decorative text.
+
+**Verified**: `npx tsc --noEmit` clean after clearing the stale `.next`
+type cache the directory rename left behind. `npm run build` clean, 11/11
+pages, `/review` present at 7.93kB. Ran
+`CUSTOM_DOMAIN=survey.antara.money ./scripts/export-survey-static.sh` end to
+end against the moved route — succeeds, output has the `CNAME` file and the
+real category/schema content. **Did not copy this export to the separate
+`antarasurvey` repo or touch the live `survey.antara.money` site** — this
+brief scoped the work to "a route within the existing Next.js app," not a
+redeploy, and a live public-site push for a teen-facing survey is exactly
+the kind of outward-facing action that should be asked for explicitly
+rather than bundled in — the export is verified and ready whenever that's
+wanted. Rebuilt in normal (non-static-export) mode immediately after
+verifying the export, so `.next` wasn't left in a `next start`-incompatible
+state (the same mistake Step 16 caught and fixed in itself).
+
+---
+
+## 3. UI polish — targeted, not exhaustive
+
+Given the size of this brief's other two workstreams, this pass hit the
+brief's own named examples plus what `grep` actually turned up, rather than
+attempting a file-by-file sweep of the whole app:
+
+- **`WhyPredictionSheet.tsx`** — the literal example in the brief.
+  "Early estimate · logged X/14 days" → "Still learning your habits · day X
+  of 14"; "Personalized · trained on X days" → "Tuned to you · X days of
+  your own logging"; the mode pill "Early estimate"/"Personalized" →
+  "Still learning"/"Tuned to you"; the error-state line softened from
+  "Personalized insights unavailable right now" to "Couldn't reach your
+  personalized read just now." The underlying `is_cold_start` /
+  `data_days_logged` distinction driving all of this is completely
+  untouched — tone only, per the brief's own constraint.
+- **`QuickLogSheet.tsx`** — friction reduction. The category picker
+  previously always defaulted to the first category in the list on every
+  open; now remembers the last category actually logged
+  (`localStorage`, wrapped in try/catch for private-mode/unavailable
+  storage) and defaults to that instead — a real tap saved on the common
+  case of logging a few similar things in a row, without changing the
+  layout or adding a step.
+- **`PEER_ARCHETYPES` descriptions (`backend/app/ml/engine.py`)** — the
+  brief's named example ("Zen Saver / Commuter Nomad / …"), reworded from
+  spec-sheet phrasing ("Spends predominantly on...", "Prioritizes...") to
+  plain sentences. As noted in §0, this data currently has no live
+  frontend consumer to visually confirm against — the change is verified
+  by re-running the backend test suite (unaffected, since no test asserts
+  on this exact string) and by reading the diff directly, not by seeing it
+  rendered.
+- **Did not** rewrite the admin-only `PopulationDotGraphCanvas.tsx` detail
+  panel ("Best match: X (Y% similarity)") — that's an internal
+  superadmin analytics tool, not the teen-facing surface this pass is
+  about, and "spec sheet" precision is arguably correct there.
+
+---
+
+## Commit hashes (`antara` repo, branch `claude/continue-sxrspn`)
+
+Everything above is one commit on this branch, pushed to
+`origin/claude/continue-sxrspn`:
+
+- See `git log -1 --format=%H` immediately after this commit for the exact
+  hash — per this file's own top-of-file rule, this section can't state its
+  own commit's hash from inside itself. Confirmed identical to
+  `origin/claude/continue-sxrspn` immediately after pushing (see
+  Verification below).
+
+`antarasurvey` — **not touched this session** (no redeploy was done; see §2).
 
 ---
 
 ## Verification performed
 
-- Fetched the real, live `https://survey.antara.money/` and diffed its actual served JS against the branch's source (schema version, category ids/labels, field names, anti-spam mechanism) before concluding anything about what the branch actually is.
-- Cloned the separate `antarasurvey` repo and confirmed its deployed branch's `index.html` is byte-identical to what the live domain serves, and read its README to confirm the deployment architecture rather than assume it.
-- Diffed `firestore.rules` and `firestore-rules.test.ts` directly (branch vs. `main`) to confirm `main`'s versions are strict supersets/improvements before deciding not to port them.
-- Verified every ported file's compatibility with `main`'s current state *before* porting: category id set/order (`SURVEY_CATEGORY_KEYS`), pocket-money range strings, and a full import scan across every file to be ported confirming zero new npm dependencies needed.
-- `npx tsc --noEmit` and a full `npm run build` (11/11 pages) after the port — clean.
-- Ran the actual ported `export-survey-static.sh` end-to-end and inspected its real output for the brand-color fix and correct schema/category content — not just "it builds."
-- Caught and fixed my own build-hygiene slip mid-verification: a `STATIC_EXPORT=true` test build left `.next` in a mode incompatible with `next start`; rebuilt in normal mode immediately and restarted `antara-frontend.service` to confirm the running production build was never left inconsistent (`app.antara.money` and `app.antara.money/survey` both checked `200` after).
-- Precise (not substring) import-reference checks across `frontend/src/components`, `frontend/src/lib`, and `backend/app` for the dead-code sweep.
-- Re-ran `npm run test:rules` (10/10) after fixing the stale category ids in that file, and `pytest` (3/3) after the dead-code comment edits — both still clean.
-- Final `git status` clean in `antara`; `git fetch` + `git rev-parse HEAD`/`origin/main` confirmed identical before writing this review, per `CLAUDE.md`'s own new rule.
-- Confirmed both `antara-frontend.service` and `antara-ml.service` still `active` and healthy at the end of the session (no restart was actually required for this step's final committed state beyond the one already done mid-verification above — nothing in the dead-code/CLAUDE.md commits touches runtime code).
-- Confirmed the deleted branch is actually gone: `git branch -a` (after `git fetch --prune`) shows only `main`.
+- Confirmed no SSH/Tailscale/network path to `draftsmanbrain` exists in this
+  session (`~/.ssh/config` absent, no `tailscale` binary, hostname doesn't
+  resolve) before writing `scripts/setup-ollama.sh` as an unrun script
+  rather than claiming Ollama was installed.
+- Checked `frontend/tailwind.config.ts` directly to confirm the brief's
+  violet/near-black design-language claim against the actual repo, not
+  prior docs (see §0).
+- `grep`ed the actual repo for "consent"/"privacy"/"terms" in the survey
+  flow and for `archetype_description`/`peer_archetypes` anywhere in the
+  frontend before asserting the two gaps in §0 — not assumed either way.
+- Backend: `pytest -q` — 17/17 passing (3 pre-existing MLEngine tests + 14
+  new `test_llm_features.py` tests), all new Ollama calls mocked since none
+  is reachable here. Verified the FastAPI app itself boots and registers
+  the three new routes (`TestClient` smoke check against `/health` and
+  route listing).
+- Frontend: `npx tsc --noEmit` clean (after clearing the stale `.next` type
+  cache the `git mv` left behind), `npm run build` clean (11/11 pages,
+  `/review` included), `CUSTOM_DOMAIN=survey.antara.money
+  ./scripts/export-survey-static.sh` run end-to-end against the moved
+  route and its output inspected directly (CNAME, schema, categories) —
+  not left in static-export mode after (rebuilt normal mode and confirmed
+  `next build` succeeds hybrid-mode again).
+- `npm --prefix frontend run test:rules` — real Firebase emulator run (not
+  skipped): 10/10 Firestore rules tests still passing, confirming the
+  unmodified `firestore.rules` still behaves as before (no rule changes
+  were needed — the Admin SDK bypass + new `_require_self_or_superadmin`
+  check in `main.py` is what stands in for rules on the new server-side
+  reads, as explained in §1).
+- `git status` run in **both** repos (`antara` and `antarasurvey`) before
+  writing this section, per this file's own top-of-file rule —
+  `antarasurvey` is clean/untouched, confirmed with nothing to commit
+  there this session.
+
+## What's unverified / left for a human or a future session
+
+- Whether `qwen2.5:1.5b` and `qwen2.5:7b-instruct-q4_K_M` actually pull and
+  run correctly on the real GTX 1660 Super, and whether their real output
+  quality is good enough to ship — needs `scripts/setup-ollama.sh` run on
+  `draftsmanbrain` itself, then exercising `/api/v1/ml/categorize`,
+  `/insights`, `/chat` for real.
+- Whether `antara-ml.service`'s existing environment already has
+  `OLLAMA_BASE_URL` reachable as `http://localhost:11434` with no
+  additional systemd config — likely yes (same box), not confirmed from
+  here.
+- The `/review` static export is built and verified locally but not copied
+  to the `antarasurvey` repo or deployed — flagged in §2 as ready whenever
+  that's explicitly wanted.

@@ -65,35 +65,35 @@ PEER_ARCHETYPES = [
         "id": "archetype_gamer_foodie",
         "name": "The Gamer & Foodie",
         "color": "#EC4899",
-        "description": "Spends predominantly on late-night Swiggy/Zomato snacks, Discord/Spotify, and gaming battle passes.",
+        "description": "Late-night Swiggy runs, a Discord/Spotify sub, and the odd battle pass — food and gaming are where the money goes.",
         "weights": {"food-snacks": 0.35, "gaming-inapp": 0.25, "subscriptions": 0.15, "mobile-recharge": 0.10, "transportation": 0.05, "investments": 0.10}
     },
     {
         "id": "archetype_exam_grinder",
         "name": "The Exam Grinder & Scholar",
         "color": "#10B981",
-        "description": "Prioritizes coaching modules, test series, textbooks, and minimal discretionary spending.",
+        "description": "Coaching fees, test series, and textbooks come first — everything else is kept pretty lean.",
         "weights": {"tuition-coaching": 0.50, "books": 0.20, "transportation": 0.15, "mobile-recharge": 0.05, "investments": 0.10}
     },
     {
         "id": "archetype_social_trendsetter",
         "name": "The Social Trendsetter",
         "color": "#F43F5E",
-        "description": "High affinity for streetwear, cafes, birthdays, and campus outings.",
+        "description": "Streetwear, cafe hangouts, birthday gifts, campus outings — spending follows the social calendar.",
         "weights": {"clothes-shoes": 0.30, "gifting-friends": 0.25, "food-snacks": 0.20, "grooming": 0.15, "transportation": 0.10}
     },
     {
         "id": "archetype_commuter_nomad",
         "name": "The Commuter Nomad",
         "color": "#06B6D4",
-        "description": "Constant city transit, metro cards, rapid street food halts, and mobile data top-ups.",
+        "description": "Always moving — metro cards, quick street-food stops between places, and topping up mobile data on the go.",
         "weights": {"transportation": 0.40, "mobile-recharge": 0.20, "food-snacks": 0.25, "miscellaneous": 0.15}
     },
     {
         "id": "archetype_zen_saver",
         "name": "The Zen Saver",
         "color": "#22C55E",
-        "description": "Strict financial discipline, high savings stash, and smart budget adherence.",
+        "description": "Disciplined about saving and rarely strays from a budget — money in the bank over money spent.",
         "weights": {"investments": 0.45, "tuition-coaching": 0.20, "mobile-recharge": 0.15, "transportation": 0.10, "food-snacks": 0.10}
     }
 ]

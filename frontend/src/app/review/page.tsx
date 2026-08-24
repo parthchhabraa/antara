@@ -125,6 +125,14 @@ export default function SurveyPage() {
   const [checkedCooldown, setCheckedCooldown] = useState(false);
   const [cooldownActive, setCooldownActive] = useState(false);
 
+  // Phase 2: this anonymous flow didn't previously ask for any explicit
+  // consent before the /privacy /terms links, unlike the signed-in app's
+  // ConsentGate — worth stating plainly rather than assuming one already
+  // existed. Added here because the brief for this pass is explicit that
+  // consent must not be weakened or skipped for an audience that includes
+  // minors, even on a no-login flow like this one.
+  const [reviewConsented, setReviewConsented] = useState(false);
+
   const [stepIndex, setStepIndex] = useState(INTRO_INDEX);
   const [direction, setDirection] = useState(1);
 
@@ -257,8 +265,28 @@ export default function SurveyPage() {
             <InfoRow text="About 2–3 minutes" />
             <InfoRow text="Anonymous & voluntary — no account, no login" />
           </div>
+
+          <label className="flex items-start gap-3 p-4 mt-5 rounded-2xl bg-white/[0.05] border border-white/10 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={reviewConsented}
+              onChange={(e) => setReviewConsented(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-primary-500 shrink-0"
+            />
+            <span className="text-[12.5px] leading-relaxed text-gray-300">
+              I'm okay with sharing anonymous answers about my own spending, and I've read the{" "}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-300 underline">
+                Privacy Policy
+              </a>{" "}
+              and{" "}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary-300 underline">
+                Terms of Use
+              </a>
+              .
+            </span>
+          </label>
         </StepContainer>
-        <StepFooter onPrimary={goNext} primaryLabel="Start survey" />
+        <StepFooter onPrimary={goNext} primaryLabel="Start survey" primaryDisabled={!reviewConsented} />
       </div>
     );
   } else if (stepIndex >= DEMO_START && stepIndex < HABITS_START) {
