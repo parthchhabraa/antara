@@ -1,5 +1,5 @@
 import { User as FirebaseUser } from "firebase/auth";
-import { collection, addDoc, doc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc, deleteDoc, deleteField, updateDoc } from "firebase/firestore";
 import { Transaction, UserProfile } from "@/types";
 import { STARTER_CATEGORIES } from "./constants";
 import { db } from "./firebase";
@@ -191,6 +191,30 @@ export function calculateBurnMetrics(
 // history total) — callers must show an honest "not enough history yet"
 // state rather than inventing a percentage.
 // ────────────────────────────────────────────────────────────────────────
+
+// Mirrors backend/app/ml/engine.py's MLEngine._analyze_data_maturity exactly
+// (same COLD_START_DAY_THRESHOLD=14 / MIN_TRANSACTION_COUNT_THRESHOLD=5
+// constants, same "unique days or date span, whichever is larger" logic) —
+// deliberately not a new/different threshold. WhyPredictionSheet and
+// ArchetypeSheet already surface "Still calibrating…" off the real
+// `is_cold_start` field an ML response returns; the Today screen's burn
+// ring/"money runs out" card are pure client-side math with no ML call to
+// piggyback on, so this lets them use the identical condition without
+// requiring a network round-trip just to show a calibrating notice.
+const COLD_START_DAY_THRESHOLD = 14;
+const MIN_TRANSACTION_COUNT_THRESHOLD = 5;
+
+export function isColdStart(transactions: Transaction[]): boolean {
+  const txCount = transactions.length;
+  if (txCount === 0) return true;
+  const timestamps = transactions.map((t) => new Date(t.timestamp).getTime());
+  const minDate = Math.min(...timestamps);
+  const maxDate = Math.max(...timestamps);
+  const uniqueDays = new Set(transactions.map((t) => new Date(t.timestamp).toDateString())).size;
+  const daySpan = Math.max(1, Math.round((maxDate - minDate) / 86400000) + 1);
+  const effectiveDays = Math.max(uniqueDays, daySpan);
+  return effectiveDays < COLD_START_DAY_THRESHOLD || txCount < MIN_TRANSACTION_COUNT_THRESHOLD;
+}
 
 export interface CategoryTrend {
   categoryId: string;
@@ -550,6 +574,26 @@ export async function saveStreakUpdate(uid: string, result: StreakUpdateResult):
 export async function saveMonthlyBudget(uid: string, amount: number): Promise<void> {
   const userRef = doc(db, "users", uid);
   await setDoc(userRef, { monthly_budget: amount } as Partial<UserProfile>, { merge: true });
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Real per-user, per-category spending caps (bug fix: caps used to be
+// nothing but `Category.monthly_cap` — a fixed survey-derived baseline in
+// constants.ts, identical for every user and not settable at all). Stored
+// as a map field on the user's own doc, keyed by category id, so any
+// category can be capped, not just whichever one a screen happens to
+// spotlight. Dot-notation updateDoc touches only the one key being
+// changed, leaving every other category's cap in the map untouched.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function saveCategoryCap(uid: string, categoryId: string, amount: number): Promise<void> {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, { [`category_caps.${categoryId}`]: amount });
+}
+
+export async function clearCategoryCap(uid: string, categoryId: string): Promise<void> {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, { [`category_caps.${categoryId}`]: deleteField() });
 }
 
 // ────────────────────────────────────────────────────────────────────────

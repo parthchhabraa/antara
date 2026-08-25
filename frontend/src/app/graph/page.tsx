@@ -25,7 +25,7 @@ import { Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function PullPage() {
-  const { user, profile, isDemoMode, refreshClaims } = useAuth();
+  const { user, profile, isDemoMode, refreshClaims, setCategoryCap } = useAuth();
   const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
   const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
@@ -126,6 +126,7 @@ export default function PullPage() {
   const selected = STARTER_CATEGORIES.find((c) => c.id === selectedId) || STARTER_CATEGORIES[0];
   const selSpent = transactions.filter((t) => t.category === selected.id).reduce((s, t) => s + t.amount, 0);
   const selCount = transactions.filter((t) => t.category === selected.id).length;
+  const selectedCap = profile?.category_caps?.[selected.id] ?? selected.monthly_cap;
 
   const detailCategory = STARTER_CATEGORIES.find((c) => c.id === detailCategoryId) || null;
   const detailEntries = detailCategoryId ? transactions.filter((t) => t.category === detailCategoryId) : [];
@@ -140,7 +141,15 @@ export default function PullPage() {
           </p>
         </div>
 
-        <div className="mt-3 rounded-2xl border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#1b1e30,#121423)] overflow-hidden">
+        {/* Bug fix: this panel's background was a hardcoded #1b1e30 -> #121423
+            gradient — an off-palette blue/indigo pair that doesn't come from
+            tailwind.config.ts at all (every other near-black surface in the
+            app uses background/#08090C or the header's #0A0C10). Swapped for
+            a radial fade from primary-950 (tailwind.config.ts's own darkest
+            violet step) into background (#08090C, also from the config), so
+            this panel reads as violet-tinted near-black like everywhere
+            else, not a different, undefined blue. */}
+        <div className="mt-3 rounded-2xl border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#2E1065,#08090C)] overflow-hidden">
           <PullCanvas transactions={transactions} selectedId={selectedId} onSelect={setSelectedId} />
         </div>
 
@@ -175,17 +184,21 @@ export default function PullPage() {
               : "Nothing here yet this month. Good place to keep it."}
           </p>
           <div className="flex gap-2 mt-3">
-            {selected.monthly_cap !== undefined ? (
+            {/* Bug fix: this used to read only selected.monthly_cap — a fixed
+                survey baseline from constants.ts, the same for every user and
+                never settable. Real per-user caps (profile.category_caps,
+                editable in the sheet this button opens) now win when set. */}
+            {selectedCap !== undefined ? (
               <>
                 <span className="text-[11px] px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-100">
-                  {FORMAT_INR(selected.monthly_cap)} cap
+                  {FORMAT_INR(selectedCap)} cap
                 </span>
                 <span
                   className={`text-[11px] px-2.5 py-1 rounded-md ${
-                    selSpent > selected.monthly_cap ? "bg-rose-500/20 text-rose-300" : "bg-primary-800/50 text-primary-100"
+                    selSpent > selectedCap ? "bg-rose-500/20 text-rose-300" : "bg-primary-800/50 text-primary-100"
                   }`}
                 >
-                  {selSpent > selected.monthly_cap ? "Over cap" : `${FORMAT_INR(selected.monthly_cap - selSpent)} left`}
+                  {selSpent > selectedCap ? "Over cap" : `${FORMAT_INR(selectedCap - selSpent)} left`}
                 </span>
               </>
             ) : (
@@ -229,6 +242,9 @@ export default function PullPage() {
           entries={detailEntries}
           onClose={() => setDetailCategoryId(null)}
           onSelectEntry={setEditingTx}
+          userCap={detailCategoryId ? profile?.category_caps?.[detailCategoryId] : undefined}
+          onSaveCap={detailCategoryId ? (amount) => setCategoryCap(detailCategoryId, amount) : undefined}
+          onClearCap={detailCategoryId ? () => setCategoryCap(detailCategoryId, null) : undefined}
         />
         <TransactionEditSheet
           transaction={editingTx}

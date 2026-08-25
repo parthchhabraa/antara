@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { AntaraLoader } from "./AntaraLoader";
 import { ConsentGate } from "./ConsentGate";
 import { BudgetSheet } from "./BudgetSheet";
+import { WhatsNewGate } from "./WhatsNewGate";
 
 // Step 11 — sits inside AuthProvider (layout.tsx) and is the thing that
 // actually decides whether the loader shows: reads AuthContext's real
@@ -21,10 +22,20 @@ import { BudgetSheet } from "./BudgetSheet";
 // the first Today screen, per the brief's explicit ordering. Checked after
 // pendingConsent since consent must resolve first (declining signs back out
 // to Demo Mode, which never needs a budget).
+//
+// Once every real gate above has cleared, WhatsNewGate mounts alongside the
+// actual app rather than in place of it — a dismissible overlay (like
+// ConsentGate/BudgetSheet's own bottom sheets), not one more thing standing
+// between a returning user and the screen they came back to see.
 export const AppBootGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { loading, pendingConsent, pendingBudgetSetup, setMonthlyBudget } = useAuth();
   if (loading) return <AntaraLoader />;
   if (pendingConsent) return <ConsentGate />;
   if (pendingBudgetSetup) return <BudgetSheet isOpen mode="onboarding" onSave={setMonthlyBudget} />;
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <WhatsNewGate />
+    </>
+  );
 };

@@ -46,6 +46,12 @@ export interface UserProfile {
   longestStreak?: number;
   lastLoggedDate?: string | null; // Date.toDateString() of the last calendar day a real transaction was logged
   streakFreezesAvailable?: number;
+  // Real, user-set monthly spend caps, keyed by category id. Distinct from
+  // Category.monthly_cap (constants.ts) — that's just a survey-derived
+  // suggested baseline shown before a user ever sets their own number.
+  // Only real signed-in accounts persist this to Firestore; demo/guest
+  // profiles hold it in local state only (see AuthContext.setCategoryCap).
+  category_caps?: Record<string, number>;
 }
 
 export interface BetaAllowlistEntry {

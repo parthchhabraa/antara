@@ -24,13 +24,23 @@ import {
   computeStreakUpdate,
   streakToastMessage,
   saveStreakUpdate,
+  isColdStart,
 } from "@/lib/api";
 import { Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function TodayPage() {
-  const { user, profile, isDemoMode, signInWithGoogle, refreshClaims, isNewUser, dismissNewUserBanner, setMonthlyBudget } =
-    useAuth();
+  const {
+    user,
+    profile,
+    isDemoMode,
+    signInWithGoogle,
+    refreshClaims,
+    isNewUser,
+    dismissNewUserBanner,
+    setMonthlyBudget,
+    setCategoryCap,
+  } = useAuth();
   const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
   const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
@@ -78,6 +88,14 @@ export default function TodayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [transactions, monthlyBudget, isDemoMode]
   );
+
+  // Bug fix: "Still calibrating…" previously only ever showed in
+  // WhyPredictionSheet/ArchetypeSheet — the burn ring and "money runs out"
+  // card here are the same cold-start-sensitive predictions (pace, run-out
+  // date) but never disclosed it. Same established condition (see
+  // isColdStart's own comment), just evaluated client-side since this
+  // screen's numbers are already pure client-side math.
+  const coldStart = useMemo(() => isColdStart(transactions), [transactions]);
 
   // Phase 2 continuation — the week-bar strip is now a real date selector,
   // not decoration. `null` means "no day picked, show today's live view"
@@ -355,10 +373,14 @@ export default function TodayPage() {
                       className="flex items-center gap-3 py-3 border-b border-white/5 last:border-0 text-left active:opacity-60 transition-opacity"
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13px] text-gray-100 truncate">{cat?.name || t.category}</div>
+                        {/* Bug fix: same headline/subtitle swap as CategoryDetailSheet —
+                            the user's own note is the headline when they gave one,
+                            falling back to the generic category/subcategory tag only
+                            when they didn't type anything. */}
+                        <div className="text-[13px] text-gray-100 truncate">{t.note || cat?.name || t.category}</div>
                         <div className="text-[11px] text-gray-500 mt-0.5 truncate">
                           {new Date(t.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                          {t.note ? ` · ${t.note}` : t.subcategory ? ` · ${t.subcategory}` : ""}
+                          {t.note && (t.subcategory || cat?.name) ? ` · ${t.subcategory || cat?.name}` : ""}
                         </div>
                       </div>
                       <span className="text-sm font-medium text-white shrink-0">{FORMAT_INR(t.amount)}</span>
@@ -379,6 +401,11 @@ export default function TodayPage() {
               <br />
               Safe is {FORMAT_INR(metrics.safeDaily)}.
             </div>
+            {coldStart && (
+              <p className="text-center text-[11.5px] leading-relaxed text-amber-200/80 -mt-1 mb-2">
+                Still calibrating to your data — the more you log, the sharper this gets.
+              </p>
+            )}
             {/* Step 13 §1 — the edit affordance the brief asked for: budget isn't
                 locked in at onboarding, it's always one tap away from here. */}
             <button
@@ -481,6 +508,9 @@ export default function TodayPage() {
           entries={detailEntries}
           onClose={() => setDetailCategoryId(null)}
           onSelectEntry={setEditingTx}
+          userCap={detailCategoryId ? profile?.category_caps?.[detailCategoryId] : undefined}
+          onSaveCap={detailCategoryId ? (amount) => setCategoryCap(detailCategoryId, amount) : undefined}
+          onClearCap={detailCategoryId ? () => setCategoryCap(detailCategoryId, null) : undefined}
         />
         <TransactionEditSheet
           transaction={editingTx}

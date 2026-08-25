@@ -11,7 +11,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { saveMonthlyBudget } from "./api";
+import { saveMonthlyBudget, saveCategoryCap, clearCategoryCap } from "./api";
 import { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -27,6 +27,9 @@ interface AuthContextType {
   declineConsent: () => Promise<void>;
   pendingBudgetSetup: boolean; // Step 13: true right after consent (or for an existing real account that's never set one) until a real monthly amount is saved
   setMonthlyBudget: (amount: number) => Promise<void>;
+  // Real per-category cap, settable for any category — pass null to clear a
+  // cap back to "not set." See UserProfile.category_caps.
+  setCategoryCap: (categoryId: string, amount: number | null) => Promise<void>;
   toggleDemoMode: () => void;
   signInWithGoogle: () => Promise<void>;
   signInAsGuest: () => void;
@@ -350,6 +353,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPendingBudgetSetup(false);
   };
 
+  // Same "write if real, always update local state" shape as the budget
+  // field above — demo/guest mode gets a working "set a cap" control with
+  // no Firestore doc to write to, a real account persists it for real.
+  const setCategoryCapField = async (categoryId: string, amount: number | null) => {
+    if (user) {
+      if (amount === null) {
+        await clearCategoryCap(user.uid, categoryId);
+      } else {
+        await saveCategoryCap(user.uid, categoryId, amount);
+      }
+    }
+    setProfile((prev) => {
+      if (!prev) return prev;
+      const next = { ...(prev.category_caps || {}) };
+      if (amount === null) {
+        delete next[categoryId];
+      } else {
+        next[categoryId] = amount;
+      }
+      return { ...prev, category_caps: next };
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -365,6 +391,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         declineConsent,
         pendingBudgetSetup,
         setMonthlyBudget: setMonthlyBudgetField,
+        setCategoryCap: setCategoryCapField,
         toggleDemoMode,
         signInWithGoogle,
         signInAsGuest,

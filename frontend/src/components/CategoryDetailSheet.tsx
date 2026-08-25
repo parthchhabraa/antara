@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Category, Transaction } from "@/types";
 import { FORMAT_INR } from "@/lib/constants";
@@ -14,9 +14,61 @@ interface CategoryDetailSheetProps {
   // parent page, above this sheet) for edit/delete. Optional so any future
   // read-only caller of this component doesn't have to wire it up.
   onSelectEntry?: (tx: Transaction) => void;
+  // Bug fix: caps used to be nothing but category.monthly_cap — a fixed
+  // survey baseline, identical for every user and never settable. `userCap`
+  // is the real one this specific user has saved for this category (if
+  // any); onSaveCap/onClearCap let them set/change/remove it here, for
+  // whichever category they've opened — not just one hardcoded category.
+  // Optional so a hypothetical read-only caller isn't forced to wire it up.
+  userCap?: number;
+  onSaveCap?: (amount: number) => Promise<void>;
+  onClearCap?: () => Promise<void>;
 }
 
-export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({ category, entries, onClose, onSelectEntry }) => {
+export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
+  category,
+  entries,
+  onClose,
+  onSelectEntry,
+  userCap,
+  onSaveCap,
+  onClearCap,
+}) => {
+  const [isEditingCap, setIsEditingCap] = useState(false);
+  const [capInput, setCapInput] = useState("");
+  const [savingCap, setSavingCap] = useState(false);
+
+  // Close the little cap editor whenever a different category sheet opens
+  // (or this one closes) — otherwise it'd carry stale input into the next
+  // category tapped.
+  useEffect(() => {
+    setIsEditingCap(false);
+    setCapInput("");
+  }, [category?.id]);
+
+  const handleSaveCap = async () => {
+    const amount = Number(capInput);
+    if (!onSaveCap || !amount || amount <= 0) return;
+    setSavingCap(true);
+    try {
+      await onSaveCap(amount);
+      setIsEditingCap(false);
+    } finally {
+      setSavingCap(false);
+    }
+  };
+
+  const handleClearCap = async () => {
+    if (!onClearCap) return;
+    setSavingCap(true);
+    try {
+      await onClearCap();
+      setIsEditingCap(false);
+    } finally {
+      setSavingCap(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       {category && (
@@ -39,9 +91,14 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({ catego
 
             {(() => {
               const spent = entries.reduce((s, e) => s + e.amount, 0);
-              const hasCap = category.monthly_cap !== undefined;
-              const overCap = hasCap && spent > (category.monthly_cap as number);
-              const capPct = hasCap ? Math.min(100, (spent / (category.monthly_cap as number)) * 100) : 0;
+              const hasUserCap = userCap !== undefined;
+              // Real per-user cap wins when set; otherwise fall back to the
+              // survey-derived suggested baseline (still useful context,
+              // just not something this user actually chose).
+              const effectiveCap = userCap ?? category.monthly_cap;
+              const hasCap = effectiveCap !== undefined;
+              const overCap = hasCap && spent > (effectiveCap as number);
+              const capPct = hasCap ? Math.min(100, (spent / (effectiveCap as number)) * 100) : 0;
               return (
                 <>
                   <div className="flex items-center gap-3">
@@ -63,19 +120,91 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({ catego
                           style={{ width: `${capPct}%` }}
                         />
                       </div>
-                      <div className="mt-1.5 text-xs text-gray-500">
-                        {overCap
-                          ? `${FORMAT_INR(spent - (category.monthly_cap as number))} past the ${FORMAT_INR(category.monthly_cap as number)} you set`
-                          : `${FORMAT_INR((category.monthly_cap as number) - spent)} left of ${FORMAT_INR(category.monthly_cap as number)}`}
+                      <div className="mt-1.5 flex items-center justify-between gap-2">
+                        <span className="text-xs text-gray-500">
+                          {overCap
+                            ? `${FORMAT_INR(spent - (effectiveCap as number))} past the ${FORMAT_INR(effectiveCap as number)} ${
+                                hasUserCap ? "you set" : "suggested"
+                              }`
+                            : `${FORMAT_INR((effectiveCap as number) - spent)} left of ${FORMAT_INR(effectiveCap as number)}${
+                                hasUserCap ? "" : " (suggested)"
+                              }`}
+                        </span>
+                        {onSaveCap && !isEditingCap && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCapInput(String(effectiveCap));
+                              setIsEditingCap(true);
+                            }}
+                            className="shrink-0 text-[11px] text-primary-300 underline decoration-dotted underline-offset-2"
+                          >
+                            Edit
+                          </button>
+                        )}
                       </div>
                     </>
                   ) : (
-                    <div className="mt-3 text-xs text-gray-500">No cap set yet — needs real survey data for this category.</div>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-500">No cap set yet</span>
+                      {onSaveCap && !isEditingCap && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCapInput("");
+                            setIsEditingCap(true);
+                          }}
+                          className="shrink-0 text-[11px] text-primary-300 underline decoration-dotted underline-offset-2"
+                        >
+                          Set a cap
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {isEditingCap && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-[13px] text-gray-500 shrink-0">₹</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        autoFocus
+                        value={capInput}
+                        onChange={(e) => setCapInput(e.target.value)}
+                        placeholder="e.g. 1500"
+                        className="w-full h-9 px-2.5 rounded-lg bg-white/5 border border-white/10 text-[13px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveCap}
+                        disabled={savingCap || !Number(capInput)}
+                        className="shrink-0 h-9 px-3 rounded-lg bg-primary-600 text-white text-[12px] font-semibold disabled:opacity-40"
+                      >
+                        Save
+                      </button>
+                      {hasUserCap && (
+                        <button
+                          type="button"
+                          onClick={handleClearCap}
+                          disabled={savingCap}
+                          className="shrink-0 h-9 px-2.5 rounded-lg bg-white/5 text-rose-300 text-[12px] font-semibold disabled:opacity-40"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingCap(false)}
+                        className="shrink-0 h-9 px-2 text-[12px] text-gray-500"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   )}
 
                   <div className="mt-4 p-3.5 rounded-2xl bg-primary-900/30 text-[13px] leading-relaxed text-gray-200">
                     {!hasCap
-                      ? "No baseline yet for this one — Antara will suggest a cap once there's real survey data to set it from."
+                      ? "No cap on this one yet — set one above to start tracking against it."
                       : overCap
                       ? "This one is over. Park it for a week and the run-out date moves back."
                       : "Comfortable. Keep it here and you finish the month with room to spare."}
@@ -97,10 +226,16 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({ catego
                           className="flex gap-3 py-3 border-b border-white/5 last:border-0 text-left w-full active:opacity-60 transition-opacity disabled:active:opacity-100"
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="text-[13px] text-gray-100">{e.subcategory || category.name}</div>
-                            <div className="text-[11px] text-gray-500 mt-0.5">
+                            {/* Bug fix: this used to always show e.subcategory (a fixed
+                                generic tag, e.g. "Swiggy/Zomato") as the headline even
+                                when the user typed their own note — the note only ever
+                                showed up in the subtitle. The user's own words are now
+                                the headline whenever they gave one; the generic tag
+                                moves to the subtitle instead of disappearing. */}
+                            <div className="text-[13px] text-gray-100 truncate">{e.note || e.subcategory || category.name}</div>
+                            <div className="text-[11px] text-gray-500 mt-0.5 truncate">
                               {new Date(e.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                              {e.note ? ` · ${e.note}` : ""}
+                              {e.note && e.subcategory ? ` · ${e.subcategory}` : ""}
                             </div>
                           </div>
                           <span className="text-sm font-medium text-white shrink-0">{FORMAT_INR(e.amount)}</span>
