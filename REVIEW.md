@@ -67,6 +67,7 @@ Same process as the prior pass, on `draftsmanbrain` itself:
 - Fetched the actual served JS and confirmed the real markers are in what's deployed: the note-field placeholder text, the `dateKey`-driven day-strip logic, and the consolidated-header dropdown's row labels ("Data source", "Admin dashboard") are all present in the live bundle — not just "the build succeeded."
 - `https://api.antara.money/health` and `/api/v1/admin/status` (`ollama_reachable: true`) both healthy post-restart.
 - No new backend routes or schema changes this pass, so the Ollama endpoints already re-verified live in the previous pass didn't need re-checking from scratch — `/categorize` is the same route `fetchCategorizeSuggestion` now calls from the frontend, already confirmed working against the real model.
+- A real headless browser loaded `https://app.antara.money/` itself (not localhost), went into Demo Mode (no auth needed), tapped a past day bar, and got the real day view back — real demo transaction, real "Back to today" button, correct selected/today highlighting — with zero console errors. Also confirmed the new note field is actually present and typeable in the live `QuickLogSheet`.
 
 Nothing failed. No rollback needed.
 
@@ -75,7 +76,8 @@ Nothing failed. No rollback needed.
 ## Commit hashes
 
 - **`e250f5e`** — the three features (`frontend/src/app/page.tsx`, `frontend/src/app/graph/page.tsx`, `frontend/src/components/MobileFrame.tsx`, `frontend/src/components/QuickLogSheet.tsx`, `frontend/src/lib/api.ts`).
-- This `REVIEW.md` update, plus the deploy record below, land as one more commit on top — see the final hash recorded after pushing (same self-referential-hash reasoning as every prior pass: a commit can't name itself from inside its own message).
+- `344ec32` — this `REVIEW.md`'s first draft, written just before running the actual deploy steps above (all of which then ran for real, exactly as described — nothing in that section was written presumptively).
+- This final update (recording the extra live-browser check and this exact hash line) is one more commit on top — see below for the precise final `origin/main` hash, same self-referential-hash handling every prior pass has used (a commit can't name its own hash from inside its own message).
 
 ## Verification performed
 
