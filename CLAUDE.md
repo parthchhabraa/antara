@@ -47,13 +47,16 @@ commit.
   path in production — a `git`-committed source change still needs
   `npm run build` + a service restart to actually reach users; confirm via
   `/health`-equivalent checks after, not just a clean build.
-- `frontend/src/app/survey/` — the anonymous spending survey, ported into
-  `main` in Step 16 from a long-unmerged branch. Its actual public
-  deployment is a **separate** repo (`antarasurvey`, GitHub Pages,
-  `survey.antara.money`), built from this source via
-  `scripts/export-survey-static.sh` — this route existing in `main` does
-  not by itself mean `survey.antara.money` is up to date; that needs an
-  explicit re-export + copy to `antarasurvey`, a separate action.
+- `frontend/src/app/review/` — the anonymous spending survey, ported into
+  `main` in Step 16 from a long-unmerged branch (as `/survey`), then moved
+  to `/review` in Phase 2 — same `survey_responses` Firestore
+  collection/schema both times, only the route path changed. Its actual
+  public deployment is a **separate** repo (`antarasurvey`, GitHub Pages,
+  `survey.antara.money` — that domain name itself didn't change), built
+  from this source via `scripts/export-survey-static.sh` — this route
+  existing in `main` does not by itself mean `survey.antara.money` is up
+  to date; that needs an explicit re-export + copy to `antarasurvey`, a
+  separate action.
 - `antaraweb/` is **not** in this repo — it's a separate plain-HTML/JS
   GitHub Pages site (`git@github.com:parthchhabraa/antaraweb.git`) serving
   the research paper at `antara.money`. Any brief touching that paper

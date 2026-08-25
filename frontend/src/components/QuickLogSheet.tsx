@@ -16,11 +16,27 @@ interface QuickLogSheetProps {
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "del"];
 
+const LAST_CATEGORY_STORAGE_KEY = "antara_quicklog_last_category";
+
 // Full-screen numeric keypad quick-log sheet — tap digits (no free typing),
 // pick a category chip, commit. Replaces the old amount-field + chips modal.
+//
+// Phase 2: defaults the category picker to whatever was logged last, not
+// always the first category in the list — most real usage logs a few
+// things in the same category back to back (a few snacks in a row, a run
+// of transit taps), so remembering it saves a tap on the common case
+// instead of always making you re-pick "Food" from scratch.
 export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, onCommit, safeDaily }) => {
   const [amount, setAmount] = useState("");
-  const [pick, setPick] = useState(STARTER_CATEGORIES[0].id);
+  const [pick, setPick] = useState(() => {
+    try {
+      const last = localStorage.getItem(LAST_CATEGORY_STORAGE_KEY);
+      if (last && STARTER_CATEGORIES.some((c) => c.id === last)) return last;
+    } catch (e) {
+      // localStorage unavailable (private mode etc.) — just use the default below.
+    }
+    return STARTER_CATEGORIES[0].id;
+  });
 
   const category = STARTER_CATEGORIES.find((c) => c.id === pick) || STARTER_CATEGORIES[0];
   const amountNum = amount ? parseInt(amount, 10) : 0;
@@ -44,6 +60,11 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
       timestamp: new Date().toISOString(),
       source: "upi",
     });
+    try {
+      localStorage.setItem(LAST_CATEGORY_STORAGE_KEY, pick);
+    } catch (e) {
+      // Non-fatal — just means next time won't default to this category.
+    }
     setAmount("");
   };
 

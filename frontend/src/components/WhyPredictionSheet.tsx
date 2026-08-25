@@ -64,22 +64,26 @@ export const WhyPredictionSheet: React.FC<WhyPredictionSheetProps> = ({
   const trend = topRow ? computeCategoryTrend(transactions, topRow.categoryId, today) : null;
   const topCategory = topRow ? STARTER_CATEGORIES.find((c) => c.id === topRow.categoryId) : undefined;
 
-  let modeLabel = "Preview using demo data";
+  // Tone pass (Phase 2): still the same staged-honesty distinction
+  // underneath — cold-start vs. trained, thin data vs. enough of it — just
+  // said the way you'd actually say it to someone, not as a confidence-tier
+  // label.
+  let modeLabel = "Using sample data so you can see how this works";
   let modeTone: "demo" | "early" | "personalized" | "fallback" = "demo";
   if (!isDemoMode) {
     if (predictionState === "loading") {
-      modeLabel = "Checking your data…";
+      modeLabel = "One sec, looking at your data…";
       modeTone = "fallback";
     } else if (predictionState === "ready" && prediction) {
       if (prediction.is_cold_start) {
-        modeLabel = `Early estimate · logged ${prediction.data_days_logged}/14 days`;
+        modeLabel = `Still learning your habits · day ${prediction.data_days_logged} of 14`;
         modeTone = "early";
       } else {
-        modeLabel = `Personalized · trained on ${prediction.data_days_logged} days`;
+        modeLabel = `Tuned to you · ${prediction.data_days_logged} days of your own logging`;
         modeTone = "personalized";
       }
     } else if (predictionState === "error") {
-      modeLabel = "Personalized insights unavailable right now — showing what we can tell locally";
+      modeLabel = "Couldn't reach your personalized read just now — here's what we can tell from what you've logged";
       modeTone = "fallback";
     }
   }
@@ -118,7 +122,7 @@ export const WhyPredictionSheet: React.FC<WhyPredictionSheetProps> = ({
                     : "bg-white/5 text-gray-400 border-white/10"
                 }`}
               >
-                {modeTone === "personalized" ? "Personalized" : modeTone === "early" ? "Early estimate" : "Preview"}
+                {modeTone === "personalized" ? "Tuned to you" : modeTone === "early" ? "Still learning" : "Preview"}
               </span>
             </div>
             <p className="text-[11px] text-gray-500 mt-2">{modeLabel}</p>
