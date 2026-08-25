@@ -83,9 +83,14 @@ Same process as every prior pass, on `draftsmanbrain` itself:
 ## Post-deploy verification — against the real public domains
 
 - `https://app.antara.money/` loads, `200`.
-- `https://api.antara.money/health` and `/api/v1/admin/status` (`ollama_reachable: true`) both healthy post-restart — no backend code changed this pass (all 6 items are frontend-only), so this is confirming the restart didn't regress anything, not re-verifying new routes.
-- Fetched the live-served JS bundle and grepped for real markers from this pass: the changelog's own highlight strings, `category_caps`, `Still calibrating` (now reachable from two call sites), `Set a cap` / `Edit` cap-editor labels — all present in what's actually deployed.
-- A real headless browser loaded `https://app.antara.money/` directly (not localhost) in Demo Mode and confirmed: the Pull screen's dot-graph panel renders the corrected violet/near-black gradient, the spotlight card's cap UI reflects real (demo) data, zero console errors.
+- `https://api.antara.money/health` returns healthy post-restart — no backend code changed this pass (all 6 items are frontend-only), so this confirms the restart didn't regress anything rather than re-verifying new routes.
+- App Router serves page content via streamed RSC payload rather than a handful of neatly-named per-route bundles, so rather than guessing at which minified chunk to grep, verification here is a real headless browser actually loading `https://app.antara.money/` (not localhost) and reading rendered output:
+  - **Item 6**: a brand-new browser profile hitting the live domain for the first time does **not** show the What's New sheet (correct — nothing to have "updated" from yet on that origin).
+  - **Item 2**: `getComputedStyle` on the live Pull screen's dot-graph panel returns `radial-gradient(120% 90% at 50% 0px, rgb(46, 16, 101), rgb(8, 9, 12))` — the real `primary-950`/`background` tokens, not the old off-palette hex.
+  - **Item 3**: the spotlight card's real cap UI ("No cap set yet" / "Set a cap") renders against live demo data; opening the detail sheet shows the same.
+  - **Item 1** (bonus confirmation, unprompted): the live demo Pull screen's Gaming entry ("Royal Pass Upgrade Season 12") renders with its own descriptive text as the headline and "Aug 17 · BGMI UC" as the subtitle — the exact fix, visible live in production demo data.
+  - Zero console errors across all of the above.
+- Items 1/3/4/6's real-signed-in-account/real-Firestore-write checks were run against this exact commit's production build on `localhost:3099` (same backend, same Firestore project, reached without the Cloudflare tunnel — see each item's section above) rather than the live domain directly: the temporary `?__e2e_token=` auth hook used for that was fully reverted before this commit (Google OAuth isn't scriptable headlessly, same limitation as every prior pass), so it's correctly absent from what's deployed live.
 
 Nothing failed. No rollback needed.
 
@@ -102,4 +107,5 @@ This pass needed real signed-in sessions and real Firestore writes to verify aga
 
 ## Commit hashes
 
-See below for the exact hash(es) — recorded after the commit since a commit can't name its own hash from inside its own message, same handling as every prior pass.
+- **`3a92db3`** — all 6 items (`frontend/src/app/page.tsx`, `frontend/src/app/graph/page.tsx`, `frontend/src/components/{AntaraLoader,AppBootGate,CategoryDetailSheet}.tsx`, new `frontend/src/components/{WhatsNewGate,WhatsNewSheet}.tsx`, `frontend/src/lib/{AuthContext,api}.ts`, new `frontend/src/lib/changelog.ts`, `frontend/src/types/index.ts`).
+- This `REVIEW.md` is committed as one more commit on top of `3a92db3` — see below for the precise final `origin/main` hash (a commit can't name its own hash from inside its own message, same handling as every prior pass). Frontend and backend are on the same commit — no backend code changed this pass.
