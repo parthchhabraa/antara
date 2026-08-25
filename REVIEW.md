@@ -22,6 +22,8 @@
 - Demo mode — correct "sign in with a real account" gate, matching `ArchetypeSheet`'s existing posture.
 - Zero console errors across all of the above.
 
+**Post-deploy, re-verified against the real live domains**: a real HTTPS call to the now-redeployed `api.antara.money/api/v1/ml/learning-curve` with the real superadmin's real transactions returned the identical curve. A real headless browser hit `https://app.antara.money/graph` directly, confirmed the "How well Antara knows you" trigger is present and opens the sheet with the correct demo-mode gate — zero console errors.
+
 ## Feature: "Ask Antara" — a real chat interface over the user's own data + ML reasoning
 
 **Status: COMPLETED (1 of 3 items from this round's brief — "Instances" and the Pull-page learning-curve visualization are the other two; see brief below/next session for their status) — built, backend logic verified directly against real Firestore data before any UI work, full UI verified against real rendered screenshots, deployed, re-verified live. Nothing failed; no rollback needed.**
