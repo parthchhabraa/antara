@@ -79,8 +79,8 @@ Every item in this session's brief was verified against the real server, nothing
 - `c2ce5c3` — cloud session's Phase 2 work (Ollama backend code, `/survey`→`/review`, UI polish) — unchanged by this session.
 - `af4196b` — cloud session's own `REVIEW.md` commit — unchanged by this session (see its content below, kept intact).
 - `00eb102` — this session: categorize confidence-calibration fix + `ArchetypeSheet.tsx` + wiring.
-- This `REVIEW.md` commit is one more on top of `00eb102`, pushed to `origin/claude/continue-sxrspn` before merging.
-- **Merge commit into `main`: see below** — recorded after the merge actually runs, same self-referential-hash reasoning `CLAUDE.md`'s own rule accounts for (a commit can't name itself from inside its own message).
+- `a86801f` — this session's `REVIEW.md` entry, pushed to `origin/claude/continue-sxrspn`.
+- **`d9e3569` — merge commit, `claude/continue-sxrspn` into `main`, pushed to `origin/main`.** Confirmed clean merge (no conflicts — `main`'s own drift since the branch point was purely additive `README.md`/`readme-assets/*.svg`, disjoint from anything this branch touched). Re-ran the full verification one more time on the merged `main` itself before pushing: backend `pytest` 17/17, frontend `npx tsc --noEmit` clean, `npm run build` clean (11/11 pages, `/review` and the updated `/graph` both present).
 
 
 ---
