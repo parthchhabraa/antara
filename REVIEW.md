@@ -1,6 +1,6 @@
 # Antara — Bug-fix pass: navbar, date selector, calibration notice, category rename
 
-**Status: ALL COMPLETED — of the 4 named items, 2 didn't actually reproduce against the live app (verified, not assumed — see below for exactly what was checked and how), 1 was already partially addressed by the prior session and is now strengthened and verified, and 1 (the rename) is done everywhere it needed to be. A general bug pass found one genuinely dead code path, flagged rather than silently wired up. Nothing here needed a backend/Ollama change, so this is a frontend + one backend display-string commit.**
+**Status: ALL COMPLETED — of the 4 named items, 2 didn't actually reproduce against the live app (verified, not assumed — see below for exactly what was checked and how), 1 was already partially addressed by the prior session and is now strengthened and verified, and 1 (the rename) is done everywhere it needed to be. A general bug pass found one genuinely dead code path, flagged rather than silently wired up. Deployed after: both `antara-ml.service` and `antara-frontend.service` restarted on `draftsmanbrain`, so both are now running the same commit (`7fe5d9d`, no split) — and re-verified against the real public domains (`api.antara.money`, `app.antara.money`), not just localhost. Nothing failed; no rollback was needed.**
 
 Per the brief's explicit instruction: every item below was checked against the real, live app (not assumed from the prior session's notes) before touching anything, using a real rendered browser (a locally-launched headless Chromium via `playwright-core`, same setup as the Phase 2 archetype-screen verification — the browser extension tool wasn't reachable in this environment either).
 
@@ -55,7 +55,32 @@ Swept console errors across all 7 routes (`/`, `/graph`, `/admin`, `/admin/train
 ## Commit
 
 - Files changed: `backend/app/ml/engine.py`, `frontend/src/components/ArchetypeSheet.tsx`, `frontend/src/components/WhyPredictionSheet.tsx`, `frontend/src/lib/constants.ts`, `frontend/src/lib/surveyConstants.ts`, `scripts/seed_categories.py`.
-- **`328ff2b`** — commit on `main`. This `REVIEW.md` update is one more on top, pushed together — see below for the exact final `origin/main` hash.
+- **`328ff2b`** — bug-fix commit on `main`, pushed to `origin/main` (confirmed `git rev-parse HEAD` == `origin/main` == `7fe5d9d` after that push, which included this doc).
+
+---
+
+## Deploy
+
+Pulled, rebuilt, and restarted for real on `draftsmanbrain` itself (this session runs locally on that box, same as the Phase 2 continuation above):
+
+1. `git pull origin main` — already at `7fe5d9d` (the box never left it since the last push), confirmed via `git rev-parse HEAD`/`origin/main` matching before touching anything.
+2. `npm run build` (frontend) — clean, 11/11 pages, at the exact current `HEAD`.
+3. `sudo systemctl restart antara-ml.service` then `sudo systemctl restart antara-frontend.service` — both came up `active` on the first attempt, no restart loop, confirmed via `systemctl status` and a `journalctl` error sweep across the restart window (nothing).
+
+## Post-deploy verification — against the real public domains, not localhost
+
+**Backend, via `https://api.antara.money` (through the real Cloudflare Tunnel):**
+- `/api/v1/admin/status` (real superadmin token): `ollama_reachable: true`.
+- `/api/v1/ml/categorize`: a clear description still categorizes correctly and confidently; a vague one (`"stuff"`) still comes back `confidence: 0.15, needs_review: true` — the calibration fix survived the deploy. A dating-flavored description now returns `"category_name": "Going out"` (not the old name) — the rename is live in the actual model prompt, not just in source.
+- `/api/v1/ml/insights` and `/api/v1/ml/chat`: exercised with fresh, isolated test transactions (created, verified, deleted — same pattern as every other live-data check this engagement) — both correctly grounded in the real computed numbers, both zero-question-about-uninvented-data.
+
+**Frontend, via `https://app.antara.money` (a real headless browser hitting the real domain, not a mock):**
+- Fetched the actual served JS bundles and confirmed the fix markers are in what's deployed, not just what was built: `name:"Going out",short:"Going out"` on the `dates-outings` entry, `"Still calibrating to your data — the more you log, the sharper this gets."` present in both the `/` and `/graph` route bundles, `"Dating & going out"` absent everywhere.
+- Then actually rendered the live page in a browser (demo mode needs no auth, so this is a genuine unauthenticated real-world path): the "Going out" chip renders correctly in the live `QuickLogSheet`; completed a full log (picked "Going out", entered ₹150, committed) and watched the burn-rate/money-runs-out card recompute live with zero console errors.
+- `/review`: loaded live, checked the consent checkbox, clicked "Start survey," landed on the real first question ("How old are you?") — the route works end-to-end on the live domain, not just "returns 200."
+- Console-error sweep across every page visited this pass (`/`, quick-log sheet, `/review`, survey question step) — clean.
+
+**Nothing failed. No rollback was needed** — every check above passed against the real deployed artifacts on the first attempt.
 
 ---
 
@@ -69,4 +94,4 @@ Swept console errors across all 7 routes (`/`, `/graph`, `/admin`, `/admin/train
 - A console-error sweep across all 7 routes with a real authenticated session.
 - `grep` for every call site of `signInAsGuest`/`signInWithDemoSuperadmin` before calling either one dead code.
 - `pytest` (17/17) and `npx tsc --noEmit` + `npm run build` (clean, 11/11 pages) after every change, not just once at the end.
-- Confirmed production (`antara-frontend.service`/`antara-ml.service`) untouched and healthy throughout — this session made no runtime-code changes that needed a live restart to verify (everything was checked against a temporary local dev server), and nothing here has been deployed live yet, consistent with the Phase 2 continuation entry above.
+- **Post-deploy**: real HTTP calls against `api.antara.money` with real Firebase tokens (not localhost); real served-bundle content fetched and grepped from `app.antara.money` (not "the build succeeded"); a real headless browser loading the real live domain and completing a full quick-log commit and the `/review` consent-to-first-question flow. Both `antara-frontend.service` and `antara-ml.service` restarted for real as part of this deploy and confirmed `active`/healthy after, with a `journalctl` sweep for errors across the restart window.
