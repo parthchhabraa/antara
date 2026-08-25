@@ -95,9 +95,14 @@ export const ArchetypeSheet: React.FC<ArchetypeSheetProps> = ({ isOpen, onClose,
             ) : result && top ? (
               <>
                 {result.is_cold_start && (
-                  <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/30">
-                    Early read — not much logged yet
-                  </div>
+                  <>
+                    <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/30">
+                      Early read — not much logged yet
+                    </div>
+                    <p className="text-[11.5px] leading-relaxed text-amber-200/80 mt-1.5 mb-0">
+                      Still calibrating to your data — the more you log, the sharper this gets.
+                    </p>
+                  </>
                 )}
 
                 <div

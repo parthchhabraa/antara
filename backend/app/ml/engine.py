@@ -34,7 +34,7 @@ from app.schemas import (
 # the first rupee logged as infinitely over budget.
 CATEGORIES_METADATA = {
     "food-snacks": {"name": "Food, drinks & snacks", "color": "#F97316", "essential": False, "benchmark_pct": 0.2809, "median_spend_inr": 2500.0},  # n=3, 2026-08-21
-    "dates-outings": {"name": "Dating & going out", "color": "#FB7185", "essential": False, "benchmark_pct": 0.1873, "median_spend_inr": 2000.0},  # n=3, 2026-08-21
+    "dates-outings": {"name": "Going out", "color": "#FB7185", "essential": False, "benchmark_pct": 0.1873, "median_spend_inr": 2000.0},  # n=3, 2026-08-21; name was "Dating & going out"
     "clothes-shoes": {"name": "Clothes & shoes", "color": "#F43F5E", "essential": False, "benchmark_pct": 0.1498, "median_spend_inr": 2000.0},  # n=3, 2026-08-21
     "gifting-friends": {"name": "Gifts & money to friends", "color": "#EAB308", "essential": False, "benchmark_pct": 0.0599, "median_spend_inr": 0.0},  # n=3, 2026-08-21
     "fitness": {"name": "Fitness & fitness products", "color": "#84CC16", "essential": False, "benchmark_pct": 0.0562, "median_spend_inr": 0.0},  # n=3, 2026-08-21

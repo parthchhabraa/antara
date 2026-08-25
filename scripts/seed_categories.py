@@ -36,7 +36,7 @@ CATEGORIES = [
     },
     {
         "id": "dates-outings",
-        "name": "Dating & going out",
+        "name": "Going out",  # was "Dating & going out"
         "icon": "Heart",
         "color": "#FB7185",
         "subcategories": ["Cafes/Restaurants Together", "Outing Tickets"],

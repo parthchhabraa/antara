@@ -59,8 +59,13 @@ export const STARTER_CATEGORIES: Category[] = [
   },
   {
     id: "dates-outings",
-    name: "Dating & going out",
-    short: "Dating",
+    // Renamed "Dating & going out" -> "Going out" per brief. `id` (and the
+    // stored `category: "dates-outings"` field on every existing logged
+    // transaction) is untouched — it's a kebab-case id, not a
+    // human-readable string, and renaming it would silently orphan every
+    // transaction already logged under the old id.
+    name: "Going out",
+    short: "Going out",
     icon: "Heart",
     color: "#FB7185",
     subcategories: ["Cafes/Restaurants Together", "Outing Tickets"],

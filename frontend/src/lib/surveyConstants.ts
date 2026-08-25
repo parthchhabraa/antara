@@ -49,7 +49,7 @@ export const SURVEY_CATEGORIES: SurveyCategoryDef[] = [
   { id: "grooming", label: "Skin, hair & grooming products", icon: Sparkles, color: "#A855F7" },
   { id: "clothes-shoes", label: "Clothes & shoes", icon: ShoppingBag, color: "#F43F5E" },
   { id: "gifting-friends", label: "Gifting to friends", icon: Gift, color: "#EAB308" },
-  { id: "dates-outings", label: "Dates & outings", icon: Users, color: "#EC4899" },
+  { id: "dates-outings", label: "Going out", icon: Users, color: "#EC4899" }, // was "Dates & outings"; renamed for consistency with the main app's category rename
   { id: "transportation", label: "Transportation & fuel", icon: Bus, color: "#06B6D4" },
   { id: "investments", label: "Investments", icon: TrendingUp, color: "#22C55E" },
   { id: "fitness", label: "Fitness, gym & supplements", icon: Dumbbell, color: "#F59E0B" },

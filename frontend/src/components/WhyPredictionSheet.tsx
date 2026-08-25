@@ -126,6 +126,11 @@ export const WhyPredictionSheet: React.FC<WhyPredictionSheetProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-gray-500 mt-2">{modeLabel}</p>
+            {modeTone === "early" && (
+              <p className="text-[11.5px] leading-relaxed text-amber-200/80 mt-1.5 mb-0">
+                Still calibrating to your data — the more you log, the sharper this gets.
+              </p>
+            )}
 
             {top.length === 0 ? (
               <p className="py-8 text-center text-xs text-gray-500">Log a few expenses and this will show what's driving your pace.</p>
