@@ -6,6 +6,7 @@ import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
 import { PullCanvas } from "@/components/PullCanvas";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
 import { TransactionEditSheet } from "@/components/TransactionEditSheet";
@@ -150,7 +151,22 @@ export default function PullPage() {
             this panel reads as violet-tinted near-black like everywhere
             else, not a different, undefined blue. */}
         <div className="mt-3 rounded-2xl border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#2E1065,#08090C)] overflow-hidden">
-          <PullCanvas transactions={transactions} selectedId={selectedId} onSelect={setSelectedId} />
+          {/* Bug fix: dots previously only updated `selected` (the spotlight
+              card below) — opening a category's cap editor took two taps
+              (tap a dot, then tap the card), and the card only ever showed
+              one algorithm-picked category at a time. Tapping a dot now
+              still updates the spotlight (so its "here's what stands out"
+              default keeps working), but also opens CategoryDetailSheet for
+              that exact category directly — one tap, any dot, not just
+              whichever one the spotlight happens to be on. */}
+          <PullCanvas
+            transactions={transactions}
+            selectedId={selectedId}
+            onSelect={(id) => {
+              setSelectedId(id);
+              setDetailCategoryId(id);
+            }}
+          />
         </div>
 
         <div className="flex gap-3.5 mt-3 text-[11px] text-gray-500">
@@ -166,6 +182,33 @@ export default function PullPage() {
             <span className="w-2 h-2 rounded-full border border-gray-600" />
             Untouched
           </span>
+        </div>
+
+        {/* Bug fix: a second, more reliable door into the same
+            CategoryDetailSheet (and its cap editor) — the dots above are
+            tiny and physics-driven, so precisely tapping the one category a
+            user actually wants (especially an "untouched" one, drawn as a
+            faint outline ring) isn't always easy. Every real category is
+            listed here, plain text, in a row — additive, the spotlight card
+            and the dots both still work exactly as before. */}
+        <div className="mt-4">
+          <div className="text-[11px] text-gray-600 mb-1.5">or pick a category directly</div>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5 no-scrollbar">
+            {STARTER_CATEGORIES.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  setSelectedId(c.id);
+                  setDetailCategoryId(c.id);
+                }}
+                className="flex-none flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap border bg-white/5 border-white/10 text-gray-300 active:opacity-70 transition-opacity"
+              >
+                <CategoryIcon category={c} size={22} />
+                <span>{c.short}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <button

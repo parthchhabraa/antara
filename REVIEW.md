@@ -1,3 +1,26 @@
+# Antara — session log
+
+## Bug fix: no way to set a cap on any category except the spotlight's pick
+
+**Status: COMPLETED — confirmed live before fixing, built, verified against real rendered screenshots and a real Firestore round-trip, deployed, re-verified live. Nothing failed; no rollback needed.**
+
+**Confirmed real before fixing**: on the Pull page, `CategoryDetailSheet` (and its cap editor, built last session) was only reachable by tapping the spotlight card, which shows exactly one algorithm-picked category (`selectedId`, defaulting to whatever `PullCanvas`'s physics settled on first — in practice, Gaming). The NEED/WANT dots *did* already call `onSelect`, but that only updated which category the spotlight card pointed at — opening the actual detail/cap editor took a second tap on the card, and there was no way at all to jump straight to an arbitrary category like Food or Going out without first getting the right dot to register as `selected`. Confirmed by reading `graph/page.tsx` and `PullCanvas.tsx` directly before changing anything — there is genuinely no other route into `CategoryDetailSheet` from the Pull screen.
+
+**Fixed** (additive — the spotlight card is untouched, this just stops it being the only door in):
+- `PullCanvas`'s `onSelect` callback (wired from `graph/page.tsx`) now also opens `CategoryDetailSheet` directly — tapping **any** dot, not just the one the spotlight happens to be on, opens that exact category's detail/cap editor in one tap instead of two.
+- A new "or pick a category directly" chip row, listing every real category by name/icon in a horizontal scroll, added below the graph — since the dots are tiny and physics-driven (especially "untouched" categories, drawn as faint outline rings), this is a reliable fallback that doesn't depend on precisely hitting a moving target. Same chip styling `TransactionEditSheet`/`QuickLogSheet` already use, no new pattern invented.
+- Both paths open the exact same `CategoryDetailSheet` already built last session (real cap Set/Edit/Clear, real Firestore persistence) — nothing duplicated or partial.
+
+**Verified live** (real superadmin account, real Firestore, via a temporary/fully-reverted custom-token test hook — same pattern as every prior pass):
+- Opened 3 different categories via the new chip row — Going out, Grooming, Books — confirming each opened a real detail sheet with the real cap editor (`Set a cap`/`Edit` present), not a placeholder.
+- Confirmed a single dot tap (no second tap on the spotlight card) opens the detail sheet directly — landed on Clothes & Shoes, a category that was never the spotlight default.
+- Set a real ₹777 cap on **Going out** — a category with no previous path to being capped from Pull at all. Confirmed it rendered ("₹777 left of ₹777"), then **reloaded the page from scratch** and confirmed the cap was still there, proving real Firestore persistence, not local-only state.
+- Test cap cleared from the real account after verification (`category_caps` confirmed empty again). Temp auth hook confirmed fully reverted via `grep` (zero matches) and a clean `git diff` on `AuthContext.tsx`.
+
+**Deployed**: `git pull` (already current — same box), `npm run build` (clean, `tsc --noEmit` clean), restarted both services (`active` on first attempt), verified `app.antara.money`/`api.antara.money` both healthy post-restart.
+
+---
+
 # Antara — 6 fixes/features: note headline, palette fix, real spending caps, calibrating notice, assembly splash, what's new
 
 **Status: ALL 6 COMPLETED — verified against real rendered screenshots (locally-launched headless Chromium, same setup as every prior pass) and, where relevant, against real logged/persisted data, not mocks. Deployed and re-verified against the live public domains. Nothing failed; no rollback needed.**
