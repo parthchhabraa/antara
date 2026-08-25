@@ -54,13 +54,42 @@ def categorize_transaction(description: str, amount: Optional[float] = None) -> 
             "raw_model_output": "",
         }
 
+    # The plain "use a low number for a vague description" instruction this
+    # started with (no few-shot anchor) does not work on qwen2.5:1.5b in
+    # practice — verified live against the real model (not assumed): it
+    # returned confidence 0.95 for "paid 200", "stuff", "xyz", even "asdkfj
+    # random gibberish xyz", every time. Small instruction-tuned models are
+    # a known-weak spot for calibrated self-reported confidence; the fix
+    # that actually worked, tested live, is anchoring it with concrete
+    # before/after examples rather than an abstract instruction — confirmed
+    # this drops vague-input confidence to ~0.1-0.25 (correctly below
+    # CATEGORIZE_CONFIDENCE_THRESHOLD) while leaving clear cases at ~0.9-0.95,
+    # consistently across repeated runs at this temperature.
     system = (
         "You categorize a single Indian teenager's spending transaction into "
         "exactly one category id from a fixed list. Reply with ONLY a JSON "
         "object of the shape {\"category_id\": <id>, \"confidence\": <0-1 float>}. "
-        "confidence is YOUR honest estimate of how sure you are — use a low "
-        "number for a vague or ambiguous description rather than guessing "
-        "high. Never invent a category id outside the list."
+        "confidence is YOUR honest, calibrated estimate of how sure you are.\n\n"
+        "Calibration guide — follow these examples exactly:\n"
+        "- \"Swiggy order, 2 burgers\" -> food-snacks, confidence 0.95\n"
+        "- \"paid 200\" -> miscellaneous, confidence 0.25 (no info about WHAT was bought)\n"
+        "- \"stuff\" -> miscellaneous, confidence 0.15 (zero real information)\n"
+        "- \"xyz\" or random characters -> miscellaneous, confidence 0.1 (not a real description)\n"
+        "- \"Metro card recharge\" -> transportation, confidence 0.9 (a metro/bus/transit "
+        "top-up is transportation, NOT mobile-recharge — mobile-recharge is only for a "
+        "phone/SIM/data plan top-up)\n"
+        "- \"Gym membership fee\" -> fitness, confidence 0.9 (a gym/sports membership is "
+        "fitness, NOT subscriptions — subscriptions is only for OTT/music/streaming apps)\n"
+        "- \"UC top-up for BGMI\" -> gaming-inapp, confidence 0.9 (any in-game currency, "
+        "battle pass, or game purchase — BGMI, PUBG, Free Fire, Valorant, etc. — is "
+        "gaming-inapp, NOT subscriptions, even though it recurs like one)\n"
+        "A vague or generic description (no merchant, no item, no clear purpose) "
+        "MUST get confidence below 0.4, even if you pick miscellaneous as the category. "
+        "Only use confidence above 0.7 when the description clearly names a specific "
+        "item, merchant, or activity that maps cleanly to one category.\n\n"
+        "You must copy the category_id EXACTLY character-for-character from the "
+        "list above — never abbreviate, rename, or modify it. Never invent a "
+        "category id outside the list."
     )
     prompt = (
         f"Categories:\n{_CATEGORY_LIST_FOR_PROMPT}\n\n"

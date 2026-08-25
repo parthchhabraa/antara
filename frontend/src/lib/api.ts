@@ -330,6 +330,56 @@ export async function fetchSpendPrediction(
   return res.json();
 }
 
+export interface PeerArchetypeMatch {
+  id: string;
+  name: string;
+  color: string;
+  similarity_pct: number;
+  description: string;
+}
+
+export interface DotGraphResult {
+  archetype: string;
+  archetype_description: string;
+  is_cold_start: boolean;
+  peer_archetypes: PeerArchetypeMatch[];
+}
+
+/**
+ * Fetches the per-user archetype match — POST /api/v1/ml/dot-graph, built
+ * in Step 8, functional since then but with no UI consumer until this (see
+ * that endpoint's own docstring in main.py). Same auth/error-handling shape
+ * as fetchSpendPrediction above: requires a real Firebase ID token, throws
+ * on failure rather than silently returning something — callers (see
+ * ArchetypeSheet) are expected to catch and show an honest "couldn't load"
+ * state instead.
+ */
+export async function fetchDotGraph(user: FirebaseUser, transactions: Transaction[]): Promise<DotGraphResult> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}/api/v1/ml/dot-graph`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      user_id: user.uid,
+      transactions: transactions.map((t) => ({
+        amount: t.amount,
+        category: t.category,
+        subcategory: t.subcategory,
+        note: t.note,
+        timestamp: t.timestamp,
+        source: t.source,
+      })),
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Dot-graph request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // Streak / retention mechanic (Step 8) — Firestore fields on the user doc:
 // currentStreak, longestStreak, lastLoggedDate, streakFreezesAvailable.

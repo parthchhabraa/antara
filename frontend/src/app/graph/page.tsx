@@ -9,6 +9,7 @@ import { PullCanvas } from "@/components/PullCanvas";
 import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
 import { TransactionEditSheet } from "@/components/TransactionEditSheet";
+import { ArchetypeSheet } from "@/components/ArchetypeSheet";
 import { PageTransition } from "@/components/PageTransition";
 import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
 import {
@@ -31,6 +32,7 @@ export default function PullPage() {
   const [selectedId, setSelectedId] = useState<string>("gaming-inapp");
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [isArchetypeOpen, setIsArchetypeOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const transactions = isDemoMode ? demoTxs : liveTxs;
@@ -206,6 +208,13 @@ export default function PullPage() {
           </div>
         </div>
 
+        <button
+          onClick={() => setIsArchetypeOpen(true)}
+          className="block mx-auto mt-4 text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+        >
+          See your spending archetype
+        </button>
+
         <div className="h-8" />
 
         <QuickLogSheet
@@ -225,6 +234,13 @@ export default function PullPage() {
           onClose={() => setEditingTx(null)}
           onSave={handleEditTx}
           onDelete={handleDeleteTx}
+        />
+        <ArchetypeSheet
+          isOpen={isArchetypeOpen}
+          onClose={() => setIsArchetypeOpen(false)}
+          transactions={transactions}
+          isDemoMode={isDemoMode}
+          user={user}
         />
 
         {toast && (
