@@ -25,6 +25,8 @@
 - Zero console errors across the full flow (one transient 400 seen on a single run traced to an unrelated Firestore listener reconnect blip, not reproduced on a clean re-run — not a real bug in this code).
 - All test data (instances, `category_caps`, `active_instance_id`) cleaned up from the real account after verification.
 
+**Post-deploy, re-verified against the real live domains**: a real HTTPS call to the now-redeployed `api.antara.money/api/v1/ml/allocate-budget` with the real superadmin's real transactions returned the identical allocation. A real headless browser hit `https://app.antara.money/` directly, confirmed the "Instances" trigger is present on the live Today screen and the demo-mode gate renders correctly — zero console errors.
+
 ## Feature: real per-user ML learning-curve visualization on the Pull page
 
 **Status: COMPLETED (2 of 3 items from this round's brief — "Instances" is the remaining one) — built, backend logic verified directly against real Firestore data AND via a real HTTPS call to the live production endpoint before any UI work, full UI verified against real rendered screenshots (three real states), deployed, re-verified live. Nothing failed; no rollback needed.**
