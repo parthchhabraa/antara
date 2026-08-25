@@ -1,3 +1,90 @@
+# Antara — Phase 2 continuation: live verification against real Ollama
+
+**Status: ALL COMPLETED — this session ran locally on `draftsmanbrain` itself (confirmed: `hostname` returns `draftsmanbrain`, Tailscale shows this box as `100.103.94.116`), so the cloud session's one open item — "everything shipped against mocks only, no network path to the real box" — no longer applies. Ollama is installed, both models are pulled and confirmed responding, all three endpoints were exercised for real against a running Ollama instance and real Firestore data, a real confidence-calibration bug the mocks couldn't have caught was found and fixed, the archetype screen didn't exist and now does (built, wired to the real backend, screenshotted for real), and `claude/continue-sxrspn` is merged into `main`.**
+
+This is a new entry, prepended above the cloud session's own `## Phase 2 Review` below — not overwriting it, per this session's brief. Everything below is this session's own verification; where I relied on the cloud session's own claims without redoing them (the `/review` move, the UI/copy polish pass beyond `PEER_ARCHETYPES`), that's stated explicitly, not implied.
+
+---
+
+## 1. Ollama setup on draftsmanbrain
+
+Already installed before this session touched anything — `ollama version is 0.32.14` (snap package), running as `snap.ollama.listener.service`, already serving on `localhost:11434` with zero models pulled. Ran `scripts/setup-ollama.sh` as written (no changes needed): pulled both `qwen2.5:1.5b` (986 MB) and `qwen2.5:7b-instruct-q4_K_M` (4.7 GB), confirmed via `ollama list` and by generating a real completion from each.
+
+**GPU: GTX 1660 Super, 6144 MiB total VRAM** (confirmed via `nvidia-smi`, matching the brief's own description).
+
+**OLLAMA_KEEP_ALIVE / unload behavior — verified empirically, not assumed from docs:**
+- Calling one model while the other is resident evicts the other automatically — confirmed directly (`ollama ps` before/after, `nvidia-smi` before/after): calling `qwen2.5:1.5b` while `qwen2.5:7b-instruct-q4_K_M` was loaded dropped VRAM from 4618 MiB to 1200 MiB in one step; the two were **never** simultaneously resident in any test this session ran.
+- Fired two concurrent requests (one per model) and sampled VRAM every second through the transition: peak usage never exceeded 4618 MiB (the 7B model alone) — Ollama serializes the loads on this single-GPU box rather than trying to hold both, so there's no double-residency spike risk even under concurrent load.
+- Confirmed the actual 5-minute default idle-unload fires, not just assumed present because nothing overrode it: fired a request, then polled `ollama ps`/`nvidia-smi` every 20s for 5 minutes. VRAM held at 4618 MiB with a shrinking "until" countdown the whole time, then dropped to 1 MiB at **exactly t=300s**. This is the real mechanism `ollama_client.py`'s design (never setting `OLLAMA_KEEP_ALIVE`) depends on, and it does what the code assumes.
+
+**VRAM headroom: safe, not close to OOM.** Peak observed usage (7B model alone, the larger of the two) was 4618 MiB of 6144 MiB — **1526 MiB of headroom**, and since the two models are never co-resident (confirmed above), the real worst case is "one model plus that headroom," not "both models at once" (which would be ~5.9 GB and genuinely risky). No OOM observed in any test this session ran, including the concurrent-request one.
+
+**Latency, real numbers:**
+- First-ever request after a fresh Ollama install/model pull: ~52s for `qwen2.5:1.5b` (almost entirely one-time CUDA/library initialization, not representative of steady-state — the *second* identical call to the same already-loaded model took 0.3s).
+- Cold-load after an eviction (the realistic "someone hasn't used this feature in a few minutes" case): ~4-5s for either model.
+- Warm (`categorize`, `qwen2.5:1.5b`): ~380-420ms per real HTTP call to `POST /api/v1/ml/categorize`.
+- Warm (`insights`/`chat`, `qwen2.5:7b-instruct-q4_K_M`): ~1-2s per real HTTP call once the model is loaded; ~6.7s the one time it required a cold model-switch from `1.5b`.
+
+---
+
+## 2. Re-ran the integration against live Ollama — found and fixed a real bug the mocks couldn't catch
+
+**`/categorize` — a real, significant gap, not a mock-vs-reality nuance.** The original system prompt told the model to "use a low number for a vague or ambiguous description rather than guessing high." Against the real `qwen2.5:1.5b`, this instruction did nothing: `"paid 200"`, `"stuff"`, `"xyz"`, `"123"`, `"idk"`, even `"asdkfj random gibberish xyz"` **all came back confidence 0.95** (occasionally 1.0), every time. Since `CATEGORIZE_CONFIDENCE_THRESHOLD` is 0.55, this meant the staged-honesty gate the brief specifically asked me to check ("respects staged-honesty, low confidence → needs review, not forced") was **effectively dead code in practice** — everything got auto-applied with a fake-confident label, including total gibberish. The 14 mocked tests all passed because every mock supplied its own confidence value directly; none of them exercised whether the *real model* would actually produce a low one for a vague input.
+
+Fixed by anchoring the prompt with concrete before/after examples instead of an abstract instruction (small instruction-tuned models are a documented weak spot for calibrated self-reported confidence — an anchor works where an instruction alone doesn't). Verified live, repeatedly: vague/gibberish input now consistently returns confidence 0.1-0.25 (correctly triggers `needs_review`); clear, specific descriptions stay at 0.9-0.95. Also caught and fixed two **confidently-wrong** miscategorizations live testing surfaced (a different problem than confidence calibration — the model was sure and wrong): `"Metro card recharge"` → `mobile-recharge` instead of `transportation`, and `"Gym membership fee"` → `subscriptions` instead of `fitness`. Added disambiguating examples for those two specific, real confusions (not guessed ones) — verified fixed, and that the fix didn't regress anything else (re-tested a dozen other real descriptions, all still correct).
+
+One more real-world quirk the live model surfaced that mocks wouldn't: it sometimes returns `"confidence": "0.9"` as a **JSON string** rather than a number. The existing `float(parsed.get("confidence", 0.0))` cast already handles this correctly — no code change needed, but worth recording since it's exactly the kind of "response format" difference the brief asked me to watch for.
+
+**Manually exercised all three endpoints with real requests, against the real running backend (a temporary local instance on a separate port, never the production `antara-ml.service`) with real Firebase auth tokens and real/synthetic Firestore data:**
+
+- **`/categorize`** — 11/11 real HTTP requests matched expectation after the fix: unambiguous descriptions get high confidence and the right category; genuinely vague ones (`"paid 200"`, `"stuff"`, `"xyz"`, `"idk"`) correctly come back `needs_review: true`, `category_id: null` — never forced.
+- **`/insights`** — created 5 clearly-labeled, isolated test transactions (a category with no pre-existing real data, so nothing mixed with the account's real spend) to trigger a genuine ≥15% mover, then deleted them after. Real response: *"This week's spending on movies and entertainment is ₹800, which is 500% more than usual."* — the exact computed numbers (₹800, 500%), no invented figures. Also verified the templated (non-LLM) fallback for real by pointing a second instance at an unreachable Ollama URL: *"You've spent 800% more on Movies & entertainment this week (₹600) than your usual ₹67/week."* — still grounded, still real numbers, model or no model.
+- **`/chat`** — asked three real questions against the same test data: "How much have I spent on movies and entertainment recently?" → correct real total (₹1200); "What's my biggest spending category?" → correctly identified the real biggest category and amount; **"Did I spend more than 5000 rupees on clothes this month?"** → *"Your data doesn't include spending on clothes, so we can't determine if you spent more than 5000 rupees on them."* — asked about a category with zero real data, and it said so instead of inventing a number. This is the specific "doesn't answer from nothing" behavior the brief asked me to confirm, verified with a real adversarial-ish question, not just a friendly one.
+- **Ownership boundary** — minted a real Firebase token for a throwaway, non-superadmin test uid (never associated with any real data) and confirmed: cross-user access to the superadmin's real data → real `403`; self-access with no data → honest "nothing to look at yet," no model call, real `200`. Cleaned up the throwaway auth user after.
+- **Ollama-unreachable fallback** — pointed a temporary instance at a genuinely closed port and confirmed all three routes degrade the way the code says they do: `categorize` → `needs_review: true` in 36ms (fails fast, doesn't hang); `chat` → a plain "isn't reachable right now" message; `insights` → the templated fallback above. `/api/v1/admin/status`'s `ollama_reachable` correctly flips to `false` with the real connection error in `ollama_error`.
+
+All test data (5 insight-mover transactions, 3 fallback-test transactions, 1 categorize-bug-repro transaction, 1 throwaway auth user) was created for this session and deleted/removed afterward — confirmed via a final Firestore read that the account is back to exactly its original 3 real transactions.
+
+---
+
+## 3. Archetype copy — no screen existed, so one was built and screenshotted for real
+
+Independently re-confirmed the cloud session's own finding before building anything (didn't just trust it): `grep`ed `frontend/src` for `PEER_ARCHETYPES`/`archetype` — only the **admin-only** training-insights page and its `PopulationDotGraphCanvas.tsx` touch archetype data at all, and that component's own detail panel only shows `"Best match: X (Y% similarity) · total reported ₹Z"` for a *respondent* node — it never renders an archetype's `description` field either. So even the one existing archetype-adjacent screen doesn't show the copy that was reworded. Confirmed: genuinely nowhere in the app.
+
+**Built `ArchetypeSheet.tsx`**, reachable from the Pull screen (`graph/page.tsx`, new "See your spending archetype" tap affordance under the Needs/Wants split) — calls `POST /api/v1/ml/dot-graph`, functional and unit-tested since Step 8 but with zero UI consumers until now (confirmed via its own docstring in `main.py`). Shows the user's closest-match archetype prominently (name, similarity %, real description) plus all 5 ranked patterns with their descriptions, same fetch-on-open/loading/error shape as the existing `WhyPredictionSheet`, same honest "sign in to see this" state for demo/guest (there's no per-user embedding to compute without a real account).
+
+**Screenshotted for real, not just built and assumed correct.** The `claude-in-chrome` browser tool wasn't reachable in this environment (host client unreachable). Rather than skip the visual check, installed `playwright-core` + a headless Chromium locally (`sudo apt` for the missing system libs, same low-risk pattern as installing the JRE in Step 15) and rendered the actual running dev server in a real browser, at a real mobile viewport (430×932). Two real screenshots (see files sent alongside this review) confirm:
+- The closest-match card (pink-tinted for "The Gamer & Foodie" in this test) renders with correct color-tinting, and the reworded description — *"Late-night Swiggy runs, a Discord/Spotify sub, and the odd battle pass — food and gaming are where the money goes."* — wraps cleanly across 3 lines, reads as a plain sentence, not spec-sheet copy.
+- Scrolled to the bottom: all 5 archetypes' descriptions render fully, consistent spacing and typography, no clipping or overflow, "Got it" button visible and reachable.
+- An "EARLY READ — NOT MUCH LOGGED YET" badge renders correctly for the cold-start case tested (real behavior, not staged).
+
+(Used the real `/api/v1/ml/dot-graph` response's actual archetype data as the screenshot's content — fetched once from the live backend, then rendered through the sheet's real component code in a real browser. No visual bugs found; no changes were needed to the component after seeing it rendered.)
+
+---
+
+## 4. What this session did NOT re-verify (taken on the cloud session's own word, not silently assumed)
+
+- The `/survey` → `/review` route move and its new consent gate — not re-tested interactively this session. Indirect confirmation only: this session's own full `npm run build` (run after this session's own changes) still shows `/review` building cleanly at 7.82 kB, so nothing this session touched broke it.
+- The UI/copy polish pass on `WhyPredictionSheet.tsx` and `QuickLogSheet.tsx` (last-category-remembered via `localStorage`) — not re-clicked-through this session. Only `PEER_ARCHETYPES` (§3 above) was in this session's explicit scope.
+- `firestore.rules` and its test suite — untouched by either session's commits; not re-run this session since nothing changed there.
+
+---
+
+## 5. Merge
+
+Every item in this session's brief was verified against the real server, nothing failed, so per the brief's own instruction ("merge... do not merge if anything above fails or can't be verified"): **merged `claude/continue-sxrspn` into `main`.**
+
+## Commit hashes
+
+- `c2ce5c3` — cloud session's Phase 2 work (Ollama backend code, `/survey`→`/review`, UI polish) — unchanged by this session.
+- `af4196b` — cloud session's own `REVIEW.md` commit — unchanged by this session (see its content below, kept intact).
+- `00eb102` — this session: categorize confidence-calibration fix + `ArchetypeSheet.tsx` + wiring.
+- This `REVIEW.md` commit is one more on top of `00eb102`, pushed to `origin/claude/continue-sxrspn` before merging.
+- **Merge commit into `main`: see below** — recorded after the merge actually runs, same self-referential-hash reasoning `CLAUDE.md`'s own rule accounts for (a commit can't name itself from inside its own message).
+
+
+---
+
 # Antara — Phase 2 Review
 
 **Status: CONTINUE — two of three workstreams (the `/review` survey move, and
