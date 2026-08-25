@@ -1,5 +1,27 @@
 # Antara — session log
 
+## Feature: real per-user ML learning-curve visualization on the Pull page
+
+**Status: COMPLETED (2 of 3 items from this round's brief — "Instances" is the remaining one) — built, backend logic verified directly against real Firestore data AND via a real HTTPS call to the live production endpoint before any UI work, full UI verified against real rendered screenshots (three real states), deployed, re-verified live. Nothing failed; no rollback needed.**
+
+**Real, not illustrative**: the backend's confidence-score/model-mode formulas (`MLEngine.calculate_spend_predictions`, `backend/app/ml/engine.py`) were already a pure function of `(active_days, tx_count)` — pulled out into a new shared `MLEngine._confidence_and_mode` helper (used by `calculate_spend_predictions` too now, so there's exactly one copy of this math, not two that could drift). A new `MLEngine.calculate_learning_curve(transactions)` walks a user's own real logged calendar days in chronological order and, at each one, replays that exact formula using only the transactions that existed by that day — so the resulting curve is that specific user's own real path to whatever confidence tier they're at now, not a generic shape every account would show.
+
+**New endpoint**: `POST /api/v1/ml/learning-curve` (`backend/app/main.py`) — same request/auth shape as the existing `/predict/spend` and `/ml/dot-graph` (caller supplies their own already-fetched transactions, just needs a valid Firebase token, no Firestore read on the backend side).
+
+**Verified against real data at three layers before any UI work**:
+1. Direct Python call against the real superadmin account's actual Firestore transactions: confidence rose `0.29 → 0.33 → 0.36 → 0.40` across their 4 real logged days — a real, monotonically-increasing curve matching their actual logging pattern.
+2. A real HTTPS `curl` against the **live** `api.antara.money/api/v1/ml/learning-curve` (after restarting `antara-ml.service` with this code) using a real Firebase ID token (exchanged server-side from a custom token via the Identity Toolkit REST API — no browser needed) returned the identical numbers.
+3. Cross-checked against "Ask Antara"'s own separately-computed 40% confidence figure from earlier this session — consistent.
+
+**UI built**: `frontend/src/components/LearningCurveSheet.tsx`, reachable from a new "How well Antara knows you" link next to the existing "See your spending archetype" one (same bottom-sheet pattern as `ArchetypeSheet`). The curve itself reuses this page's own existing dot/line visual language rather than an unrelated chart style — small circles connected by thin lines, steel-gray for the cold-start heuristic stretch and primary violet once a point crosses into the trained model (the same two-tone meaning PullCanvas's Need/Want dots already use, not a new color), with a dashed marker at the real moment a curve actually crosses from heuristic to trained (a genuine step-change in the underlying formula — the two confidence formulas aren't continuous at that boundary — shown honestly rather than smoothed over). The current/latest point is called out with its real percentage and a "Still learning"/"Personalized" tag, plus the same "Still calibrating…" line used elsewhere when still cold-start.
+
+**Verified against real rendered screenshots, three states**:
+- The real superadmin account's real 4-point cold-start curve (network-intercepted with the exact JSON the live endpoint had just returned via the curl above — CORS blocks this specific local test port from reaching `api.antara.money` directly, the same known/documented artifact every prior local-testing pass has hit; the real backend response was already independently confirmed live) — rising gray dots, "40% CONFIDENT," "Still learning," calibrating notice all correct.
+- A clearly-labeled synthetic-but-formula-consistent curve that crosses into trained mode (no real account on this instance has hit 14 days yet, so this was the only way to see that branch without waiting two real weeks) — dots visibly shift from gray to violet exactly at the transition, dashed marker lands in the right place, "81% CONFIDENT," "Personalized" tag, calibrating notice correctly absent.
+- Empty state (no logged days) — honest "log a few expenses" copy, not a broken chart.
+- Demo mode — correct "sign in with a real account" gate, matching `ArchetypeSheet`'s existing posture.
+- Zero console errors across all of the above.
+
 ## Feature: "Ask Antara" — a real chat interface over the user's own data + ML reasoning
 
 **Status: COMPLETED (1 of 3 items from this round's brief — "Instances" and the Pull-page learning-curve visualization are the other two; see brief below/next session for their status) — built, backend logic verified directly against real Firestore data before any UI work, full UI verified against real rendered screenshots, deployed, re-verified live. Nothing failed; no rollback needed.**

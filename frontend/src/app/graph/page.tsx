@@ -11,6 +11,7 @@ import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
 import { TransactionEditSheet } from "@/components/TransactionEditSheet";
 import { ArchetypeSheet } from "@/components/ArchetypeSheet";
+import { LearningCurveSheet } from "@/components/LearningCurveSheet";
 import { PageTransition } from "@/components/PageTransition";
 import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
 import {
@@ -34,6 +35,7 @@ export default function PullPage() {
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isArchetypeOpen, setIsArchetypeOpen] = useState(false);
+  const [isLearningCurveOpen, setIsLearningCurveOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const transactions = isDemoMode ? demoTxs : liveTxs;
@@ -264,12 +266,21 @@ export default function PullPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsArchetypeOpen(true)}
-          className="block mx-auto mt-4 text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
-        >
-          See your spending archetype
-        </button>
+        <div className="flex items-center justify-center gap-4 mt-4">
+          <button
+            onClick={() => setIsArchetypeOpen(true)}
+            className="text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+          >
+            See your spending archetype
+          </button>
+          <span className="text-gray-700 text-[11px]">·</span>
+          <button
+            onClick={() => setIsLearningCurveOpen(true)}
+            className="text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+          >
+            How well Antara knows you
+          </button>
+        </div>
 
         <div className="h-8" />
 
@@ -298,6 +309,13 @@ export default function PullPage() {
         <ArchetypeSheet
           isOpen={isArchetypeOpen}
           onClose={() => setIsArchetypeOpen(false)}
+          transactions={transactions}
+          isDemoMode={isDemoMode}
+          user={user}
+        />
+        <LearningCurveSheet
+          isOpen={isLearningCurveOpen}
+          onClose={() => setIsLearningCurveOpen(false)}
           transactions={transactions}
           isDemoMode={isDemoMode}
           user={user}

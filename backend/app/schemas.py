@@ -78,6 +78,19 @@ class DotGraphResponse(BaseModel):
     last_retrained_at: Optional[datetime] = None
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
+class LearningCurvePoint(BaseModel):
+    date: str  # ISO calendar date — one of the user's own real logged days
+    confidence: float
+    model_mode: str  # 'HEURISTIC_COLD_START' | 'TRAINED_EMBEDDING_V1'
+    is_cold_start: bool
+    tx_count: int
+    active_days: int
+
+class LearningCurveResponse(BaseModel):
+    user_id: str
+    points: List[LearningCurvePoint]
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
 class HealthResponse(BaseModel):
     status: str
     service: str

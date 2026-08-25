@@ -410,6 +410,53 @@ export async function fetchDotGraph(user: FirebaseUser, transactions: Transactio
   return res.json();
 }
 
+export interface LearningCurvePoint {
+  date: string;
+  confidence: number;
+  model_mode: "HEURISTIC_COLD_START" | "TRAINED_EMBEDDING_V1";
+  is_cold_start: boolean;
+  tx_count: number;
+  active_days: number;
+}
+
+export interface LearningCurveResult {
+  points: LearningCurvePoint[];
+}
+
+/**
+ * Real, per-user confidence-over-time curve — POST /api/v1/ml/learning-curve.
+ * Not a generic illustrative chart: the backend replays the exact same
+ * confidence formula predict_spending uses today against the caller's own
+ * real logged days, so this is genuinely their own path to whatever
+ * confidence tier they're currently at. Same auth/request shape as
+ * fetchDotGraph — requires a real Firebase ID token, throws on failure.
+ */
+export async function fetchLearningCurve(user: FirebaseUser, transactions: Transaction[]): Promise<LearningCurveResult> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}/api/v1/ml/learning-curve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      user_id: user.uid,
+      transactions: transactions.map((t) => ({
+        amount: t.amount,
+        category: t.category,
+        subcategory: t.subcategory,
+        note: t.note,
+        timestamp: t.timestamp,
+        source: t.source,
+      })),
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Learning-curve request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // "Ask Antara" — POST /api/v1/ml/chat (Phase 2's route, extended this pass
 // to also ground answers in the same real prediction/confidence numbers

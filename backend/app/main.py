@@ -11,6 +11,7 @@ from app.schemas import (
     CategorizeRequest, CategorizeResponse,
     InsightRequest, InsightResponse,
     ChatRequest, ChatResponse,
+    LearningCurveResponse,
 )
 from app.ml.engine import MLEngine
 from app.ml import survey_etl, llm_features, ollama_client
@@ -149,6 +150,24 @@ async def get_dot_graph(
         user_id=req.user_id,
         transactions=req.transactions
     )
+
+@app.post("/api/v1/ml/learning-curve", response_model=LearningCurveResponse, tags=["Personalization"])
+async def get_learning_curve(
+    req: SpendPredictRequest,
+    current_user: dict = Depends(verify_firebase_token)
+):
+    """
+    A real, per-user confidence-over-time curve for the Pull screen — not an
+    illustrative chart. Replays MLEngine's own confidence formula against the
+    caller's own real logged days (see MLEngine.calculate_learning_curve),
+    the same formula predict_spending uses for "right now," just walked
+    across their actual history so the curve is genuinely theirs, not a
+    generic shape every user would see. Same request/auth shape as
+    /predict/spend and /ml/dot-graph — transactions are supplied by the
+    caller (already the client's own data), not re-fetched from Firestore.
+    """
+    points = MLEngine.calculate_learning_curve(transactions=req.transactions)
+    return LearningCurveResponse(user_id=req.user_id, points=points)
 
 def _require_self_or_superadmin(current_user: dict, user_id: str) -> None:
     """Same access boundary as everywhere else a request carries a

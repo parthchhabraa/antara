@@ -164,6 +164,47 @@ class MLEngine:
         return is_cold_start, effective_days, tx_count
 
     @staticmethod
+    def _confidence_and_mode(is_cold_start: bool, active_days: int, tx_count: int) -> Tuple[float, str]:
+        """The exact confidence-score/model-mode formulas calculate_spend_predictions
+        uses, pulled out so calculate_learning_curve can replay them against a
+        user's own past logging history without a second, drifting copy of the
+        same math living in two places."""
+        if is_cold_start:
+            confidence = round(min(0.55, 0.25 + (active_days / COLD_START_DAY_THRESHOLD) * 0.25 + (tx_count * 0.02)), 2)
+            return confidence, "HEURISTIC_COLD_START"
+        confidence = round(min(0.92, 0.75 + (active_days / 60) * 0.15), 2)
+        return confidence, "TRAINED_EMBEDDING_V1"
+
+    @staticmethod
+    def calculate_learning_curve(transactions: List[TransactionItem]) -> List[Dict[str, Any]]:
+        """A real, per-user confidence-over-time curve — not an illustrative
+        chart. Walks the user's own actual logged calendar days in order and,
+        at each one, recomputes what calculate_spend_predictions's confidence
+        score would have been using only the transactions that existed by
+        that day. Same _analyze_data_maturity/_confidence_and_mode formulas
+        the live prediction uses today, just replayed against their own real
+        history instead of only the current moment — so this shows *their*
+        actual path to whatever confidence tier they're at now, not a
+        generic curve every user would see the same shape of."""
+        if not transactions:
+            return []
+        logged_days = sorted({tx.timestamp.date() for tx in transactions})
+        points: List[Dict[str, Any]] = []
+        for day in logged_days:
+            subset = [tx for tx in transactions if tx.timestamp.date() <= day]
+            is_cold_start, active_days, tx_count = MLEngine._analyze_data_maturity(subset)
+            confidence, model_mode = MLEngine._confidence_and_mode(is_cold_start, active_days, tx_count)
+            points.append({
+                "date": day.isoformat(),
+                "confidence": confidence,
+                "model_mode": model_mode,
+                "is_cold_start": is_cold_start,
+                "tx_count": tx_count,
+                "active_days": active_days,
+            })
+        return points
+
+    @staticmethod
     def calculate_spend_predictions(
         user_id: str,
         transactions: List[TransactionItem],
@@ -189,8 +230,7 @@ class MLEngine:
             # Rule-based heuristic using category medians & baseline weights
             # Clearly labeled to prevent fabricated/hallucinated predictions
             # -------------------------------------------------------------
-            model_mode = "HEURISTIC_COLD_START"
-            confidence_score = round(min(0.55, 0.25 + (active_days / COLD_START_DAY_THRESHOLD) * 0.25 + (tx_count * 0.02)), 2)
+            confidence_score, model_mode = MLEngine._confidence_and_mode(is_cold_start, active_days, tx_count)
             last_retrained = None
 
             # Blended daily burn rate: 70% taxonomy baseline + 30% observed
@@ -249,8 +289,7 @@ class MLEngine:
             # TRAINED EMBEDDING PREDICTION MODE (>= 14 days & >= 5 transactions)
             # Real trained velocity & time-decayed exponential category trend
             # -------------------------------------------------------------
-            model_mode = "TRAINED_EMBEDDING_V1"
-            confidence_score = round(min(0.92, 0.75 + (active_days / 60) * 0.15), 2)
+            confidence_score, model_mode = MLEngine._confidence_and_mode(is_cold_start, active_days, tx_count)
             last_retrained = datetime.utcnow()
 
             daily_burn_rate = total_historical / max(1, active_days)
