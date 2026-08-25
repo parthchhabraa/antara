@@ -410,6 +410,36 @@ export async function fetchDotGraph(user: FirebaseUser, transactions: Transactio
   return res.json();
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// "Ask Antara" — POST /api/v1/ml/chat (Phase 2's route, extended this pass
+// to also ground answers in the same real prediction/confidence numbers
+// the burn-rate UI is built from, not just raw category totals — see
+// backend/app/ml/llm_features.answer_chat). Stateless per call: the
+// backend doesn't keep conversation history, so the chat screen keeps its
+// own local transcript and just sends the latest message each time.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface ChatAnswer {
+  answer: string;
+  grounded_on_transaction_count: number;
+}
+
+export async function fetchChatAnswer(user: FirebaseUser, message: string): Promise<ChatAnswer> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}/api/v1/ml/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ user_id: user.uid, message }),
+  });
+  if (!res.ok) {
+    throw new Error(`Chat request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export interface CategorizeSuggestion {
   category_id: string | null;
   category_name: string | null;

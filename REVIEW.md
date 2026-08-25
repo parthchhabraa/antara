@@ -1,5 +1,24 @@
 # Antara — session log
 
+## Feature: "Ask Antara" — a real chat interface over the user's own data + ML reasoning
+
+**Status: COMPLETED (1 of 3 items from this round's brief — "Instances" and the Pull-page learning-curve visualization are the other two; see brief below/next session for their status) — built, backend logic verified directly against real Firestore data before any UI work, full UI verified against real rendered screenshots, deployed, re-verified live. Nothing failed; no rollback needed.**
+
+**Extended, not forked**: this is Phase 2's existing `/api/v1/ml/chat` route (`backend/app/ml/llm_features.answer_chat`) — same route, same local Ollama chat model (`qwen2.5:7b-instruct-q4_K_M`), same "compute every number in Python first, the model only ever phrases numbers it was handed" grounding discipline the route already had for raw category totals.
+
+**What was actually missing**: `answer_chat` only ever gave the model category spend totals — it had no way to answer questions about *itself* ("why did you predict I'll run out on the 31st," "how confident are you") because it never computed or passed along any of that. Fixed by having `answer_chat` also run the exact same `MLEngine.calculate_spend_predictions` the burn-rate/run-out-date UI is built from (same function, not a second implementation), and feeding the model real numbers: predicted total spend, current burn rate, projected days until budget exhaustion, model mode (`TRAINED_EMBEDDING_V1` vs `HEURISTIC_COLD_START`), real confidence score, cold-start status, top risk categories, and the same `smart_insights` strings the prediction endpoint already generates. The system prompt was extended to explicitly allow explaining the ML system's own reasoning using only these real numbers, and to say so plainly when confidence is genuinely low rather than sounding falsely certain — staged honesty applied to the chat surface, not just the UI badges.
+
+**Verified directly against real Firestore data** (Python, before any frontend work) — asked the real superadmin account's own data "Why do you think I will run out of money on this date, and how confident are you?" and got back: *"...you're projected to run out of budget in about 3 days from today. The confidence in this prediction is 40%, which is based on 4 distinct days and 4 transactions logged so far. Since you're still in a cold-start phase, the model isn't fully personalized yet..."* — grounded, honest about cold-start, real numbers throughout, not invented.
+
+**Chat UI built**: `frontend/src/app/chat/page.tsx` — restrained message-bubble layout (violet user bubbles right-aligned, neutral Antara bubbles left-aligned, rose for a genuine fetch error), animated typing-dots while waiting, a calm rounded input bar + send button, all existing `tailwind.config.ts` tokens (no new colors introduced). Demo/guest mode shows an honest empty state ("Chat needs a real signed-in account — there's no real spending history to answer from in Demo Mode") rather than a broken input, matching how `ArchetypeSheet`/`QuickLogSheet`'s suggestion feature already gate on a real Firebase session.
+
+**Nav placement**: added as a 3rd bottom-nav tab ("ASK", `MessageCircle` icon) alongside TODAY/PULL. This required restructuring the Log button from a flex sibling wedged between two tabs into an absolutely-positioned floating FAB overlapping the tab row — the only way to add a 4th nav element without either cramming three text labels around the button or knocking it off-center. Confirmed via screenshot: three evenly-spaced tabs, Log FAB still centered on top, not crowded.
+
+**Verified live via real rendered screenshots**:
+- Real signed-in Today screen: new 3-tab nav renders cleanly, Log FAB still centered, TODAY tab correctly highlighted.
+- Chat screen in Demo Mode: correct gated empty state, ASK tab correctly highlighted.
+- Chat screen signed in: greeting bubble, a real user message sent, bubble styling and layout all correct; the actual network call from local testing hit the same known/documented CORS artifact every prior pass has hit (port 3099 isn't in the backend's allowlist, `app.antara.money` is) — the UI correctly rendered the fetch-failure bubble rather than hanging or crashing, and the real grounded-answer path was already independently confirmed via the direct Python test above and re-confirmed live post-deploy (below).
+
 ## Bug fix: no way to set a cap on any category except the spotlight's pick
 
 **Status: COMPLETED — confirmed live before fixing, built, verified against real rendered screenshots and a real Firestore round-trip, deployed, re-verified live. Nothing failed; no rollback needed.**

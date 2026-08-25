@@ -19,7 +19,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.ml import ollama_client
-from app.ml.engine import CATEGORIES_METADATA
+from app.ml.engine import CATEGORIES_METADATA, MLEngine
+from app.schemas import TransactionItem
 
 logger = logging.getLogger("antara.llm_features")
 
@@ -251,12 +252,31 @@ def build_insight(db, uid: str) -> Dict[str, Any]:
     return {"insight": sentence, "computed": computed}
 
 
+def _fetch_monthly_budget(db, uid: str) -> float:
+    """Real value from the user's own profile doc — falls back to
+    MLEngine's own default (5000.0) only when the field is genuinely
+    missing, same convention `calculate_spend_predictions` itself uses."""
+    try:
+        doc = db.collection("users").document(uid).get()
+        data = doc.to_dict() or {}
+        budget = data.get("monthly_budget")
+        return float(budget) if budget else 5000.0
+    except Exception as e:
+        logger.warning("_fetch_monthly_budget: couldn't read profile, using default: %s", e)
+        return 5000.0
+
+
 def answer_chat(db, uid: str, message: str) -> Dict[str, Any]:
-    """Answers a user's natural-language question about their own spending.
-    Fetches their real recent transactions first and hands the model a
-    compact numeric summary as context — the model only ever sees numbers
-    that were actually computed here, never raw free-form access to
-    Firestore, so it can't wander into inventing figures it wasn't given."""
+    """Answers a user's natural-language question — not just about their raw
+    spend data, but about the ML system's own reasoning (why a run-out date
+    landed where it did, why a category is still an "early estimate", how
+    confident a prediction is). Fetches real recent transactions AND runs
+    the exact same MLEngine.calculate_spend_predictions the rest of the app
+    uses for its own predictions, then hands the model a compact numeric
+    summary of both as context — the model only ever sees numbers that were
+    actually computed here (the real confidence tier, the real prediction
+    basis), never raw free-form access to Firestore, so it can't invent a
+    rationale it didn't actually use."""
     txs = _fetch_recent_transactions(db, uid, days=30)
     totals = _category_totals(txs, datetime.now(timezone.utc) - timedelta(days=30))
     total_spend = round(sum(totals.values()))
@@ -271,15 +291,62 @@ def answer_chat(db, uid: str, message: str) -> Dict[str, Any]:
     for cat_id, amt in sorted(totals.items(), key=lambda kv: kv[1], reverse=True):
         cat_name = CATEGORIES_METADATA.get(cat_id, {}).get("name", cat_id)
         lines.append(f"- {cat_name}: ₹{round(amt)}")
+
+    # Same real prediction the burn-rate/run-out-date UI is built from — not
+    # a second, different computation invented just for chat. If this
+    # fails for any reason, chat still works off the plain totals above;
+    # it just can't answer "why did you predict" questions as specifically.
+    try:
+        monthly_budget = _fetch_monthly_budget(db, uid)
+        items = [
+            TransactionItem(amount=t["amount"], category=t["category"] or "miscellaneous", timestamp=t["timestamp"])
+            for t in txs
+        ]
+        pred = MLEngine.calculate_spend_predictions(user_id=uid, transactions=items, monthly_budget=monthly_budget)
+        confidence_pct = round(pred.confidence_score * 100)
+        lines.append("")
+        lines.append("Antara's own prediction system, for the same data:")
+        lines.append(f"- Monthly budget: ₹{round(monthly_budget)}.")
+        lines.append(f"- Predicted total spend this month: ₹{pred.predicted_total_spend:.0f}.")
+        lines.append(f"- Current daily burn rate: ₹{pred.current_burn_rate_daily:.0f}/day.")
+        if pred.projected_days_until_budget_exhaustion is not None:
+            lines.append(
+                f"- Projected to run out of budget in about {pred.projected_days_until_budget_exhaustion:.0f} days from today."
+            )
+        lines.append(
+            f"- Model mode: {pred.model_mode} "
+            f"({'a trained personal model' if pred.model_mode == 'TRAINED_EMBEDDING_V1' else 'a cold-start heuristic, not yet a personalized model'})."
+        )
+        lines.append(
+            f"- Confidence: {confidence_pct}% — based on {pred.data_days_logged} distinct day(s) logged "
+            f"and {pred.data_points_count} transaction(s)."
+        )
+        lines.append(
+            f"- Cold-start status: {'YES, still in cold-start (needs 14+ days and 5+ transactions for a trained prediction)' if pred.is_cold_start else 'no, past cold-start'}."
+        )
+        if pred.top_risk_categories:
+            risk_names = [CATEGORIES_METADATA.get(c, {}).get("name", c) for c in pred.top_risk_categories]
+            lines.append(f"- Categories driving the prediction most: {', '.join(risk_names)}.")
+        if pred.smart_insights:
+            lines.append("- Antara's own generated insights about this data: " + " | ".join(pred.smart_insights))
+    except Exception as e:
+        logger.warning("answer_chat: prediction context unavailable, falling back to totals only: %s", e)
+
     context_block = "\n".join(lines)
 
     system = (
         "You are Antara's spending assistant for a teenager. Answer their "
-        "question about their OWN spending using ONLY the numbers in the "
-        "data block you're given below — never invent or estimate a figure "
-        "that isn't there. If the data doesn't cover what they're asking, "
-        "say so plainly instead of guessing. Keep answers short and "
-        "conversational, not a report."
+        "question using ONLY the numbers in the data block below — never "
+        "invent or estimate a figure that isn't there. This includes "
+        "questions about Antara's OWN prediction system itself (why a "
+        "run-out date landed where it did, why a category is still an "
+        "\"early estimate,\" how confident a prediction is) — explain those "
+        "using the real confidence/model-mode/cold-start numbers you were "
+        "given, never a made-up justification. If the data doesn't cover "
+        "what they're asking, or confidence is genuinely low, say so "
+        "plainly instead of guessing — sounding falsely certain is worse "
+        "than admitting the model is still calibrating. Keep answers short "
+        "and conversational, warm but not gushing, not a report."
     )
     messages = [
         {"role": "system", "content": f"{system}\n\nTheir spending data:\n{context_block}"},

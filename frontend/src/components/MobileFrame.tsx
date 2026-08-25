@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { Circle, Orbit, Plus, Shield, LogOut } from "lucide-react";
+import { Circle, Orbit, Plus, Shield, LogOut, MessageCircle } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { StreakBadge } from "./StreakBadge";
 import { AntaraMark } from "./AntaraMark";
@@ -168,57 +168,79 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
         {/* Main Content Area */}
         <main className="flex-1 px-4 py-4 overflow-y-auto">{children}</main>
 
-        {/* Bottom chrome: Today / Log (center CTA) / Pull. A minimal 2-tab +
-            center-action dock, matching the redesign — Admin moved to the
+        {/* Bottom chrome: Today / Pull / Ask, three equal tabs, with Log as a
+            floating center FAB overlapping the row on top rather than a
+            flex sibling wedged between two tabs — the only way to add a
+            4th tab (Ask Antara) without either crowding three text labels
+            around the FAB or knocking it off-center. Admin moved to the
             header badge above since it no longer gets its own nav slot.
             Hidden entirely on the sign-in hero, matching the mockup's own
             chrome-hidden signin state. */}
         {!immersive && (
         <LayoutGroup id="bottom-nav">
-          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md md:max-w-lg z-30 flex items-start gap-1.5 px-6 pt-3.5 bg-gradient-to-t from-[#0A0C10] via-[#0A0C10]/93 to-transparent">
-            <Link
-              href="/"
-              className={`flex-1 flex flex-col items-center gap-1 py-1 active:scale-95 transition-transform relative ${
-                pathname === "/" ? "text-primary-300" : "text-gray-500"
-              }`}
-            >
-              <Circle className="w-5 h-5" strokeWidth={1.6} />
-              <span className="text-[10px] tracking-wide">TODAY</span>
-              {pathname === "/" && (
-                <motion.span
-                  layoutId="nav-active-dot"
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
-                />
-              )}
-            </Link>
-
-            {onOpenQuickLog && (
-              <button
-                onClick={onOpenQuickLog}
-                className="h-[46px] px-5 rounded-full bg-primary-600 text-white text-sm font-bold shadow-glow-primary active:scale-95 transition-transform flex items-center gap-1.5 shrink-0"
+          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md md:max-w-lg z-30">
+            <div className="relative flex items-start gap-1 px-4 pt-3.5 pb-1.5 bg-gradient-to-t from-[#0A0C10] via-[#0A0C10]/93 to-transparent">
+              <Link
+                href="/"
+                className={`flex-1 flex flex-col items-center gap-1 py-1 active:scale-95 transition-transform relative ${
+                  pathname === "/" ? "text-primary-300" : "text-gray-500"
+                }`}
               >
-                <Plus className="w-4 h-4" />
-                Log
-              </button>
-            )}
+                <Circle className="w-5 h-5" strokeWidth={1.6} />
+                <span className="text-[10px] tracking-wide">TODAY</span>
+                {pathname === "/" && (
+                  <motion.span
+                    layoutId="nav-active-dot"
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
+                  />
+                )}
+              </Link>
 
-            <Link
-              href="/graph"
-              className={`flex-1 flex flex-col items-center gap-1 py-1 active:scale-95 transition-transform relative ${
-                pathname === "/graph" ? "text-primary-300" : "text-gray-500"
-              }`}
-            >
-              <Orbit className="w-5 h-5" strokeWidth={1.6} />
-              <span className="text-[10px] tracking-wide">PULL</span>
-              {pathname === "/graph" && (
-                <motion.span
-                  layoutId="nav-active-dot"
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
-                />
+              <Link
+                href="/graph"
+                className={`flex-1 flex flex-col items-center gap-1 py-1 active:scale-95 transition-transform relative ${
+                  pathname === "/graph" ? "text-primary-300" : "text-gray-500"
+                }`}
+              >
+                <Orbit className="w-5 h-5" strokeWidth={1.6} />
+                <span className="text-[10px] tracking-wide">PULL</span>
+                {pathname === "/graph" && (
+                  <motion.span
+                    layoutId="nav-active-dot"
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
+                  />
+                )}
+              </Link>
+
+              <Link
+                href="/chat"
+                className={`flex-1 flex flex-col items-center gap-1 py-1 active:scale-95 transition-transform relative ${
+                  pathname === "/chat" ? "text-primary-300" : "text-gray-500"
+                }`}
+              >
+                <MessageCircle className="w-5 h-5" strokeWidth={1.6} />
+                <span className="text-[10px] tracking-wide">ASK</span>
+                {pathname === "/chat" && (
+                  <motion.span
+                    layoutId="nav-active-dot"
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
+                  />
+                )}
+              </Link>
+
+              {onOpenQuickLog && (
+                <button
+                  onClick={onOpenQuickLog}
+                  className="absolute left-1/2 -translate-x-1/2 -top-[22px] h-[46px] px-5 rounded-full bg-primary-600 text-white text-sm font-bold shadow-glow-primary active:scale-95 transition-transform flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  Log
+                </button>
               )}
-            </Link>
+            </div>
           </div>
         </LayoutGroup>
         )}
