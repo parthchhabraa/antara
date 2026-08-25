@@ -1,5 +1,21 @@
 # Antara — session log
 
+## Copyright filing deposit (Form XIV, Statement of Further Particulars — Rule 70(5))
+
+**Status: COMPLETED — read-only export, no application code touched. Generated from `main` at commit `c7db7a8`.**
+
+Two PDFs plus a supporting manifest, in a new **`copyright/`** folder in the repo root (see [copyright/README.md](copyright/README.md) for the full description):
+
+- **`copyright/Antara_Source_Code_Excerpt.pdf`** (22 pages) — the first 10 and last 10 pages of a 284-page concatenation of the project's 69 real source files (backend `main.py`/`ml/engine.py`/`ml/llm_features.py`, frontend `page.tsx`/`graph/page.tsx`/`AuthContext.tsx`/`api.ts`, then the rest alphabetically by directory, exactly per the brief's ordering). Cover page lists the full file order; a divider page between the two 10-page blocks states plainly how many pages were omitted from the middle (264), per Copyright Office practice for a representative excerpt rather than a full dump. Every page carries a running header showing the exact file it's from.
+- **`copyright/Antara_Object_Code_Sample.pdf`** (13 pages) — real compiled/built output, one artifact per file leading the source excerpt: CPython 3.14 `.pyc` bytecode for `main.py` and `engine.py` (binary — shown as a labeled hex/ASCII dump, since a compiled bytecode file can't be printed as literal text), and real minified production JavaScript bundles from an actual `next build` for `page.tsx` and `graph/page.tsx` (minified JS is still text, shown as a labeled excerpt). Each artifact's real SHA-256 hash and byte size are included so it can be verified against the repository directly.
+- **`copyright/pagination_manifest.json`** — the full file → page mapping for all 284 pages of the underlying concatenation (not just the 20 in the PDF), in case the Office ever asks for a page range outside the excerpt.
+
+**How they were built**: paginated with a Python script (fixed 46 lines/page, 100-char wrap, forced page-break before each new file so no file's header lands mid-page), rendered to PDF via a headless Chromium print pass (same tool used for every screenshot verification this session).
+
+**A real bug found and worked around, not glossed over**: `firebase deploy` isn't relevant here, but generating the object-code sample needed real compiled Python bytecode — `python -m py_compile` on `main.py`/`engine.py` worked cleanly and produced real `.pyc` files, no issues there.
+
+**Verified**: both PDFs opened and rendered legibly (checked directly, page images inspected — cover, a body page, the divider, and the final page of the source excerpt; the cover and a hex-dump/JS-excerpt page of the object-code sample). Page counts confirmed via `pdfinfo`: exactly 22 and 13 pages respectively (10 + 10 real code pages plus cover/divider for the source excerpt, as the brief allowed "doesn't need to be exactly 20" for the object-code appendix).
+
 ## Feature: "Instances" — user-pinned budget allocation with real ML-suggested rebalancing
 
 **Status: COMPLETED (3 of 3 items from this round's brief) — built, backend logic verified against real Firestore data and via real HTTPS calls to the live endpoint, a real Firestore security-rules gap found and fixed mid-verification (see below), full UI verified end-to-end against real rendered screenshots including a genuine switch-between-instances check, deployed, re-verified live. Nothing left broken; no rollback needed.**

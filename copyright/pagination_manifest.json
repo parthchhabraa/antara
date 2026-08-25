@@ -1,0 +1,1782 @@
+{
+  "total_pages": 284,
+  "lines_per_page": 46,
+  "wrap_width": 100,
+  "file_order": [
+    "backend/app/main.py",
+    "backend/app/ml/engine.py",
+    "backend/app/ml/llm_features.py",
+    "frontend/src/app/page.tsx",
+    "frontend/src/app/graph/page.tsx",
+    "frontend/src/lib/AuthContext.tsx",
+    "frontend/src/lib/api.ts",
+    "frontend/src/components/AntaraLoader.tsx",
+    "frontend/src/components/AntaraMark.tsx",
+    "frontend/src/components/AntaraWordmark.tsx",
+    "frontend/src/components/AppBootGate.tsx",
+    "frontend/src/components/ArchetypeSheet.tsx",
+    "frontend/src/components/BudgetSheet.tsx",
+    "frontend/src/components/BurnGauge.tsx",
+    "frontend/src/components/CategoryDetailSheet.tsx",
+    "frontend/src/components/CategoryDistributionChart.tsx",
+    "frontend/src/components/CategoryIcon.tsx",
+    "frontend/src/components/ConsentGate.tsx",
+    "frontend/src/components/CountUpNumber.tsx",
+    "frontend/src/components/DataConfigPanel.tsx",
+    "frontend/src/components/InstancesSheet.tsx",
+    "frontend/src/components/LearningCurveSheet.tsx",
+    "frontend/src/components/LegalPageLayout.tsx",
+    "frontend/src/components/MobileFrame.tsx",
+    "frontend/src/components/NewUserOnboardingSheet.tsx",
+    "frontend/src/components/PageTransition.tsx",
+    "frontend/src/components/PopulationDotGraphCanvas.tsx",
+    "frontend/src/components/PublicSignupToggle.tsx",
+    "frontend/src/components/PullCanvas.tsx",
+    "frontend/src/components/QuickLogSheet.tsx",
+    "frontend/src/components/SampleSizeTrend.tsx",
+    "frontend/src/components/StreakBadge.tsx",
+    "frontend/src/components/SuperadminPanel.tsx",
+    "frontend/src/components/TransactionEditSheet.tsx",
+    "frontend/src/components/WhatsNewGate.tsx",
+    "frontend/src/components/WhatsNewSheet.tsx",
+    "frontend/src/components/WhyPredictionSheet.tsx",
+    "frontend/src/components/survey/AntaraBootloader.tsx",
+    "frontend/src/components/survey/AntaraMark.tsx",
+    "frontend/src/components/survey/AntaraWordmark.tsx",
+    "frontend/src/components/survey/ChoiceList.tsx",
+    "frontend/src/components/survey/NumericKeypad.tsx",
+    "frontend/src/components/survey/StepContainer.tsx",
+    "frontend/src/components/survey/StepFooter.tsx",
+    "frontend/src/components/survey/SuccessBurst.tsx",
+    "frontend/src/components/survey/SurveyProgress.tsx",
+    "frontend/src/lib/brand.ts",
+    "frontend/src/lib/changelog.ts",
+    "frontend/src/lib/constants.ts",
+    "frontend/src/lib/firebase.ts",
+    "frontend/src/lib/surveyApi.ts",
+    "frontend/src/lib/surveyConstants.ts",
+    "frontend/src/app/admin/page.tsx",
+    "frontend/src/app/admin/training-insights/page.tsx",
+    "frontend/src/app/chat/page.tsx",
+    "frontend/src/app/layout.tsx",
+    "frontend/src/app/loading.tsx",
+    "frontend/src/app/privacy/page.tsx",
+    "frontend/src/app/review/layout.tsx",
+    "frontend/src/app/review/page.tsx",
+    "frontend/src/app/terms/page.tsx",
+    "frontend/src/types/index.ts",
+    "frontend/src/types/survey.ts",
+    "frontend/src/tests/firestore-rules.test.ts",
+    "backend/app/firebase_admin.py",
+    "backend/app/ml/__init__.py",
+    "backend/app/ml/ollama_client.py",
+    "backend/app/ml/survey_etl.py",
+    "backend/app/schemas.py"
+  ],
+  "pages": [
+    {
+      "page_index": 1,
+      "file": "backend/app/main.py",
+      "page_in_file": 1,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 2,
+      "file": "backend/app/main.py",
+      "page_in_file": 2,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 3,
+      "file": "backend/app/main.py",
+      "page_in_file": 3,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 4,
+      "file": "backend/app/main.py",
+      "page_in_file": 4,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 5,
+      "file": "backend/app/main.py",
+      "page_in_file": 5,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 6,
+      "file": "backend/app/main.py",
+      "page_in_file": 6,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 7,
+      "file": "backend/app/main.py",
+      "page_in_file": 7,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 8,
+      "file": "backend/app/main.py",
+      "page_in_file": 8,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 9,
+      "file": "backend/app/main.py",
+      "page_in_file": 9,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 10,
+      "file": "backend/app/main.py",
+      "page_in_file": 10,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 11,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 1,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 12,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 2,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 13,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 3,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 14,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 4,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 15,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 5,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 16,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 6,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 17,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 7,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 18,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 8,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 19,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 9,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 20,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 10,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 21,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 11,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 22,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 12,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 23,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 13,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 24,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 14,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 25,
+      "file": "backend/app/ml/engine.py",
+      "page_in_file": 15,
+      "total_pages_in_file": 15
+    },
+    {
+      "page_index": 26,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 1,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 27,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 2,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 28,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 3,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 29,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 4,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 30,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 5,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 31,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 6,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 32,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 7,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 33,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 8,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 34,
+      "file": "backend/app/ml/llm_features.py",
+      "page_in_file": 9,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 35,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 36,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 37,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 38,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 39,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 40,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 41,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 7,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 42,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 8,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 43,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 9,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 44,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 10,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 45,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 11,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 46,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 12,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 47,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 13,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 48,
+      "file": "frontend/src/app/page.tsx",
+      "page_in_file": 14,
+      "total_pages_in_file": 14
+    },
+    {
+      "page_index": 49,
+      "file": "frontend/src/app/graph/page.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 50,
+      "file": "frontend/src/app/graph/page.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 51,
+      "file": "frontend/src/app/graph/page.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 52,
+      "file": "frontend/src/app/graph/page.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 53,
+      "file": "frontend/src/app/graph/page.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 54,
+      "file": "frontend/src/app/graph/page.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 55,
+      "file": "frontend/src/app/graph/page.tsx",
+      "page_in_file": 7,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 56,
+      "file": "frontend/src/app/graph/page.tsx",
+      "page_in_file": 8,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 57,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 58,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 59,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 60,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 61,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 62,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 63,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 7,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 64,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 8,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 65,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 9,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 66,
+      "file": "frontend/src/lib/AuthContext.tsx",
+      "page_in_file": 10,
+      "total_pages_in_file": 10
+    },
+    {
+      "page_index": 67,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 68,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 2,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 69,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 3,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 70,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 4,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 71,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 5,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 72,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 6,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 73,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 7,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 74,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 8,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 75,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 9,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 76,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 10,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 77,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 11,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 78,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 12,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 79,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 13,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 80,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 14,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 81,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 15,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 82,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 16,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 83,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 17,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 84,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 18,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 85,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 19,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 86,
+      "file": "frontend/src/lib/api.ts",
+      "page_in_file": 20,
+      "total_pages_in_file": 20
+    },
+    {
+      "page_index": 87,
+      "file": "frontend/src/components/AntaraLoader.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 88,
+      "file": "frontend/src/components/AntaraLoader.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 89,
+      "file": "frontend/src/components/AntaraLoader.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 90,
+      "file": "frontend/src/components/AntaraMark.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 91,
+      "file": "frontend/src/components/AntaraMark.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 92,
+      "file": "frontend/src/components/AntaraWordmark.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 93,
+      "file": "frontend/src/components/AppBootGate.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 94,
+      "file": "frontend/src/components/ArchetypeSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 95,
+      "file": "frontend/src/components/ArchetypeSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 96,
+      "file": "frontend/src/components/ArchetypeSheet.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 97,
+      "file": "frontend/src/components/ArchetypeSheet.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 98,
+      "file": "frontend/src/components/BudgetSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 99,
+      "file": "frontend/src/components/BudgetSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 100,
+      "file": "frontend/src/components/BudgetSheet.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 101,
+      "file": "frontend/src/components/BudgetSheet.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 102,
+      "file": "frontend/src/components/BurnGauge.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 103,
+      "file": "frontend/src/components/BurnGauge.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 104,
+      "file": "frontend/src/components/CategoryDetailSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 105,
+      "file": "frontend/src/components/CategoryDetailSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 106,
+      "file": "frontend/src/components/CategoryDetailSheet.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 107,
+      "file": "frontend/src/components/CategoryDetailSheet.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 108,
+      "file": "frontend/src/components/CategoryDetailSheet.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 109,
+      "file": "frontend/src/components/CategoryDetailSheet.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 110,
+      "file": "frontend/src/components/CategoryDetailSheet.tsx",
+      "page_in_file": 7,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 111,
+      "file": "frontend/src/components/CategoryDistributionChart.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 112,
+      "file": "frontend/src/components/CategoryDistributionChart.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 113,
+      "file": "frontend/src/components/CategoryDistributionChart.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 114,
+      "file": "frontend/src/components/CategoryIcon.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 115,
+      "file": "frontend/src/components/ConsentGate.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 116,
+      "file": "frontend/src/components/ConsentGate.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 117,
+      "file": "frontend/src/components/ConsentGate.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 118,
+      "file": "frontend/src/components/CountUpNumber.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 119,
+      "file": "frontend/src/components/DataConfigPanel.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 120,
+      "file": "frontend/src/components/DataConfigPanel.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 121,
+      "file": "frontend/src/components/DataConfigPanel.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 122,
+      "file": "frontend/src/components/DataConfigPanel.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 123,
+      "file": "frontend/src/components/DataConfigPanel.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 124,
+      "file": "frontend/src/components/DataConfigPanel.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 125,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 126,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 127,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 128,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 129,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 130,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 131,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 7,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 132,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 8,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 133,
+      "file": "frontend/src/components/InstancesSheet.tsx",
+      "page_in_file": 9,
+      "total_pages_in_file": 9
+    },
+    {
+      "page_index": 134,
+      "file": "frontend/src/components/LearningCurveSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 135,
+      "file": "frontend/src/components/LearningCurveSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 136,
+      "file": "frontend/src/components/LearningCurveSheet.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 137,
+      "file": "frontend/src/components/LearningCurveSheet.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 138,
+      "file": "frontend/src/components/LearningCurveSheet.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 139,
+      "file": "frontend/src/components/LegalPageLayout.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 140,
+      "file": "frontend/src/components/MobileFrame.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 141,
+      "file": "frontend/src/components/MobileFrame.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 142,
+      "file": "frontend/src/components/MobileFrame.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 143,
+      "file": "frontend/src/components/MobileFrame.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 144,
+      "file": "frontend/src/components/MobileFrame.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 145,
+      "file": "frontend/src/components/MobileFrame.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 146,
+      "file": "frontend/src/components/MobileFrame.tsx",
+      "page_in_file": 7,
+      "total_pages_in_file": 7
+    },
+    {
+      "page_index": 147,
+      "file": "frontend/src/components/NewUserOnboardingSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 148,
+      "file": "frontend/src/components/NewUserOnboardingSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 149,
+      "file": "frontend/src/components/PageTransition.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 150,
+      "file": "frontend/src/components/PopulationDotGraphCanvas.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 151,
+      "file": "frontend/src/components/PopulationDotGraphCanvas.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 152,
+      "file": "frontend/src/components/PopulationDotGraphCanvas.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 153,
+      "file": "frontend/src/components/PopulationDotGraphCanvas.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 154,
+      "file": "frontend/src/components/PublicSignupToggle.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 155,
+      "file": "frontend/src/components/PublicSignupToggle.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 156,
+      "file": "frontend/src/components/PublicSignupToggle.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 157,
+      "file": "frontend/src/components/PullCanvas.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 158,
+      "file": "frontend/src/components/PullCanvas.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 159,
+      "file": "frontend/src/components/PullCanvas.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 160,
+      "file": "frontend/src/components/PullCanvas.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 161,
+      "file": "frontend/src/components/PullCanvas.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 162,
+      "file": "frontend/src/components/QuickLogSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 163,
+      "file": "frontend/src/components/QuickLogSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 164,
+      "file": "frontend/src/components/QuickLogSheet.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 165,
+      "file": "frontend/src/components/QuickLogSheet.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 166,
+      "file": "frontend/src/components/QuickLogSheet.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 167,
+      "file": "frontend/src/components/QuickLogSheet.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 168,
+      "file": "frontend/src/components/SampleSizeTrend.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 169,
+      "file": "frontend/src/components/StreakBadge.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 170,
+      "file": "frontend/src/components/SuperadminPanel.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 171,
+      "file": "frontend/src/components/SuperadminPanel.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 172,
+      "file": "frontend/src/components/SuperadminPanel.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 173,
+      "file": "frontend/src/components/SuperadminPanel.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 174,
+      "file": "frontend/src/components/SuperadminPanel.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 175,
+      "file": "frontend/src/components/SuperadminPanel.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 176,
+      "file": "frontend/src/components/TransactionEditSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 177,
+      "file": "frontend/src/components/TransactionEditSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 178,
+      "file": "frontend/src/components/TransactionEditSheet.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 179,
+      "file": "frontend/src/components/TransactionEditSheet.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 180,
+      "file": "frontend/src/components/TransactionEditSheet.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 181,
+      "file": "frontend/src/components/WhatsNewGate.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 182,
+      "file": "frontend/src/components/WhatsNewGate.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 183,
+      "file": "frontend/src/components/WhatsNewSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 184,
+      "file": "frontend/src/components/WhatsNewSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 185,
+      "file": "frontend/src/components/WhyPredictionSheet.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 186,
+      "file": "frontend/src/components/WhyPredictionSheet.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 187,
+      "file": "frontend/src/components/WhyPredictionSheet.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 188,
+      "file": "frontend/src/components/WhyPredictionSheet.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 189,
+      "file": "frontend/src/components/WhyPredictionSheet.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 190,
+      "file": "frontend/src/components/WhyPredictionSheet.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 6
+    },
+    {
+      "page_index": 191,
+      "file": "frontend/src/components/survey/AntaraBootloader.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 192,
+      "file": "frontend/src/components/survey/AntaraMark.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 193,
+      "file": "frontend/src/components/survey/AntaraMark.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 194,
+      "file": "frontend/src/components/survey/AntaraMark.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 195,
+      "file": "frontend/src/components/survey/AntaraWordmark.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 196,
+      "file": "frontend/src/components/survey/ChoiceList.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 197,
+      "file": "frontend/src/components/survey/ChoiceList.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 198,
+      "file": "frontend/src/components/survey/NumericKeypad.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 199,
+      "file": "frontend/src/components/survey/NumericKeypad.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 200,
+      "file": "frontend/src/components/survey/NumericKeypad.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 201,
+      "file": "frontend/src/components/survey/StepContainer.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 202,
+      "file": "frontend/src/components/survey/StepContainer.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 203,
+      "file": "frontend/src/components/survey/StepFooter.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 204,
+      "file": "frontend/src/components/survey/StepFooter.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 205,
+      "file": "frontend/src/components/survey/SuccessBurst.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 206,
+      "file": "frontend/src/components/survey/SurveyProgress.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 207,
+      "file": "frontend/src/components/survey/SurveyProgress.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 208,
+      "file": "frontend/src/lib/brand.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 209,
+      "file": "frontend/src/lib/changelog.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 210,
+      "file": "frontend/src/lib/changelog.ts",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 211,
+      "file": "frontend/src/lib/constants.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 212,
+      "file": "frontend/src/lib/constants.ts",
+      "page_in_file": 2,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 213,
+      "file": "frontend/src/lib/constants.ts",
+      "page_in_file": 3,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 214,
+      "file": "frontend/src/lib/constants.ts",
+      "page_in_file": 4,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 215,
+      "file": "frontend/src/lib/constants.ts",
+      "page_in_file": 5,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 216,
+      "file": "frontend/src/lib/constants.ts",
+      "page_in_file": 6,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 217,
+      "file": "frontend/src/lib/constants.ts",
+      "page_in_file": 7,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 218,
+      "file": "frontend/src/lib/constants.ts",
+      "page_in_file": 8,
+      "total_pages_in_file": 8
+    },
+    {
+      "page_index": 219,
+      "file": "frontend/src/lib/firebase.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 220,
+      "file": "frontend/src/lib/surveyApi.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 221,
+      "file": "frontend/src/lib/surveyConstants.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 222,
+      "file": "frontend/src/lib/surveyConstants.ts",
+      "page_in_file": 2,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 223,
+      "file": "frontend/src/lib/surveyConstants.ts",
+      "page_in_file": 3,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 224,
+      "file": "frontend/src/lib/surveyConstants.ts",
+      "page_in_file": 4,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 225,
+      "file": "frontend/src/app/admin/page.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 226,
+      "file": "frontend/src/app/admin/training-insights/page.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 227,
+      "file": "frontend/src/app/admin/training-insights/page.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 228,
+      "file": "frontend/src/app/admin/training-insights/page.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 229,
+      "file": "frontend/src/app/chat/page.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 230,
+      "file": "frontend/src/app/chat/page.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 231,
+      "file": "frontend/src/app/chat/page.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 232,
+      "file": "frontend/src/app/chat/page.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 233,
+      "file": "frontend/src/app/chat/page.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 234,
+      "file": "frontend/src/app/layout.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 235,
+      "file": "frontend/src/app/layout.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 236,
+      "file": "frontend/src/app/loading.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 237,
+      "file": "frontend/src/app/privacy/page.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 238,
+      "file": "frontend/src/app/privacy/page.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 239,
+      "file": "frontend/src/app/privacy/page.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 3
+    },
+    {
+      "page_index": 240,
+      "file": "frontend/src/app/review/layout.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 241,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 242,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 243,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 3,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 244,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 4,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 245,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 5,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 246,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 6,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 247,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 7,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 248,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 8,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 249,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 9,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 250,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 10,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 251,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 11,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 252,
+      "file": "frontend/src/app/review/page.tsx",
+      "page_in_file": 12,
+      "total_pages_in_file": 12
+    },
+    {
+      "page_index": 253,
+      "file": "frontend/src/app/terms/page.tsx",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 254,
+      "file": "frontend/src/app/terms/page.tsx",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 255,
+      "file": "frontend/src/types/index.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 256,
+      "file": "frontend/src/types/index.ts",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 257,
+      "file": "frontend/src/types/survey.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 258,
+      "file": "frontend/src/tests/firestore-rules.test.ts",
+      "page_in_file": 1,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 259,
+      "file": "frontend/src/tests/firestore-rules.test.ts",
+      "page_in_file": 2,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 260,
+      "file": "frontend/src/tests/firestore-rules.test.ts",
+      "page_in_file": 3,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 261,
+      "file": "frontend/src/tests/firestore-rules.test.ts",
+      "page_in_file": 4,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 262,
+      "file": "frontend/src/tests/firestore-rules.test.ts",
+      "page_in_file": 5,
+      "total_pages_in_file": 5
+    },
+    {
+      "page_index": 263,
+      "file": "backend/app/firebase_admin.py",
+      "page_in_file": 1,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 264,
+      "file": "backend/app/firebase_admin.py",
+      "page_in_file": 2,
+      "total_pages_in_file": 2
+    },
+    {
+      "page_index": 265,
+      "file": "backend/app/ml/__init__.py",
+      "page_in_file": 1,
+      "total_pages_in_file": 1
+    },
+    {
+      "page_index": 266,
+      "file": "backend/app/ml/ollama_client.py",
+      "page_in_file": 1,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 267,
+      "file": "backend/app/ml/ollama_client.py",
+      "page_in_file": 2,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 268,
+      "file": "backend/app/ml/ollama_client.py",
+      "page_in_file": 3,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 269,
+      "file": "backend/app/ml/ollama_client.py",
+      "page_in_file": 4,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 270,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 1,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 271,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 2,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 272,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 3,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 273,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 4,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 274,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 5,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 275,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 6,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 276,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 7,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 277,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 8,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 278,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 9,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 279,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 10,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 280,
+      "file": "backend/app/ml/survey_etl.py",
+      "page_in_file": 11,
+      "total_pages_in_file": 11
+    },
+    {
+      "page_index": 281,
+      "file": "backend/app/schemas.py",
+      "page_in_file": 1,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 282,
+      "file": "backend/app/schemas.py",
+      "page_in_file": 2,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 283,
+      "file": "backend/app/schemas.py",
+      "page_in_file": 3,
+      "total_pages_in_file": 4
+    },
+    {
+      "page_index": 284,
+      "file": "backend/app/schemas.py",
+      "page_in_file": 4,
+      "total_pages_in_file": 4
+    }
+  ]
+}
