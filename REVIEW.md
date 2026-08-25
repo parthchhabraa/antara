@@ -74,6 +74,8 @@ Independently re-confirmed the cloud session's own finding before building anyth
 
 Every item in this session's brief was verified against the real server, nothing failed, so per the brief's own instruction ("merge... do not merge if anything above fails or can't be verified"): **merged `claude/continue-sxrspn` into `main`.**
 
+**Merged, not deployed — `antara-frontend.service`/`antara-ml.service` were left untouched.** Everything in §1-3 above was verified against temporary local instances on separate ports, never the running production services (confirmed `git status` clean and both services still `active`/healthy on their pre-merge code after this session, via `/health` and `app.antara.money`). The brief's explicit steps were setup → verify → merge; it didn't ask for a production restart, and shipping a new LLM surface (three new endpoints, a new local model dependency) to the two real beta testers without being explicitly asked felt like the wrong default to assume. `main` has this work now — a rebuild + restart of both services (same pattern as Steps 14-16) is one command away whenever that's wanted.
+
 ## Commit hashes
 
 - `c2ce5c3` — cloud session's Phase 2 work (Ollama backend code, `/survey`→`/review`, UI polish) — unchanged by this session.
