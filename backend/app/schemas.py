@@ -91,6 +91,29 @@ class LearningCurveResponse(BaseModel):
     points: List[LearningCurvePoint]
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
+# ── "Instances" — user-pinned budget allocation with ML-suggested remainder ──
+
+class AllocateBudgetRequest(BaseModel):
+    user_id: str
+    transactions: List[TransactionItem]
+    monthly_budget: float = Field(..., gt=0)
+    pinned: Dict[str, float] = Field(default_factory=dict, description="category_id -> user-pinned amount in INR")
+
+class CategoryAllocation(BaseModel):
+    category_id: str
+    category_name: str
+    is_pinned: bool
+    amount: float
+    is_early_estimate: bool
+
+class AllocateBudgetResponse(BaseModel):
+    user_id: str
+    allocations: List[CategoryAllocation]
+    pinned_total: float
+    remaining_after_pinned: float
+    over_allocated: bool
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
 class HealthResponse(BaseModel):
     status: str
     service: str

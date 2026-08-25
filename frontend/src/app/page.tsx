@@ -10,6 +10,7 @@ import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
 import { TransactionEditSheet } from "@/components/TransactionEditSheet";
 import { BudgetSheet } from "@/components/BudgetSheet";
+import { InstancesSheet } from "@/components/InstancesSheet";
 import { WhyPredictionSheet } from "@/components/WhyPredictionSheet";
 import { NewUserOnboardingSheet } from "@/components/NewUserOnboardingSheet";
 import { AntaraWordmark } from "@/components/AntaraWordmark";
@@ -40,6 +41,7 @@ export default function TodayPage() {
     dismissNewUserBanner,
     setMonthlyBudget,
     setCategoryCap,
+    applyInstance,
   } = useAuth();
   const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
   const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
@@ -47,6 +49,7 @@ export default function TodayPage() {
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isBudgetEditOpen, setIsBudgetEditOpen] = useState(false);
+  const [isInstancesOpen, setIsInstancesOpen] = useState(false);
   const [isWhyOpen, setIsWhyOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // `user` is null AND isDemoMode is true for every fresh/unauthenticated
@@ -408,12 +411,21 @@ export default function TodayPage() {
             )}
             {/* Step 13 §1 — the edit affordance the brief asked for: budget isn't
                 locked in at onboarding, it's always one tap away from here. */}
-            <button
-              onClick={() => setIsBudgetEditOpen(true)}
-              className="block mx-auto mb-4 text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
-            >
-              Budget {FORMAT_INR(monthlyBudget)}/mo · Edit
-            </button>
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <button
+                onClick={() => setIsBudgetEditOpen(true)}
+                className="text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+              >
+                Budget {FORMAT_INR(monthlyBudget)}/mo · Edit
+              </button>
+              <span className="text-gray-700 text-[11px]">·</span>
+              <button
+                onClick={() => setIsInstancesOpen(true)}
+                className="text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+              >
+                Instances
+              </button>
+            </div>
 
             {/* Money runs out */}
             <div className="rounded-2xl border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
@@ -527,6 +539,16 @@ export default function TodayPage() {
             await setMonthlyBudget(amount);
             setIsBudgetEditOpen(false);
           }}
+        />
+        <InstancesSheet
+          isOpen={isInstancesOpen}
+          onClose={() => setIsInstancesOpen(false)}
+          transactions={transactions}
+          monthlyBudget={monthlyBudget}
+          isDemoMode={isDemoMode}
+          user={user}
+          activeInstanceId={profile?.active_instance_id}
+          onApply={applyInstance}
         />
         <WhyPredictionSheet
           isOpen={isWhyOpen}

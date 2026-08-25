@@ -205,6 +205,83 @@ class MLEngine:
         return points
 
     @staticmethod
+    def allocate_budget(
+        transactions: List[TransactionItem],
+        monthly_budget: float,
+        pinned: Dict[str, float],
+    ) -> Dict[str, Any]:
+        """"Instances" — a user pins exact amounts to whichever categories
+        they choose; everything else (the remaining budget) gets split
+        across the categories they DIDN'T pin, proportional to that
+        category's real share of their own historical spend among the
+        unpinned set — the same "your actual behavior drives the number"
+        idea calculate_spend_predictions already uses, deliberately not an
+        even split and not invented. A category with no real spend history
+        of its own falls back to the same survey benchmark weights the
+        cold-start heuristic elsewhere in this file already uses (never a
+        made-up figure), and is honestly flagged `is_early_estimate` rather
+        than presented with false precision — same staged-honesty posture
+        as everywhere else in this module."""
+        is_cold_start, active_days, tx_count = MLEngine._analyze_data_maturity(transactions)
+
+        cat_totals: Dict[str, float] = {k: 0.0 for k in CATEGORIES_METADATA.keys()}
+        for tx in transactions:
+            cat_id = tx.category if tx.category in cat_totals else "miscellaneous"
+            cat_totals[cat_id] += tx.amount
+
+        # Only real, known categories can be pinned — silently ignore anything
+        # else rather than letting a bad category id quietly eat budget.
+        pinned = {k: v for k, v in pinned.items() if k in CATEGORIES_METADATA and v >= 0}
+        pinned_sum = sum(pinned.values())
+        over_allocated = pinned_sum > monthly_budget
+        remaining = max(0.0, monthly_budget - pinned_sum)
+
+        unpinned_ids = [c for c in CATEGORIES_METADATA.keys() if c not in pinned]
+        unpinned_historical_total = sum(cat_totals[c] for c in unpinned_ids)
+        unpinned_benchmark_total = sum(CATEGORIES_METADATA[c]["benchmark_pct"] or 0.0 for c in unpinned_ids)
+
+        def weight_for(cat_id: str) -> float:
+            if unpinned_historical_total > 0:
+                return cat_totals[cat_id]
+            if unpinned_benchmark_total > 0:
+                return CATEGORIES_METADATA[cat_id]["benchmark_pct"] or 0.0
+            return 1.0  # last resort: nothing to base a curve on anywhere, even split
+
+        total_weight = sum(weight_for(c) for c in unpinned_ids)
+
+        allocations: List[Dict[str, Any]] = []
+        for cat_id, meta in CATEGORIES_METADATA.items():
+            if cat_id in pinned:
+                allocations.append({
+                    "category_id": cat_id,
+                    "category_name": meta["name"],
+                    "is_pinned": True,
+                    "amount": round(pinned[cat_id], 2),
+                    "is_early_estimate": False,
+                })
+                continue
+            w = weight_for(cat_id)
+            amount = (remaining * (w / total_weight)) if total_weight > 0 else 0.0
+            allocations.append({
+                "category_id": cat_id,
+                "category_name": meta["name"],
+                "is_pinned": False,
+                "amount": round(amount, 2),
+                # Honest, not just "the whole account is cold-start": a
+                # category with zero spend of its own is riding the
+                # benchmark/even-split fallback even on an otherwise
+                # well-established account, so it gets flagged too.
+                "is_early_estimate": bool(is_cold_start or cat_totals[cat_id] == 0),
+            })
+
+        return {
+            "allocations": allocations,
+            "pinned_total": round(pinned_sum, 2),
+            "remaining_after_pinned": round(remaining, 2),
+            "over_allocated": over_allocated,
+        }
+
+    @staticmethod
     def calculate_spend_predictions(
         user_id: str,
         transactions: List[TransactionItem],

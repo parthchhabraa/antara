@@ -56,6 +56,15 @@ service cloud.firestore {
         allow read: if isOwner(userId) || isSuperAdmin();
         allow write: if isSuperAdmin() || (isOwner(userId) && (isBetaAllowlisted() || isPublicSignupEnabled()));
       }
+
+      // "Instances" (named budget-allocation profiles, lib/api.ts's
+      // BudgetInstance) — same ownership rule as the parent profile doc
+      // itself, no separate allowlist/public-signup gate needed: reaching
+      // this UI at all already means the caller has a real signed-in
+      // profile, which already required clearing those gates elsewhere.
+      match /instances/{instanceId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
     }
 
     // Shared category taxonomy

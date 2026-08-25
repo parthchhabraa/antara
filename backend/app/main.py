@@ -12,6 +12,7 @@ from app.schemas import (
     InsightRequest, InsightResponse,
     ChatRequest, ChatResponse,
     LearningCurveResponse,
+    AllocateBudgetRequest, AllocateBudgetResponse,
 )
 from app.ml.engine import MLEngine
 from app.ml import survey_etl, llm_features, ollama_client
@@ -168,6 +169,26 @@ async def get_learning_curve(
     """
     points = MLEngine.calculate_learning_curve(transactions=req.transactions)
     return LearningCurveResponse(user_id=req.user_id, points=points)
+
+@app.post("/api/v1/ml/allocate-budget", response_model=AllocateBudgetResponse, tags=["Personalization"])
+async def allocate_budget(
+    req: AllocateBudgetRequest,
+    current_user: dict = Depends(verify_firebase_token)
+):
+    """
+    "Instances" — the user pins exact amounts to whichever categories they
+    choose; this computes a real suggested split of whatever's left across
+    everything else, proportional to that category's own real historical
+    spend (see MLEngine.allocate_budget for the full fallback chain and
+    staged-honesty flagging). Same request/auth shape as /predict/spend —
+    the caller supplies its own already-fetched transactions.
+    """
+    result = MLEngine.allocate_budget(
+        transactions=req.transactions,
+        monthly_budget=req.monthly_budget,
+        pinned=req.pinned,
+    )
+    return AllocateBudgetResponse(user_id=req.user_id, **result)
 
 def _require_self_or_superadmin(current_user: dict, user_id: str) -> None:
     """Same access boundary as everywhere else a request carries a

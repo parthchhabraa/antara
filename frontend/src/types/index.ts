@@ -52,6 +52,11 @@ export interface UserProfile {
   // Only real signed-in accounts persist this to Firestore; demo/guest
   // profiles hold it in local state only (see AuthContext.setCategoryCap).
   category_caps?: Record<string, number>;
+  // Which saved "Instance" (see BudgetInstance, lib/api.ts) most recently
+  // wrote its allocation into category_caps above, if any — purely for the
+  // Instances UI to show which one is "Active"; category_caps itself
+  // remains the single source of truth the rest of the app reads from.
+  active_instance_id?: string;
 }
 
 export interface BetaAllowlistEntry {

@@ -11,7 +11,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { saveMonthlyBudget, saveCategoryCap, clearCategoryCap } from "./api";
+import { saveMonthlyBudget, saveCategoryCap, clearCategoryCap, applyInstanceAllocation } from "./api";
 import { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -30,6 +30,10 @@ interface AuthContextType {
   // Real per-category cap, settable for any category — pass null to clear a
   // cap back to "not set." See UserProfile.category_caps.
   setCategoryCap: (categoryId: string, amount: number | null) => Promise<void>;
+  // "Instances" — applying one is a full-replace write of category_caps
+  // (see lib/api.ts's applyInstanceAllocation), not a per-key update like
+  // setCategoryCap above; an instance defines a complete allocation.
+  applyInstance: (instanceId: string, allocation: Record<string, number>) => Promise<void>;
   toggleDemoMode: () => void;
   signInWithGoogle: () => Promise<void>;
   signInAsGuest: () => void;
@@ -376,6 +380,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  // Same "write if real, always update local state" shape once more — an
+  // Instance's allocation is a full replace of category_caps (unlike the
+  // single-key update above), plus recording which instance is now active.
+  const applyInstanceField = async (instanceId: string, allocation: Record<string, number>) => {
+    if (user) {
+      await applyInstanceAllocation(user.uid, allocation, instanceId);
+    }
+    setProfile((prev) => (prev ? { ...prev, category_caps: allocation, active_instance_id: instanceId } : prev));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -392,6 +406,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         pendingBudgetSetup,
         setMonthlyBudget: setMonthlyBudgetField,
         setCategoryCap: setCategoryCapField,
+        applyInstance: applyInstanceField,
         toggleDemoMode,
         signInWithGoogle,
         signInAsGuest,

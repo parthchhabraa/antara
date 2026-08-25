@@ -674,6 +674,119 @@ export async function clearCategoryCap(uid: string, categoryId: string): Promise
 }
 
 // ────────────────────────────────────────────────────────────────────────
+// "Instances" — named, savable budget-allocation profiles. A user pins
+// exact amounts to whichever categories they choose; POST
+// /api/v1/ml/allocate-budget (backend/app/ml/engine.py's allocate_budget)
+// computes a real suggested split of whatever's left across the rest,
+// proportional to that category's own historical spend. Stored per-user in
+// a `instances` subcollection (same shape as `transactions`), separate
+// from `category_caps` — applying an instance is what writes its full
+// resulting allocation (pins + suggestions) into category_caps, plugging
+// into the cap UI/language that already exists rather than a parallel
+// system. See AuthContext.applyInstance for the apply step.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface BudgetInstance {
+  id: string;
+  name: string;
+  pinned: Record<string, number>;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function saveInstance(
+  uid: string,
+  instance: { name: string; pinned: Record<string, number> },
+  existingId?: string
+): Promise<string> {
+  const now = new Date().toISOString();
+  if (existingId) {
+    await setDoc(
+      doc(db, "users", uid, "instances", existingId),
+      { name: instance.name, pinned: instance.pinned, updated_at: now },
+      { merge: true }
+    );
+    return existingId;
+  }
+  const ref = await addDoc(collection(db, "users", uid, "instances"), {
+    name: instance.name,
+    pinned: instance.pinned,
+    created_at: now,
+    updated_at: now,
+  });
+  return ref.id;
+}
+
+export async function deleteInstance(uid: string, instanceId: string): Promise<void> {
+  await deleteDoc(doc(db, "users", uid, "instances", instanceId));
+}
+
+export interface CategoryAllocation {
+  category_id: string;
+  category_name: string;
+  is_pinned: boolean;
+  amount: number;
+  is_early_estimate: boolean;
+}
+
+export interface AllocateBudgetResult {
+  allocations: CategoryAllocation[];
+  pinned_total: number;
+  remaining_after_pinned: number;
+  over_allocated: boolean;
+}
+
+/**
+ * Real per-user allocation preview — POST /api/v1/ml/allocate-budget. Same
+ * auth/request shape as fetchDotGraph/fetchLearningCurve: requires a real
+ * Firebase ID token, throws on failure.
+ */
+export async function fetchBudgetAllocation(
+  user: FirebaseUser,
+  transactions: Transaction[],
+  monthlyBudget: number,
+  pinned: Record<string, number>
+): Promise<AllocateBudgetResult> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}/api/v1/ml/allocate-budget`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      user_id: user.uid,
+      monthly_budget: monthlyBudget,
+      pinned,
+      transactions: transactions.map((t) => ({
+        amount: t.amount,
+        category: t.category,
+        subcategory: t.subcategory,
+        note: t.note,
+        timestamp: t.timestamp,
+        source: t.source,
+      })),
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Allocate-budget request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+// Full-replace write — applying an instance is authoritative over the whole
+// category_caps map (an instance defines a complete allocation across every
+// category), unlike saveCategoryCap's single-key dot-notation update.
+export async function applyInstanceAllocation(
+  uid: string,
+  allocation: Record<string, number>,
+  instanceId: string
+): Promise<void> {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, { category_caps: allocation, active_instance_id: instanceId });
+}
+
+// ────────────────────────────────────────────────────────────────────────
 // Step 10 — superadmin Stage-1 training-data admin API. All of these hit
 // backend/app/main.py's admin endpoints (superadmin-only, verified via the
 // same Firebase ID token pattern as fetchSpendPrediction above). Shapes here
