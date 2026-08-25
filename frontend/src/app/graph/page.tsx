@@ -222,6 +222,7 @@ export default function PullPage() {
           onClose={() => setIsLogOpen(false)}
           onCommit={handleCommit}
           safeDaily={metrics.safeDaily}
+          user={user}
         />
         <CategoryDetailSheet
           category={detailCategory}

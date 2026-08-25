@@ -79,6 +79,43 @@ export default function TodayPage() {
     [transactions, monthlyBudget, isDemoMode]
   );
 
+  // Phase 2 continuation — the week-bar strip is now a real date selector,
+  // not decoration. `null` means "no day picked, show today's live view"
+  // (the default); tapping a bar sets it to that bar's dateKey, and
+  // tapping the same bar again (or today's own bar) clears it back to
+  // null. Deliberately a separate concept from "today" itself — `today`
+  // stays the actual calendar day the rest of the app's month-pacing math
+  // (metrics, streak, budget) is computed against; this only decides what
+  // the Today screen's own top section currently *displays*.
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const todayDateKey = today.toDateString();
+  const isDaySelected = selectedDateKey !== null && selectedDateKey !== todayDateKey;
+
+  const dayTransactions = useMemo(() => {
+    if (!isDaySelected) return [];
+    return transactions
+      .filter((t) => new Date(t.timestamp).toDateString() === selectedDateKey)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, selectedDateKey, isDaySelected]);
+
+  const daySpent = dayTransactions.reduce((s, t) => s + t.amount, 0);
+  const dayByCategory = useMemo(() => {
+    const totals: Record<string, number> = {};
+    dayTransactions.forEach((t) => {
+      totals[t.category] = (totals[t.category] || 0) + t.amount;
+    });
+    return STARTER_CATEGORIES.filter((c) => totals[c.id] > 0)
+      .map((c) => ({ category: c, amount: totals[c.id] }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [dayTransactions]);
+
+  const selectedBarLabel = useMemo(() => {
+    if (!isDaySelected || !selectedDateKey) return "";
+    const bar = metrics.weekBars.find((b) => b.dateKey === selectedDateKey);
+    return bar ? new Date(selectedDateKey).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short" }) : "";
+  }, [isDaySelected, selectedDateKey, metrics.weekBars]);
+
   const handleCommit = async (newTx: Omit<Transaction, "id">) => {
     let milestoneLine: string | null = null;
     if (isDemoMode) {
@@ -233,117 +270,202 @@ export default function TodayPage() {
           </span>
         </div>
 
-        {/* Week bars */}
+        {/* Week bars — Phase 2 continuation: a real date selector now, not
+            decoration. The "selected" highlight (ring + primary label)
+            follows whatever's actually picked, defaulting to today; a
+            small dot marks the real "today" bar too whenever some other
+            day is the one selected, so it never gets ambiguous which is
+            which. Tapping the already-selected bar (or today's own bar)
+            clears the selection back to the live Today view. */}
         <div className="flex gap-1.5 pt-3.5 pb-1.5">
-          {metrics.weekBars.map((b, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-              <div className="w-full h-11 rounded flex items-end bg-white/[0.08] overflow-hidden">
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${b.heightPct}%` }}
-                  transition={{ duration: 0.6, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
-                  className={`w-full rounded ${b.heightPct > 60 ? "bg-primary-400" : "bg-gray-500/45"}`}
-                />
+          {metrics.weekBars.map((b, i) => {
+            const isSelected = (selectedDateKey ?? todayDateKey) === b.dateKey;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSelectedDateKey(b.dateKey === todayDateKey ? null : b.dateKey === selectedDateKey ? null : b.dateKey)}
+                className="flex-1 flex flex-col items-center gap-1.5 active:opacity-70 transition-opacity"
+              >
+                <div
+                  className={`w-full h-11 rounded flex items-end bg-white/[0.08] overflow-hidden transition-shadow ${
+                    isSelected ? "ring-2 ring-primary-400" : ""
+                  }`}
+                >
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: `${b.heightPct}%` }}
+                    transition={{ duration: 0.6, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                    className={`w-full rounded ${b.heightPct > 60 ? "bg-primary-400" : "bg-gray-500/45"}`}
+                  />
+                </div>
+                <span className={`text-[9px] flex items-center gap-1 ${isSelected ? "text-primary-300" : "text-gray-600"}`}>
+                  {b.day}
+                  {b.isToday && !isSelected && <span className="w-1 h-1 rounded-full bg-gray-500" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {isDaySelected ? (
+          /* Phase 2 continuation — day view. Deliberately NOT the same
+             month-pacing gauge/cards (a "burn rate" or "run-out date"
+             doesn't mean anything for a single past day) — real numbers
+             for that one day instead: what was spent, on what, in what
+             order. */
+          <>
+            <div className="flex items-center justify-between mt-3">
+              <div>
+                <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300 mb-1">{selectedBarLabel.toUpperCase()}</div>
+                <div className="text-3xl font-medium tracking-tight text-white">{FORMAT_INR(daySpent)}</div>
               </div>
-              <span className={`text-[9px] ${b.isToday ? "text-primary-300" : "text-gray-600"}`}>{b.day}</span>
+              <button
+                onClick={() => setSelectedDateKey(null)}
+                className="h-9 px-3.5 rounded-full bg-white/5 hover:bg-white/10 text-[12.5px] font-medium text-gray-300 active:opacity-70 transition-opacity"
+              >
+                Back to today
+              </button>
             </div>
-          ))}
-        </div>
 
-        {/* Burn gauge */}
-        <div className="flex flex-col items-center py-3.5">
-          <BurnGauge burnPct={metrics.burnPct} />
-        </div>
-        <div className="text-center text-[13px] text-gray-400 leading-relaxed -mt-1 mb-2">
-          You're running {FORMAT_INR(metrics.weekRate)} a day.
-          <br />
-          Safe is {FORMAT_INR(metrics.safeDaily)}.
-        </div>
-        {/* Step 13 §1 — the edit affordance the brief asked for: budget isn't
-            locked in at onboarding, it's always one tap away from here. */}
-        <button
-          onClick={() => setIsBudgetEditOpen(true)}
-          className="block mx-auto mb-4 text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
-        >
-          Budget {FORMAT_INR(monthlyBudget)}/mo · Edit
-        </button>
+            {dayByCategory.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1 pt-4 -mx-5 px-5 no-scrollbar">
+                {dayByCategory.map(({ category: c, amount }) => (
+                  <div
+                    key={c.id}
+                    className="flex-none px-3 py-1.5 rounded-full bg-white/[0.06] text-[11.5px] text-gray-300 whitespace-nowrap"
+                  >
+                    {c.short} · {FORMAT_INR(amount)}
+                  </div>
+                ))}
+              </div>
+            )}
 
-        {/* Money runs out */}
-        <div className="rounded-2xl border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
-          <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300 mb-2">MONEY RUNS OUT</div>
-          <div className="flex items-baseline gap-2.5">
-            <span className="text-4xl font-medium tracking-tight text-white">{runOutDate}</span>
-            <span className="text-xs text-gray-400">{earlyLabel}</span>
-          </div>
-          <button
-            onClick={() => setIsWhyOpen(true)}
-            className="block w-full text-left text-[13.5px] leading-relaxed text-gray-200 mt-3 underline decoration-dotted decoration-gray-500 underline-offset-4 active:opacity-70 transition-opacity"
-          >
-            {coachLine}
-          </button>
-          {metrics.riskRows[0] && (
+            <div className="mt-4 flex flex-col">
+              {dayTransactions.length === 0 ? (
+                <p className="py-8 text-center text-xs text-gray-500">Nothing logged on {selectedBarLabel}.</p>
+              ) : (
+                dayTransactions.map((t) => {
+                  const cat = STARTER_CATEGORIES.find((c) => c.id === t.category);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setEditingTx(t)}
+                      className="flex items-center gap-3 py-3 border-b border-white/5 last:border-0 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] text-gray-100 truncate">{cat?.name || t.category}</div>
+                        <div className="text-[11px] text-gray-500 mt-0.5 truncate">
+                          {new Date(t.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                          {t.note ? ` · ${t.note}` : t.subcategory ? ` · ${t.subcategory}` : ""}
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-white shrink-0">{FORMAT_INR(t.amount)}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Burn gauge */}
+            <div className="flex flex-col items-center py-3.5">
+              <BurnGauge burnPct={metrics.burnPct} />
+            </div>
+            <div className="text-center text-[13px] text-gray-400 leading-relaxed -mt-1 mb-2">
+              You're running {FORMAT_INR(metrics.weekRate)} a day.
+              <br />
+              Safe is {FORMAT_INR(metrics.safeDaily)}.
+            </div>
+            {/* Step 13 §1 — the edit affordance the brief asked for: budget isn't
+                locked in at onboarding, it's always one tap away from here. */}
             <button
-              onClick={() => setDetailCategoryId(metrics.riskRows[0].categoryId)}
-              className="mt-3.5 h-10 px-4 rounded-xl bg-transparent border border-primary-500/60 text-primary-300 text-[13px] font-bold active:scale-[0.97] transition-transform"
+              onClick={() => setIsBudgetEditOpen(true)}
+              className="block mx-auto mb-4 text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
             >
-              Show me the plan
+              Budget {FORMAT_INR(monthlyBudget)}/mo · Edit
             </button>
-          )}
-        </div>
 
-        {/* Stat tiles */}
-        <div className="grid grid-cols-3 gap-2 mt-3.5">
-          <div className="p-3 rounded-2xl bg-white/[0.06]">
-            <div className="text-[10px] text-gray-600 tracking-wide">LEFT</div>
-            <div className="text-[19px] font-medium text-white mt-1">
-              <CountUpNumber value={metrics.left} format={FORMAT_INR} />
+            {/* Money runs out */}
+            <div className="rounded-2xl border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
+              <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300 mb-2">MONEY RUNS OUT</div>
+              <div className="flex items-baseline gap-2.5">
+                <span className="text-4xl font-medium tracking-tight text-white">{runOutDate}</span>
+                <span className="text-xs text-gray-400">{earlyLabel}</span>
+              </div>
+              <button
+                onClick={() => setIsWhyOpen(true)}
+                className="block w-full text-left text-[13.5px] leading-relaxed text-gray-200 mt-3 underline decoration-dotted decoration-gray-500 underline-offset-4 active:opacity-70 transition-opacity"
+              >
+                {coachLine}
+              </button>
+              {metrics.riskRows[0] && (
+                <button
+                  onClick={() => setDetailCategoryId(metrics.riskRows[0].categoryId)}
+                  className="mt-3.5 h-10 px-4 rounded-xl bg-transparent border border-primary-500/60 text-primary-300 text-[13px] font-bold active:scale-[0.97] transition-transform"
+                >
+                  Show me the plan
+                </button>
+              )}
             </div>
-          </div>
-          <div className="p-3 rounded-2xl bg-white/[0.06]">
-            <div className="text-[10px] text-gray-600 tracking-wide">PER DAY</div>
-            <div className="text-[19px] font-medium text-white mt-1">{FORMAT_INR(metrics.safeDaily)}</div>
-          </div>
-          <div className="p-3 rounded-2xl bg-white/[0.06]">
-            <div className="text-[10px] text-gray-600 tracking-wide">DAYS</div>
-            <div className="text-[19px] font-medium text-white mt-1">
-              <CountUpNumber value={metrics.daysLeft} />
-            </div>
-          </div>
-        </div>
 
-        {/* What's pushing the date */}
-        <div className="flex items-baseline mt-6 mb-2.5">
-          <h5 className="text-sm font-semibold text-white m-0">What's pushing the date</h5>
-          <span className="ml-auto text-[11px] text-gray-600">tap a row</span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          {metrics.riskRows.length === 0 && (
-            <p className="py-6 text-center text-xs text-gray-500">Log an expense to see what's driving your pace.</p>
-          )}
-          {metrics.riskRows.map((r) => (
-            <button
-              key={r.categoryId}
-              onClick={() => setDetailCategoryId(r.categoryId)}
-              className="text-left bg-transparent border-0 py-2.5 flex flex-col gap-1.5 border-b border-white/5 last:border-0 active:opacity-60 transition-opacity"
-            >
-              <span className="flex items-baseline gap-2 w-full">
-                <span className="text-[13.5px] text-gray-100">{r.name}</span>
-                <span className="ml-auto text-xs text-gray-500">{FORMAT_INR(r.perDay)}/day</span>
-              </span>
-              <span className="block w-full h-[3px] rounded-full bg-white/10 relative overflow-hidden">
-                <span
-                  className="absolute inset-y-0 left-0 rounded-full"
-                  style={{ width: `${Math.min(100, r.sharePct * 2.3)}%`, backgroundColor: r.isEssential ? "#75798c" : "#8B5CF6" }}
-                />
-              </span>
-              <span className="text-[11px] text-gray-600">
-                {r.isEssential
-                  ? `Mostly fixed · ${FORMAT_INR(r.projectedMore)} more expected`
-                  : `Yours to control · ${FORMAT_INR(r.projectedMore)} more if nothing changes`}
-              </span>
-            </button>
-          ))}
-        </div>
+            {/* Stat tiles */}
+            <div className="grid grid-cols-3 gap-2 mt-3.5">
+              <div className="p-3 rounded-2xl bg-white/[0.06]">
+                <div className="text-[10px] text-gray-600 tracking-wide">LEFT</div>
+                <div className="text-[19px] font-medium text-white mt-1">
+                  <CountUpNumber value={metrics.left} format={FORMAT_INR} />
+                </div>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/[0.06]">
+                <div className="text-[10px] text-gray-600 tracking-wide">PER DAY</div>
+                <div className="text-[19px] font-medium text-white mt-1">{FORMAT_INR(metrics.safeDaily)}</div>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/[0.06]">
+                <div className="text-[10px] text-gray-600 tracking-wide">DAYS</div>
+                <div className="text-[19px] font-medium text-white mt-1">
+                  <CountUpNumber value={metrics.daysLeft} />
+                </div>
+              </div>
+            </div>
+
+            {/* What's pushing the date */}
+            <div className="flex items-baseline mt-6 mb-2.5">
+              <h5 className="text-sm font-semibold text-white m-0">What's pushing the date</h5>
+              <span className="ml-auto text-[11px] text-gray-600">tap a row</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {metrics.riskRows.length === 0 && (
+                <p className="py-6 text-center text-xs text-gray-500">Log an expense to see what's driving your pace.</p>
+              )}
+              {metrics.riskRows.map((r) => (
+                <button
+                  key={r.categoryId}
+                  onClick={() => setDetailCategoryId(r.categoryId)}
+                  className="text-left bg-transparent border-0 py-2.5 flex flex-col gap-1.5 border-b border-white/5 last:border-0 active:opacity-60 transition-opacity"
+                >
+                  <span className="flex items-baseline gap-2 w-full">
+                    <span className="text-[13.5px] text-gray-100">{r.name}</span>
+                    <span className="ml-auto text-xs text-gray-500">{FORMAT_INR(r.perDay)}/day</span>
+                  </span>
+                  <span className="block w-full h-[3px] rounded-full bg-white/10 relative overflow-hidden">
+                    <span
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{ width: `${Math.min(100, r.sharePct * 2.3)}%`, backgroundColor: r.isEssential ? "#75798c" : "#8B5CF6" }}
+                    />
+                  </span>
+                  <span className="text-[11px] text-gray-600">
+                    {r.isEssential
+                      ? `Mostly fixed · ${FORMAT_INR(r.projectedMore)} more expected`
+                      : `Yours to control · ${FORMAT_INR(r.projectedMore)} more if nothing changes`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="h-8" />
 
@@ -352,6 +474,7 @@ export default function TodayPage() {
           onClose={() => setIsLogOpen(false)}
           onCommit={handleCommit}
           safeDaily={metrics.safeDaily}
+          user={user}
         />
         <CategoryDetailSheet
           category={detailCategory}

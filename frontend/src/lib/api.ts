@@ -26,6 +26,11 @@ export interface WeekBar {
   amount: number;
   heightPct: number; // 0-100, relative to the week's max day
   isToday: boolean;
+  // Phase 2 continuation — a stable per-day key (Date.toDateString(), e.g.
+  // "Wed Aug 19 2026") so the day-strip can actually be tapped: this is
+  // what a caller matches transactions and the "selected day" against, not
+  // a display string that could collide or drift.
+  dateKey: string;
 }
 
 export interface RiskRow {
@@ -116,6 +121,7 @@ export function calculateBurnMetrics(
       amount: dayTotals[key] || 0,
       heightPct: 0,
       isToday: i === 0,
+      dateKey: key,
     });
   }
   const maxDay = Math.max(400, ...weekBars.map((b) => b.amount));
@@ -376,6 +382,43 @@ export async function fetchDotGraph(user: FirebaseUser, transactions: Transactio
   });
   if (!res.ok) {
     throw new Error(`Dot-graph request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface CategorizeSuggestion {
+  category_id: string | null;
+  category_name: string | null;
+  confidence: number;
+  needs_review: boolean;
+}
+
+/**
+ * Free-text description -> a suggested category, via the local Ollama
+ * model (POST /api/v1/ml/categorize, Phase 2). Requires a real Firebase ID
+ * token (the route needs *a* verified user, not ownership of anything —
+ * it never touches stored data, just the description string handed in) —
+ * so this is never called in demo/guest mode; callers should check for a
+ * real `user` first. Returns `needs_review: true` / `category_id: null`
+ * for a vague description rather than a forced guess — callers should
+ * treat that as "say nothing," not as an error to surface.
+ */
+export async function fetchCategorizeSuggestion(
+  user: FirebaseUser,
+  description: string,
+  amount?: number
+): Promise<CategorizeSuggestion> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}/api/v1/ml/categorize`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ description, amount }),
+  });
+  if (!res.ok) {
+    throw new Error(`Categorize request failed: ${res.status}`);
   }
   return res.json();
 }

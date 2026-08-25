@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Delete } from "lucide-react";
+import { Delete, Sparkles, X } from "lucide-react";
+import { User as FirebaseUser } from "firebase/auth";
 import { STARTER_CATEGORIES } from "@/lib/constants";
 import { Transaction } from "@/types";
+import { fetchCategorizeSuggestion, CategorizeSuggestion } from "@/lib/api";
 import { CategoryIcon } from "./CategoryIcon";
 
 interface QuickLogSheetProps {
@@ -12,6 +14,11 @@ interface QuickLogSheetProps {
   onClose: () => void;
   onCommit: (tx: Omit<Transaction, "id">) => void;
   safeDaily?: number;
+  // Real Firebase user, for the note -> Ollama categorization suggestion
+  // below. Optional/nullable on purpose: demo/guest mode has no Firebase
+  // session to get a token from, so that path just never fires the
+  // suggestion call rather than erroring.
+  user?: FirebaseUser | null;
 }
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "del"];
@@ -26,8 +33,9 @@ const LAST_CATEGORY_STORAGE_KEY = "antara_quicklog_last_category";
 // things in the same category back to back (a few snacks in a row, a run
 // of transit taps), so remembering it saves a tap on the common case
 // instead of always making you re-pick "Food" from scratch.
-export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, onCommit, safeDaily }) => {
+export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, onCommit, safeDaily, user }) => {
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const [pick, setPick] = useState(() => {
     try {
       const last = localStorage.getItem(LAST_CATEGORY_STORAGE_KEY);
@@ -37,9 +45,57 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
     }
     return STARTER_CATEGORIES[0].id;
   });
+  // Phase 2 continuation — the note field feeding the Ollama categorizer.
+  // A suggestion only ever appears when the model is actually confident
+  // (needs_review: false) AND disagrees with whatever's currently picked —
+  // staged honesty means a vague note stays quiet rather than nagging with
+  // a low-confidence guess, and this never overrides the chip on its own,
+  // only offers a tap-to-switch.
+  const [suggestion, setSuggestion] = useState<CategorizeSuggestion | null>(null);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setSuggestion(null);
+    setSuggestionDismissed(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const trimmed = note.trim();
+    // Demo/guest has no Firebase session to call the backend with, and a
+    // very short note ("a", "ok") isn't worth a network round-trip — the
+    // model would just come back needs_review anyway (see the confidence
+    // calibration this pass was built and verified against).
+    if (!user || trimmed.length < 4) return;
+    debounceRef.current = setTimeout(() => {
+      fetchCategorizeSuggestion(user, trimmed, amount ? parseInt(amount, 10) : undefined)
+        .then((result) => {
+          if (!result.needs_review && result.category_id && result.category_id !== pick) {
+            setSuggestion(result);
+          }
+        })
+        .catch((err) => {
+          // Silent, deliberately — a suggestion is a nicety, not a feature
+          // the logging flow depends on; a failed fetch here should never
+          // block or interrupt someone mid-log.
+          console.warn("Categorize suggestion fetch failed:", err);
+        });
+    }, 600);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note, user]);
 
   const category = STARTER_CATEGORIES.find((c) => c.id === pick) || STARTER_CATEGORIES[0];
   const amountNum = amount ? parseInt(amount, 10) : 0;
+  const suggestedCategory = suggestion?.category_id
+    ? STARTER_CATEGORIES.find((c) => c.id === suggestion.category_id)
+    : undefined;
+
+  const applySuggestion = () => {
+    if (!suggestion?.category_id) return;
+    setPick(suggestion.category_id);
+    setSuggestion(null);
+  };
 
   const press = (k: string) => {
     if (k === "del") {
@@ -57,6 +113,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
       amount: amountNum,
       category: pick,
       subcategory: category.subcategories[0] || "",
+      note: note.trim(),
       timestamp: new Date().toISOString(),
       source: "upi",
     });
@@ -66,6 +123,8 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
       // Non-fatal — just means next time won't default to this category.
     }
     setAmount("");
+    setNote("");
+    setSuggestion(null);
   };
 
   const todayLabel = new Date().toLocaleDateString("en-US", { day: "numeric", month: "short" });
@@ -133,6 +192,40 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
                 );
               })}
             </div>
+
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value.slice(0, 120))}
+              placeholder="What was it? (optional — e.g. 'McDonald's with Aryan')"
+              className="w-full h-11 mb-2 px-3.5 rounded-xl bg-white/5 border border-white/10 text-[13px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+            />
+
+            {suggestedCategory && !suggestionDismissed && (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={applySuggestion}
+                whileTap={{ scale: 0.98 }}
+                className="w-full flex items-center gap-2 mb-2.5 pl-2.5 pr-2 py-2 rounded-xl bg-primary-500/10 border border-primary-500/30 text-left"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-primary-300 shrink-0" />
+                <span className="flex-1 min-w-0 text-[12px] text-primary-200">
+                  Sounds like <span className="font-semibold">{suggestedCategory.name}</span> — tap to switch
+                </span>
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSuggestionDismissed(true);
+                  }}
+                  className="shrink-0 p-1 rounded-md text-primary-400/70 hover:text-primary-200 active:opacity-60"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </span>
+              </motion.button>
+            )}
 
             <div className="grid grid-cols-3 gap-2">
               {KEYS.map((k) => (

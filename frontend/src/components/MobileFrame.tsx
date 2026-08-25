@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, LayoutGroup } from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { Circle, Orbit, Plus, Shield, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { StreakBadge } from "./StreakBadge";
@@ -20,6 +20,13 @@ interface MobileFrameProps {
 export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickLog, immersive = false }) => {
   const pathname = usePathname();
   const { user, profile, isSuperAdmin, isDemoMode, toggleDemoMode, signOut, signInWithGoogle } = useAuth();
+  // Phase 2 continuation — the header redesign. Previously LIVE/DEMO +
+  // ADMIN + sign-out were three separate always-visible pills next to the
+  // streak badge, competing for attention on every screen. Folded into one
+  // menu behind a single trigger for a superadmin (the only account that
+  // ever saw all three at once) — a regular beta tester never had more
+  // than streak + sign-out to begin with, so that path is untouched.
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#060709] text-gray-100 flex justify-center selection:bg-primary-500 selection:text-white">
@@ -62,46 +69,89 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 </svg>
                 <span>Sign in with Google</span>
               </button>
-            ) : (
+            ) : isSuperAdmin ? (
               <>
                 {/* Streak badge — real accounts only, never demo/guest data. */}
                 {!isDemoMode && <StreakBadge streak={profile?.currentStreak ?? 0} />}
 
-                {/* Demo vs Live Data toggle — superadmin-only. A regular beta tester
-                    is always in exactly one mode already (Live, once allowlisted) and
-                    a manual switch to fake data in front of them is a dev affordance,
-                    not something they'd ever intuitively need. */}
-                {isSuperAdmin && (
+                {/* Everything status/admin-related lives behind one trigger now
+                    (see the menu below) — the dot on the trigger itself still
+                    gives an at-a-glance read of DEMO vs LIVE without needing a
+                    separate always-on pill for it. */}
+                <div className="relative">
                   <button
-                    onClick={toggleDemoMode}
-                    title={isDemoMode ? "Currently viewing Demo Data (In-Memory). Click to switch to Live Firestore." : "Currently viewing Live Firestore Data. Click to switch to Demo Data."}
-                    className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-bold transition-all shadow-sm ${
-                      isDemoMode
-                        ? "bg-primary-950/80 text-primary-200 border-primary-500/50 hover:bg-primary-900/80 shadow-glow-primary"
-                        : "bg-emerald-950/80 text-emerald-200 border-emerald-500/50 hover:bg-emerald-900/80"
-                    }`}
+                    onClick={() => setIsMenuOpen((v) => !v)}
+                    title="Admin & data source"
+                    className="relative p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
                   >
+                    <Shield className="w-4 h-4" />
                     <span
-                      className={`w-2 h-2 rounded-full animate-pulse ${
+                      className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-2 ring-[#0A0C10] ${
                         isDemoMode ? "bg-primary-400" : "bg-emerald-400"
                       }`}
                     />
-                    <span>{isDemoMode ? "DEMO" : "LIVE"}</span>
                   </button>
-                )}
 
-                {/* Superadmin Indicator — now the entry point to /admin since the
-                    bottom nav dropped its own Admin tab in the redesign */}
-                {isSuperAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold hover:bg-amber-500/30 transition-colors"
-                  >
-                    <Shield className="w-3 h-3" />
-                    Admin
-                  </Link>
-                )}
-
+                  <AnimatePresence>
+                    {isMenuOpen && (
+                      <>
+                        {/* Click-outside-to-close backdrop — invisible, just for the tap target. */}
+                        <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-2xl bg-[#14161f] border border-white/10 shadow-2xl overflow-hidden"
+                        >
+                          <button
+                            onClick={() => {
+                              toggleDemoMode();
+                              setIsMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-3.5 py-3 text-[13px] text-gray-200 hover:bg-white/5 transition-colors"
+                          >
+                            <span>Data source</span>
+                            <span
+                              className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                isDemoMode ? "bg-primary-500/20 text-primary-300" : "bg-emerald-500/20 text-emerald-300"
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${isDemoMode ? "bg-primary-400" : "bg-emerald-400"}`} />
+                              {isDemoMode ? "DEMO" : "LIVE"}
+                            </span>
+                          </button>
+                          <Link
+                            href="/admin"
+                            onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-3.5 py-3 text-[13px] text-gray-200 hover:bg-white/5 border-t border-white/5 transition-colors"
+                          >
+                            <Shield className="w-3.5 h-3.5 text-amber-300" />
+                            Admin dashboard
+                          </Link>
+                          <button
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              signOut();
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-3 text-[13px] text-rose-300 hover:bg-white/5 border-t border-white/5 transition-colors"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                            Sign out
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Regular beta tester — never more than streak + sign-out to
+                    begin with, so this path is unchanged; the "wall of pills"
+                    complaint was specifically about the superadmin's own
+                    account seeing three extra badges at once above. */}
+                {!isDemoMode && <StreakBadge streak={profile?.currentStreak ?? 0} />}
                 <button
                   onClick={signOut}
                   title="Sign out / Reset"
