@@ -1,4 +1,4 @@
-import { Category, Transaction } from "@/types";
+import { Category, Transaction, Wallet } from "@/types";
 
 // Category ids were realigned on 2026-08-21 to match the real teen spending
 // survey's actual Firestore schema (`survey_responses.{doc}.category_spend`
@@ -335,6 +335,15 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
 // latest entry). Never call `new Date()` for this in demo mode — see the
 // hydration note above DEMO_TRANSACTIONS.
 export const DEMO_REFERENCE_DATE = new Date("2026-08-19T12:00:00.000Z");
+
+// Demo-mode wallets — fixed, not computed, same reasoning as
+// DEMO_TRANSACTIONS above (no Date.now()-derived values, this is preview
+// data for browsing without a real account, not live math).
+export const DEMO_WALLETS: Wallet[] = [
+  { id: "demo-wallet-main", name: "Main", balance: 2450, created_at: "2026-08-01T00:00:00.000Z", archived: false },
+  { id: "demo-wallet-upi", name: "UPI", balance: 800, created_at: "2026-08-01T00:00:00.000Z", archived: false },
+  { id: "demo-wallet-piggy", name: "Piggy bank", balance: 1200, created_at: "2026-08-01T00:00:00.000Z", archived: false },
+];
 
 export const FORMAT_INR = (amount: number): string => {
   return new Intl.NumberFormat("en-IN", {

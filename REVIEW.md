@@ -1,5 +1,34 @@
 # Antara — session log
 
+## Feature: Wallets (real balances) + Income logging
+
+**Status: COMPLETED — built, a real bug found and fixed during verification (see below, not glossed over), fully verified against real Firestore writes including the negative-balance case and a full reload, existing budget/burn-rate system confirmed completely unaffected. Deployed and re-verified live.**
+
+**Two new, additive, parallel features — the existing budget/burn-rate/ML prediction system was not touched**: it still reads only `amount`/`category`/`timestamp` off the transaction list, exactly as before.
+
+1. **Wallets** (`types/index.ts`'s `Wallet`) — named, real running balances at `users/{uid}/wallets/{id}` (`name`, `balance`, `created_at`, `archived`). Create/rename/archive (soft-delete — archived wallets stop being offered for new logs but stay resolvable on old entries) via a new `WalletsSheet.tsx`, same bottom-sheet pattern as `CategoryDetailSheet`/`InstancesSheet`. A real account with zero wallets gets one auto-created ("Main") the first time the Today screen loads — never a state with no wallet to fall back to.
+2. **Income logging** (`types/index.ts`'s `IncomeEntry`) — its own `users/{uid}/income/{id}` collection, deliberately not a negative-amount transaction (different fields, different event). New `IncomeLogSheet.tsx`, parallel to the existing `QuickLogSheet`: amount, optional free-text source, date, wallet.
+
+**Real atomic writes, not two separate calls that could drift**: `addLiveTransaction`, `deleteLiveTransaction`, `updateLiveTransaction` (extended, not replaced) and the new `logIncome` all use a real Firestore `runTransaction` — the transaction/income doc and the affected wallet's `balance` field are written together or not at all. Deleting or editing a wallet-linked entry correctly reverses/re-applies its real effect on the wallet (a same-wallet amount edit collapses into one combined delta; a different-wallet edit reverses the old wallet and charges the new one independently) — a transaction with no `wallet_id` (everything logged before this feature existed) behaves exactly as before, no wallet touched, no migration needed.
+
+**A real bug found and fixed during verification, not glossed over**: the first real delete/edit test against a wallet-linked entry threw `Firestore transactions require all reads to be executed before all writes` — `deleteLiveTransaction` and `updateLiveTransaction` (a plain `updateDoc` before this feature, now upgraded to a `runTransaction` when `amount`/`wallet_id` changes) both had a read for the wallet doc issued *after* a write to the transaction doc, which Firestore rejects outright. Fixed by restructuring both to gather every read up front before issuing any write — verified by re-running the exact failing case afterward (delete a wallet-linked ₹5,000 expense → wallet correctly credited back from -₹3,600 to ₹1,400; edit a ₹200 entry to ₹425 → wallet correctly debited the extra ₹225, landing at ₹975) against real Firestore data.
+
+**Expense logging is wallet-aware, not wallet-blocking**: `QuickLogSheet` gained an optional wallet chip row, defaulting to whichever wallet was used last (same `localStorage`-backed pattern the category picker already uses) — **only shown at all with 2+ wallets**, so an account that's never touched Wallets sees this flow completely unchanged. A wallet going negative (spending more than it holds) is allowed and shown plainly — rose-tinted balance plus "Negative — this wallet owes more than it has." — never crashed or silently clamped to zero.
+
+**UI**: a distinct "WALLETS" card on the Today screen (emerald accent, deliberately not the primary-violet budget/burn-rate styling) shows the real total across active wallets and opens `WalletsSheet` — kept visually and spatially separate from the "MONEY RUNS OUT" card below it, per the brief's explicit "don't merge these into one number." No bottom-nav changes — reachable entirely from this card, so the existing TODAY/PULL/ASK/Log layout is untouched.
+
+**Firestore rules**: added `wallets/{walletId}` and `income/{incomeId}` matches (same ownership-only shape as the existing `instances` rule) — deployed directly via the Firebase Rules REST API (same method used last session, since the `firebase` CLI still can't complete its own service-enablement pre-check with this service account) *before* any write testing, specifically because a missing rule for a new subcollection was exactly last session's real bug. Confirmed the rules were actually live by testing a real write against both new collections, not by assuming the deploy succeeded.
+
+**Verified against real Firestore data, end to end**:
+- Auto-created "Main" wallet on first load, ₹0 — confirmed the existing burn-rate/"MONEY RUNS OUT" card renders identically, unaffected.
+- Created a real second wallet ("Test Cash"), logged real income (₹2,000) into it.
+- Logged a real ₹600 expense against it via `QuickLogSheet`'s wallet chip → balance correctly ₹1,400 (2,000 − 600).
+- **Reloaded the page from scratch** → balance still ₹1,400 — real Firestore persistence, not local-only state.
+- Logged a real ₹5,000 expense against the same wallet (only ₹1,400 available) → balance correctly **-₹3,600**, shown in rose with the explicit negative-balance warning copy.
+- Deleted that ₹5,000 entry → balance correctly restored to ₹1,400 (the bug above, found and fixed on this exact step).
+- Edited a ₹200 entry to ₹425 → balance correctly ₹975 (975 = 1,200 − 225, matching the incremental delta, not a recompute-from-scratch).
+- All test wallets, income entries, and wallet-linked transactions deleted from the real account after verification.
+
 ## Copyright filing deposit (Form XIV, Statement of Further Particulars — Rule 70(5))
 
 **Status: COMPLETED — read-only export, no application code touched. Generated from `main` at commit `c7db7a8`.**

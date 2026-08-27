@@ -1,6 +1,6 @@
 import { User as FirebaseUser } from "firebase/auth";
-import { collection, addDoc, doc, setDoc, deleteDoc, deleteField, updateDoc } from "firebase/firestore";
-import { Transaction, UserProfile } from "@/types";
+import { collection, addDoc, doc, setDoc, deleteDoc, deleteField, updateDoc, runTransaction } from "firebase/firestore";
+import { Transaction, UserProfile, Wallet, IncomeEntry } from "@/types";
 import { STARTER_CATEGORIES } from "./constants";
 import { db } from "./firebase";
 
@@ -255,9 +255,34 @@ export function computeCategoryTrend(transactions: Transaction[], categoryId: st
 // (below) only lives in one place instead of being duplicated per page.
 // ────────────────────────────────────────────────────────────────────────
 
+// Wallets feature: an expense with a real wallet_id atomically decrements
+// that wallet's real balance in the same write as the transaction itself
+// (via a Firestore transaction, not two separate calls) — so a log can
+// never land while its wallet balance silently fails to update, or vice
+// versa. A transaction with no wallet_id (the common case for every
+// transaction logged before this feature existed, and still allowed going
+// forward since the brief says this must never be mandatory) behaves
+// exactly as before: a plain addDoc, no wallet touched at all.
 export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id">): Promise<void> {
-  const txCol = collection(db, "users", uid, "transactions");
-  await addDoc(txCol, tx);
+  if (!tx.wallet_id) {
+    const txCol = collection(db, "users", uid, "transactions");
+    await addDoc(txCol, tx);
+    return;
+  }
+  const txRef = doc(collection(db, "users", uid, "transactions"));
+  const walletRef = doc(db, "users", uid, "wallets", tx.wallet_id);
+  await runTransaction(db, async (transaction) => {
+    const walletSnap = await transaction.get(walletRef);
+    // Never lose a real log over a wallet-side edge case (e.g. the wallet
+    // was deleted in another tab mid-flight) — the transaction doc always
+    // gets written; the balance update is simply skipped if there's no
+    // real wallet doc left to apply it to.
+    transaction.set(txRef, tx);
+    if (walletSnap.exists()) {
+      const current = (walletSnap.data().balance as number) ?? 0;
+      transaction.update(walletRef, { balance: current - tx.amount });
+    }
+  });
 }
 
 // Step 13 — delete/edit. Deliberately does NOT touch streak fields: the
@@ -271,16 +296,167 @@ export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id"
 // transaction list on every render (calculateBurnMetrics, WhyPredictionSheet),
 // so a delete or edit here is reflected there automatically — no separate
 // recompute call needed, just don't skip refreshing the underlying list.
+//
+// Wallets feature: reads the transaction being deleted (inside the same
+// Firestore transaction, so it's the real current amount/wallet_id, not
+// stale client state) and credits its wallet back by the real amount —
+// deleting a logging mistake shouldn't leave a wallet's real balance
+// permanently off by whatever that entry was. A no-wallet_id transaction
+// (or one whose wallet no longer exists) simply deletes with no balance
+// side effect, same "never block on a wallet-side edge case" posture as
+// addLiveTransaction above.
 export async function deleteLiveTransaction(uid: string, txId: string): Promise<void> {
-  await deleteDoc(doc(db, "users", uid, "transactions", txId));
+  const txRef = doc(db, "users", uid, "transactions", txId);
+  await runTransaction(db, async (transaction) => {
+    // Firestore transactions require every read to happen before any write
+    // in the same transaction — bug caught during real-data verification
+    // (deleting a wallet-linked entry threw "transactions require all
+    // reads to be executed before all writes" because the tx delete was
+    // issued before the wallet read below it). Reads first, in full, then
+    // writes — never interleaved.
+    const txSnap = await transaction.get(txRef);
+    if (!txSnap.exists()) return;
+    const data = txSnap.data() as Omit<Transaction, "id">;
+
+    let walletRef = null;
+    let walletExists = false;
+    let walletBalance = 0;
+    if (data.wallet_id) {
+      walletRef = doc(db, "users", uid, "wallets", data.wallet_id);
+      const walletSnap = await transaction.get(walletRef);
+      walletExists = walletSnap.exists();
+      if (walletExists) walletBalance = (walletSnap.data()!.balance as number) ?? 0;
+    }
+
+    transaction.delete(txRef);
+    if (walletRef && walletExists) {
+      transaction.update(walletRef, { balance: walletBalance + data.amount });
+    }
+  });
 }
 
+// Wallets feature: if `updates` touches `amount` and/or `wallet_id`, the old
+// effect is reversed on its old wallet and the new effect applied to its
+// (possibly different) new wallet, atomically alongside the doc update —
+// same-wallet amount edits collapse into one combined delta rather than two
+// separate reads/writes of the same doc (Firestore transactions can't read
+// back their own writes, so two naive sequential updates to the same wallet
+// would silently only keep the second one). Anything else (category, note,
+// subcategory, …) skips the transaction machinery entirely — a plain
+// updateDoc, exactly as before this feature existed.
 export async function updateLiveTransaction(
   uid: string,
   txId: string,
   updates: Partial<Omit<Transaction, "id">>
 ): Promise<void> {
-  await updateDoc(doc(db, "users", uid, "transactions", txId), updates);
+  const touchesWalletMath = "amount" in updates || "wallet_id" in updates;
+  if (!touchesWalletMath) {
+    await updateDoc(doc(db, "users", uid, "transactions", txId), updates);
+    return;
+  }
+  const txRef = doc(db, "users", uid, "transactions", txId);
+  await runTransaction(db, async (transaction) => {
+    // Same "all reads before any writes" ordering fix as deleteLiveTransaction
+    // above — this used to interleave a read for the "new wallet" case after
+    // an update() on the "old wallet" ref, which Firestore rejects outright.
+    const txSnap = await transaction.get(txRef);
+    const before = (txSnap.data() || {}) as Partial<Transaction>;
+    const oldAmount = before.amount ?? 0;
+    const oldWalletId = before.wallet_id;
+    const newAmount = updates.amount ?? oldAmount;
+    const newWalletId = "wallet_id" in updates ? updates.wallet_id : oldWalletId;
+    const sameWallet = !!oldWalletId && oldWalletId === newWalletId;
+
+    let oldWalletRef = null;
+    let oldWalletExists = false;
+    let oldWalletBalance = 0;
+    let newWalletRef = null;
+    let newWalletExists = false;
+    let newWalletBalance = 0;
+
+    if (sameWallet) {
+      oldWalletRef = doc(db, "users", uid, "wallets", oldWalletId as string);
+      const snap = await transaction.get(oldWalletRef);
+      oldWalletExists = snap.exists();
+      if (oldWalletExists) oldWalletBalance = (snap.data()!.balance as number) ?? 0;
+    } else {
+      if (oldWalletId) {
+        oldWalletRef = doc(db, "users", uid, "wallets", oldWalletId);
+        const snap = await transaction.get(oldWalletRef);
+        oldWalletExists = snap.exists();
+        if (oldWalletExists) oldWalletBalance = (snap.data()!.balance as number) ?? 0;
+      }
+      if (newWalletId) {
+        newWalletRef = doc(db, "users", uid, "wallets", newWalletId);
+        const snap = await transaction.get(newWalletRef);
+        newWalletExists = snap.exists();
+        if (newWalletExists) newWalletBalance = (snap.data()!.balance as number) ?? 0;
+      }
+    }
+
+    // ── Writes, only after every read above has completed ──
+    if (sameWallet) {
+      if (oldWalletRef && oldWalletExists) {
+        transaction.update(oldWalletRef, { balance: oldWalletBalance + oldAmount - newAmount });
+      }
+    } else {
+      if (oldWalletRef && oldWalletExists) {
+        transaction.update(oldWalletRef, { balance: oldWalletBalance + oldAmount });
+      }
+      if (newWalletRef && newWalletExists) {
+        transaction.update(newWalletRef, { balance: newWalletBalance - newAmount });
+      }
+    }
+    transaction.update(txRef, updates);
+  });
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Wallets — real, named, per-user running balances (Cash, UPI, Piggy bank,
+// …). A parallel "real money" layer: the existing monthly_budget/burn-rate/
+// ML prediction system reads only amount/category/timestamp off the
+// transaction list and is completely untouched by any of this.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function createWallet(uid: string, name: string): Promise<string> {
+  const ref = await addDoc(collection(db, "users", uid, "wallets"), {
+    name: name.trim(),
+    balance: 0,
+    created_at: new Date().toISOString(),
+    archived: false,
+  } as Omit<Wallet, "id">);
+  return ref.id;
+}
+
+export async function renameWallet(uid: string, walletId: string, name: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid, "wallets", walletId), { name: name.trim() });
+}
+
+// Soft-delete, per the brief: archived wallets stop being selectable for
+// new transactions/income (see QuickLogSheet/IncomeLogSheet, both filter on
+// `!archived`) but stay resolvable for old entries already logged against
+// them — nothing reads this field as "gone," just "not offered anymore."
+export async function archiveWallet(uid: string, walletId: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid, "wallets", walletId), { archived: true });
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Income — a real event, deliberately its own collection (see IncomeEntry
+// in types/index.ts), atomically credited to its wallet the same way
+// addLiveTransaction atomically debits one.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function logIncome(uid: string, income: Omit<IncomeEntry, "id">): Promise<void> {
+  const incomeRef = doc(collection(db, "users", uid, "income"));
+  const walletRef = doc(db, "users", uid, "wallets", income.wallet_id);
+  await runTransaction(db, async (transaction) => {
+    const walletSnap = await transaction.get(walletRef);
+    transaction.set(incomeRef, income);
+    if (walletSnap.exists()) {
+      const current = (walletSnap.data().balance as number) ?? 0;
+      transaction.update(walletRef, { balance: current + income.amount });
+    }
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────

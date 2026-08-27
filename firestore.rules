@@ -65,6 +65,30 @@ service cloud.firestore {
       match /instances/{instanceId} {
         allow read, write: if isOwner(userId) || isSuperAdmin();
       }
+
+      // Wallets — real named balances (types/index.ts's Wallet). Same
+      // ownership-only rule as instances above: no separate allowlist gate,
+      // same reasoning (reaching this UI already means a real signed-in
+      // profile). Client writes (create/rename/archive, and the balance
+      // debit/credit inside addLiveTransaction/deleteLiveTransaction/
+      // updateLiveTransaction/logIncome's Firestore transactions in
+      // lib/api.ts) all go through this same rule — there is no
+      // Admin-SDK-only path for wallet balance changes, unlike
+      // /predictions above.
+      match /wallets/{walletId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+
+      // Income (types/index.ts's IncomeEntry) — deliberately its own
+      // collection, not the transactions one above, so it gets its own
+      // rule rather than inheriting transactions' beta-allowlist/public-
+      // signup gate. Same ownership-only shape as instances/wallets: an
+      // account that can already reach this UI has already cleared those
+      // gates elsewhere (ConsentGate/allowlist check happens once, at
+      // sign-in, not per-collection).
+      match /income/{incomeId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
     }
 
     // Shared category taxonomy

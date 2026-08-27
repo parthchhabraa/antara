@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Delete, Sparkles, X } from "lucide-react";
 import { User as FirebaseUser } from "firebase/auth";
 import { STARTER_CATEGORIES } from "@/lib/constants";
-import { Transaction } from "@/types";
+import { Transaction, Wallet } from "@/types";
 import { fetchCategorizeSuggestion, CategorizeSuggestion } from "@/lib/api";
 import { CategoryIcon } from "./CategoryIcon";
 
@@ -19,11 +19,18 @@ interface QuickLogSheetProps {
   // session to get a token from, so that path just never fires the
   // suggestion call rather than erroring.
   user?: FirebaseUser | null;
+  // Wallets feature: active wallets only (caller filters out archived ones)
+  // — optional, low-friction override of which real wallet this expense
+  // debits, defaulting to whichever was used last. Never shown at all with
+  // 0-1 wallets, so a user who's never touched Wallets sees this flow
+  // completely unchanged.
+  wallets?: Wallet[];
 }
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "del"];
 
 const LAST_CATEGORY_STORAGE_KEY = "antara_quicklog_last_category";
+const LAST_WALLET_STORAGE_KEY = "antara_quicklog_last_wallet";
 
 // Full-screen numeric keypad quick-log sheet — tap digits (no free typing),
 // pick a category chip, commit. Replaces the old amount-field + chips modal.
@@ -33,9 +40,33 @@ const LAST_CATEGORY_STORAGE_KEY = "antara_quicklog_last_category";
 // things in the same category back to back (a few snacks in a row, a run
 // of transit taps), so remembering it saves a tap on the common case
 // instead of always making you re-pick "Food" from scratch.
-export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, onCommit, safeDaily, user }) => {
+export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, onCommit, safeDaily, user, wallets = [] }) => {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [walletId, setWalletId] = useState("");
+
+  // Recomputed only when the sheet is freshly opened, not on every wallets-
+  // array update while it's already open (a balance changing elsewhere
+  // shouldn't yank the picker back to the default mid-log). Defaults to
+  // whichever wallet was used last, falling back to the first active one.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!wallets.length) {
+      setWalletId("");
+      return;
+    }
+    try {
+      const last = localStorage.getItem(LAST_WALLET_STORAGE_KEY);
+      if (last && wallets.some((w) => w.id === last)) {
+        setWalletId(last);
+        return;
+      }
+    } catch (e) {
+      // localStorage unavailable — fall through to the plain default below.
+    }
+    setWalletId(wallets[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
   const [pick, setPick] = useState(() => {
     try {
       const last = localStorage.getItem(LAST_CATEGORY_STORAGE_KEY);
@@ -116,11 +147,13 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
       note: note.trim(),
       timestamp: new Date().toISOString(),
       source: "upi",
+      ...(walletId ? { wallet_id: walletId } : {}),
     });
     try {
       localStorage.setItem(LAST_CATEGORY_STORAGE_KEY, pick);
+      if (walletId) localStorage.setItem(LAST_WALLET_STORAGE_KEY, walletId);
     } catch (e) {
-      // Non-fatal — just means next time won't default to this category.
+      // Non-fatal — just means next time won't default to this category/wallet.
     }
     setAmount("");
     setNote("");
@@ -225,6 +258,30 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
                   <X className="w-3.5 h-3.5" />
                 </span>
               </motion.button>
+            )}
+
+            {/* Wallets feature: a quick, optional override of which wallet
+                this debits — never shown at all with 0-1 wallets, so this
+                adds zero friction for anyone who hasn't touched Wallets. */}
+            {wallets.length > 1 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5 -mx-5 px-5 no-scrollbar">
+                <span className="shrink-0 text-[10.5px] text-gray-600">From</span>
+                {wallets.map((w) => {
+                  const active = walletId === w.id;
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => setWalletId(w.id)}
+                      className={`flex-none px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap border transition-colors ${
+                        active ? "bg-white/10 border-white/25 text-gray-200" : "bg-transparent border-white/10 text-gray-500"
+                      }`}
+                    >
+                      {w.name}
+                    </button>
+                  );
+                })}
+              </div>
             )}
 
             <div className="grid grid-cols-3 gap-2">

@@ -11,12 +11,13 @@ import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
 import { TransactionEditSheet } from "@/components/TransactionEditSheet";
 import { BudgetSheet } from "@/components/BudgetSheet";
 import { InstancesSheet } from "@/components/InstancesSheet";
+import { WalletsSheet } from "@/components/WalletsSheet";
 import { WhyPredictionSheet } from "@/components/WhyPredictionSheet";
 import { NewUserOnboardingSheet } from "@/components/NewUserOnboardingSheet";
 import { AntaraWordmark } from "@/components/AntaraWordmark";
 import { CountUpNumber } from "@/components/CountUpNumber";
 import { PageTransition } from "@/components/PageTransition";
-import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
+import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, DEMO_WALLETS, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
 import {
   calculateBurnMetrics,
   addLiveTransaction,
@@ -26,8 +27,9 @@ import {
   streakToastMessage,
   saveStreakUpdate,
   isColdStart,
+  createWallet,
 } from "@/lib/api";
-import { Transaction } from "@/types";
+import { Transaction, Wallet } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function TodayPage() {
@@ -51,6 +53,9 @@ export default function TodayPage() {
   const [isBudgetEditOpen, setIsBudgetEditOpen] = useState(false);
   const [isInstancesOpen, setIsInstancesOpen] = useState(false);
   const [isWhyOpen, setIsWhyOpen] = useState(false);
+  const [isWalletsOpen, setIsWalletsOpen] = useState(false);
+  const [demoWallets, setDemoWallets] = useState<Wallet[]>(DEMO_WALLETS);
+  const [liveWallets, setLiveWallets] = useState<Wallet[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   // `user` is null AND isDemoMode is true for every fresh/unauthenticated
   // visit (AuthContext only ever sets isDemoMode=false once a real signed-in,
@@ -85,6 +90,60 @@ export default function TodayPage() {
       console.warn("Firestore live query on Today screen:", e);
     }
   }, [isDemoMode, user]);
+
+  // Wallets feature — live subscription, same pattern as transactions
+  // above. A `didAutoCreate` ref guards the auto-create-a-default-wallet
+  // effect below so it only ever fires once per mount even though this
+  // callback re-runs on every snapshot (e.g. right after that same create
+  // resolves) — without it, a slow first write could race a second
+  // "Main" wallet into existence before the snapshot catches up.
+  const didAutoCreateWallet = React.useRef(false);
+  useEffect(() => {
+    if (isDemoMode || !user) return;
+    try {
+      const walletCol = collection(db, "users", user.uid, "wallets");
+      const q = query(walletCol, orderBy("created_at", "asc"));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetched: Wallet[] = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Wallet, "id">),
+        }));
+        setLiveWallets(fetched);
+        // Brief: "the app is never in a state with no wallet to fall back
+        // to" — auto-create one real default wallet the first time a real
+        // account with zero wallets loads this screen, not gated behind
+        // ever opening the Wallets sheet.
+        if (fetched.length === 0 && !didAutoCreateWallet.current) {
+          didAutoCreateWallet.current = true;
+          createWallet(user.uid, "Main").catch((err) => {
+            console.warn("Auto-create default wallet failed:", err);
+            didAutoCreateWallet.current = false; // allow a retry on the next snapshot
+          });
+        }
+      });
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn("Firestore wallets query on Today screen:", e);
+    }
+  }, [isDemoMode, user]);
+
+  const wallets = isDemoMode ? demoWallets : liveWallets;
+  const activeWallets = useMemo(() => wallets.filter((w) => !w.archived), [wallets]);
+  const walletsTotal = useMemo(() => activeWallets.reduce((s, w) => s + w.balance, 0), [activeWallets]);
+  // Same "most-recently-used, else first" default QuickLogSheet computes for
+  // its own picker, mirrored here just for the WalletsSheet/IncomeLogSheet's
+  // own default — read fresh each render rather than lifted into state, so
+  // it always reflects whatever QuickLogSheet last actually used.
+  const defaultWalletId = useMemo(() => {
+    if (!activeWallets.length) return undefined;
+    try {
+      const last = localStorage.getItem("antara_quicklog_last_wallet");
+      if (last && activeWallets.some((w) => w.id === last)) return last;
+    } catch (e) {
+      // localStorage unavailable — fall through to the plain default below.
+    }
+    return activeWallets[0].id;
+  }, [activeWallets]);
 
   const metrics = useMemo(
     () => calculateBurnMetrics(transactions, monthlyBudget, today),
@@ -141,6 +200,12 @@ export default function TodayPage() {
     let milestoneLine: string | null = null;
     if (isDemoMode) {
       setDemoTxs([{ ...newTx, id: "tx-" + Date.now() }, ...demoTxs]);
+      // Demo wallets are fully locally-interactive, same as demoTxs above —
+      // a demo user picking a wallet chip and logging should see the real
+      // effect immediately, not a picker that silently does nothing.
+      if (newTx.wallet_id) {
+        setDemoWallets((prev) => prev.map((w) => (w.id === newTx.wallet_id ? { ...w, balance: w.balance - newTx.amount } : w)));
+      }
     } else if (user) {
       // Every real log needs to actually land in Firestore — it's the training
       // data for the ML personalization, not just something to show on screen.
@@ -290,6 +355,25 @@ export default function TodayPage() {
             DAY {metrics.today} / {metrics.daysInMonth}
           </span>
         </div>
+
+        {/* Wallets — real cash-on-hand, deliberately its own small card with
+            its own (emerald, not primary-violet) accent so it never reads as
+            part of the budget/burn-rate numbers below: that's a *plan*
+            against total spend, this is a real running balance. Tapping
+            opens the full Wallets sheet (create/rename/archive/add income). */}
+        <button
+          type="button"
+          onClick={() => setIsWalletsOpen(true)}
+          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-emerald-500/[0.06] border border-emerald-500/20 active:opacity-70 transition-opacity mb-1"
+        >
+          <span className="text-[11px] font-medium tracking-wide text-emerald-400/90">WALLETS</span>
+          <span className={`ml-auto text-[15px] font-medium ${walletsTotal < 0 ? "text-rose-300" : "text-emerald-100"}`}>
+            {FORMAT_INR(walletsTotal)}
+          </span>
+          <span className="text-[11px] text-gray-500">
+            {activeWallets.length} wallet{activeWallets.length === 1 ? "" : "s"}
+          </span>
+        </button>
 
         {/* Week bars — Phase 2 continuation: a real date selector now, not
             decoration. The "selected" highlight (ring + primary label)
@@ -514,6 +598,19 @@ export default function TodayPage() {
           onCommit={handleCommit}
           safeDaily={metrics.safeDaily}
           user={user}
+          wallets={activeWallets}
+        />
+        <WalletsSheet
+          isOpen={isWalletsOpen}
+          onClose={() => setIsWalletsOpen(false)}
+          wallets={wallets}
+          defaultWalletId={defaultWalletId}
+          isDemoMode={isDemoMode}
+          user={user}
+          onToast={(message) => {
+            setToast(message);
+            window.setTimeout(() => setToast(null), 3000);
+          }}
         />
         <CategoryDetailSheet
           category={detailCategory}

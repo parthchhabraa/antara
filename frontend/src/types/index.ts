@@ -6,6 +6,41 @@ export interface Transaction {
   note?: string;
   timestamp: string; // ISO date string
   source?: 'upi' | 'cash' | 'card' | 'manual';
+  // Real wallet this expense was paid from (see Wallet below), for real
+  // running-balance tracking — separate concern from the existing budget/
+  // burn-rate system, which still reads only amount/category/timestamp and
+  // is untouched by this field's presence. Optional: transactions logged
+  // before wallets existed have no wallet_id and simply never touched any
+  // wallet's balance — treat missing as "not attributable to a wallet"
+  // wherever this is read, never assume/backfill a wallet for them.
+  wallet_id?: string;
+}
+
+// A real wallet with a real running balance in INR (Cash, UPI, Piggy bank,
+// etc.) — a parallel "real money" layer, distinct from the existing
+// monthly_budget/burn-rate system, which is a *plan* against total spend,
+// not a real balance. Stored at users/{uid}/wallets/{id}.
+export interface Wallet {
+  id: string;
+  name: string;
+  balance: number; // real running balance in INR — can go negative (see IncomeEntry doc)
+  created_at: string;
+  // Soft-delete: archived wallets stop being selectable for new
+  // transactions/income but stay resolvable for old entries already
+  // logged against them (name still shown in history).
+  archived: boolean;
+}
+
+// A real income event — deliberately its own collection (users/{uid}/income),
+// not a negative-amount Transaction: income and expense are different kinds
+// of event (different optional fields, different effect on a wallet's
+// balance direction), not the same schema with a sign flipped.
+export interface IncomeEntry {
+  id: string;
+  amount: number;
+  source?: string; // free-text, e.g. "allowance", "birthday gift", "freelance"
+  timestamp: string; // ISO date string
+  wallet_id: string; // which wallet this income landed in — always required, unlike Transaction.wallet_id
 }
 
 export interface Category {
