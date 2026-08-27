@@ -66,6 +66,17 @@ export default function TodayPage() {
   // a "first thing you see" screen.
   const [heroDismissed, setHeroDismissed] = useState(false);
 
+  // What's New's action buttons (see WhatsNewSheet.tsx) can deep-link
+  // straight into a feature's setup flow, e.g. "Open Wallets" ->
+  // "/?open=wallets" — plain window.location read in an effect rather than
+  // useSearchParams() so this page doesn't need a Suspense boundary just
+  // for a one-off query param.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const open = new URLSearchParams(window.location.search).get("open");
+    if (open === "wallets") setIsWalletsOpen(true);
+  }, []);
+
   const transactions = isDemoMode ? demoTxs : liveTxs;
   const monthlyBudget = profile?.monthly_budget || 5000;
   // Demo mode uses a fixed reference date; live mode is only ever rendered

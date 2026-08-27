@@ -1,5 +1,38 @@
 # Antara — session log
 
+## UI: Ask Antara redesign (WHOOP-coach-chat layout, adapted) + What's New images/actions
+
+**Status: COMPLETED — both pieces verified against real rendered screenshots; the redesigned chat confirmed to still pass through to the real grounded-answer backend (unchanged); the What's New image confirmed to actually load, not just referenced. Deployed and re-verified live.**
+
+### 1. Ask Antara redesign
+
+Adopted the reference's layout/interaction pattern, not its literal content — every element translated to what Antara actually has, per the brief:
+
+- **Top bar**: a small badge, "Antara · v{`CURRENT_APP_VERSION`}" pulling live from `lib/changelog.ts` (not a hardcoded number that drifts) — replaces WHOOP's "v6.0" pill.
+- **User messages**: unchanged — right-aligned violet bubble, already matched the theme.
+- **Antara's responses**: now render as plain flowing text on the transparent background, not a boxed bubble — closer to the reference's conversational answer than the previous "bubble for everything" layout.
+- **Feedback row** under each real response: copy (genuinely copies via `navigator.clipboard`, with a real checkmark confirmation), thumbs up/down (local UI state only — see the explicit flag below). Never shown under the static greeting, since that's not a real model output.
+- **Suggested follow-ups**: 2–3 chips under the latest response only (not repeated under the whole growing transcript), grounded in what `answer_chat` can actually answer from real computed data: "How confident are you right now?", "What's driving my burn rate?", and — only when the account is actually cold-start (same `isColdStart()` the rest of the app already uses, now also subscribed to in `chat/page.tsx` for this) — "Why is this still an early estimate?". Tapping one sends it as the next message.
+- **Input bar**: redesigned mid-task after real feedback that the first pass (separate floating circular "+"/mic/send buttons either side of a full pill field) read as an Instagram-DM composer rather than this app's own restrained language. Rebuilt as one `rounded-2xl` container with every control — "+", the text field, mic, send — grouped inside it, closer to Claude's own composer while staying entirely on existing theme tokens. "+" and mic are visual parity only (no feature/real speech-to-text behind them this pass, as the brief allowed).
+
+**Flag, as invited by the brief**: thumbs up/down feedback is currently cosmetic (local component state only, resets on reload) — there's no backend endpoint to persist it to yet, and building one felt out of scope for a visual-layout pass. Happy to wire it to something real (e.g. a `users/{uid}/chat_feedback` collection) in a follow-up if that's wanted.
+
+**Verified the redesign still passes through to the real, unchanged backend**: the `/api/v1/ml/chat` route/logic was not touched this pass. Called it directly via a real HTTPS request (`api.antara.money`, a real exchanged Firebase ID token) and got back a real, grounded answer — *"46% confidence. Based on 5 distinct days and 6 transactions logged, but still in a cold-start phase…"* — then verified the new UI renders that exact real response correctly (text, feedback icons, suggestion chips including the cold-start-only one, since this account genuinely is cold-start). Re-verified with a second real live-domain message after deploy (below).
+
+### 2. What's New — images + actionable setup prompts
+
+Extended `lib/changelog.ts`/`WhatsNewSheet.tsx` rather than rebuilding: `ChangelogHighlight` gained optional `image` (a path under `/public`) and `action` (`{ label, href }`) fields; every existing highlight (1.3.0/1.4.0) was migrated to the new shape with no content change.
+
+**New 1.5.0 entry** — this changelog had drifted behind several real sessions' worth of shipped features that were never added to it (Instances, the learning-curve visualization, Ask Antara as a capability, Wallets + income). Backfilled all of them as real highlights, not just this pass's own redesign.
+
+**Real screenshot, not placeholder art**: the Wallets highlight includes a real rendered screenshot of the actual live Wallets sheet (`frontend/public/changelog/1.5.0-wallets.png`) — captured the same way every feature in this project has been verified, via a real headless-browser render, not mocked or drawn.
+
+**Actionable setup prompt — the brief's own assumption, confirmed correct on this feature**: the Wallets highlight has a "Open Wallets" action button. Tapping it closes the sheet and deep-links to `/?open=wallets`, which `page.tsx` now checks on mount to auto-open the real `WalletsSheet`. No other 1.5.0 highlight got an action button — Instances, the learning curve, and Ask Antara are all discoverable/optional, not gated on the user entering data the way a wallet is.
+
+**A real bug found and fixed during verification**: the action button first used `next/navigation`'s `router.push()`, which reuses the existing page instance for a same-route navigation (`/` → `/?open=wallets`) rather than remounting it — so the mount-only effect that reads the `open` param never re-fired, and the button silently did nothing beyond changing the URL. Fixed by using a real `window.location.href` navigation instead (forces a fresh mount every time); re-verified afterward — the sheet now genuinely opens.
+
+**Verified**: the referenced image was directly confirmed to load (not just referenced) — `img.complete && img.naturalWidth > 0` checked in a real browser, not assumed. The What's New sheet was shown via a real "device with 1.4.0 already recorded" scenario (not the suppressed first-ever-open case), rendered the real image inline with its highlight, and the action button was confirmed to actually open the real Wallets sheet with the real account's real wallet.
+
 ## Feature: Wallets (real balances) + Income logging
 
 **Status: COMPLETED — built, a real bug found and fixed during verification (see below, not glossed over), fully verified against real Firestore writes including the negative-balance case and a full reload, existing budget/burn-rate system confirmed completely unaffected. Deployed and re-verified live.**

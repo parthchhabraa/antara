@@ -16,6 +16,17 @@ interface WhatsNewSheetProps {
 // invented for this. Shown by WhatsNewGate exactly once per real version
 // bump, never on a brand-new device's very first open (see that file).
 export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ isOpen, onClose, entry }) => {
+  const handleAction = (href: string) => {
+    onClose();
+    // A real navigation (not next/navigation's router.push) — an action
+    // like "Open Wallets" often targets the *same* route ("/?open=wallets")
+    // the sheet is already showing on top of, and Next's client-side router
+    // reuses the existing page instance for a same-route navigation rather
+    // than remounting it, so a mount-only effect there (see page.tsx) would
+    // never re-fire. A real navigation always does a fresh mount.
+    window.location.href = href;
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -53,7 +64,29 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ isOpen, onClose, e
               {entry.highlights.map((h, i) => (
                 <div key={i} className="flex gap-2.5 items-start p-3 rounded-2xl bg-white/[0.04]">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary-400 mt-1.5 shrink-0" />
-                  <p className="text-[13px] leading-relaxed text-gray-200 m-0">{h}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] leading-relaxed text-gray-200 m-0">{h.text}</p>
+                    {h.image && (
+                      // Real rendered screenshot of the actual feature — a
+                      // broken path here is worse than no image, so this is
+                      // checked directly (not assumed) before shipping;
+                      // see REVIEW.md.
+                      <img
+                        src={h.image}
+                        alt=""
+                        className="w-full mt-2.5 rounded-xl border border-white/10 block"
+                      />
+                    )}
+                    {h.action && (
+                      <button
+                        type="button"
+                        onClick={() => handleAction(h.action!.href)}
+                        className="mt-2.5 h-9 px-3.5 rounded-full bg-primary-600 text-white text-[12.5px] font-bold active:scale-[0.97] transition-transform"
+                      >
+                        {h.action.label}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
