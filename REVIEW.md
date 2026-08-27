@@ -29,6 +29,8 @@
 - Edited a ₹200 entry to ₹425 → balance correctly ₹975 (975 = 1,200 − 225, matching the incremental delta, not a recompute-from-scratch).
 - All test wallets, income entries, and wallet-linked transactions deleted from the real account after verification.
 
+**Post-deploy, re-verified against the real live domains**: `api.antara.money/health` and `app.antara.money` both healthy after restart. A real headless browser hit `https://app.antara.money/` directly in Demo Mode — the WALLETS card renders, the existing "MONEY RUNS OUT" budget/burn-rate card still renders unaffected alongside it, and the Wallets sheet opens cleanly — zero console errors.
+
 ## Copyright filing deposit (Form XIV, Statement of Further Particulars — Rule 70(5))
 
 **Status: COMPLETED — read-only export, no application code touched. Generated from `main` at commit `c7db7a8`.**
