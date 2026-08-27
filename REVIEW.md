@@ -33,6 +33,8 @@ Extended `lib/changelog.ts`/`WhatsNewSheet.tsx` rather than rebuilding: `Changel
 
 **Verified**: the referenced image was directly confirmed to load (not just referenced) — `img.complete && img.naturalWidth > 0` checked in a real browser, not assumed. The What's New sheet was shown via a real "device with 1.4.0 already recorded" scenario (not the suppressed first-ever-open case), rendered the real image inline with its highlight, and the action button was confirmed to actually open the real Wallets sheet with the real account's real wallet.
 
+**Post-deploy, re-verified against the real live domains**: `api.antara.money`/`app.antara.money` both healthy after restart; `app.antara.money/changelog/1.5.0-wallets.png` returns `200`. Called the now-redeployed `api.antara.money/api/v1/ml/chat` directly with a real message ("What has been my biggest expense category recently?") and got back a real, fully-grounded answer — daily burn rate, projected run-out date, monthly budget prediction, confidence level, and cold-start status, all real computed numbers, not invented. A real headless browser hit `https://app.antara.money/chat` directly — the real `v1.5.0` badge renders and the demo-mode gate is correct — zero console errors.
+
 ## Feature: Wallets (real balances) + Income logging
 
 **Status: COMPLETED — built, a real bug found and fixed during verification (see below, not glossed over), fully verified against real Firestore writes including the negative-balance case and a full reload, existing budget/burn-rate system confirmed completely unaffected. Deployed and re-verified live.**
