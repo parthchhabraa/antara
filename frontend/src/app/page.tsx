@@ -28,6 +28,9 @@ import {
   saveStreakUpdate,
   isColdStart,
   createWallet,
+  syncProfileBadge,
+  fetchBadges,
+  checkAndAwardBadges,
 } from "@/lib/api";
 import { Transaction, Wallet } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
@@ -169,6 +172,32 @@ export default function TodayPage() {
   // isColdStart's own comment), just evaluated client-side since this
   // screen's numbers are already pure client-side math.
   const coldStart = useMemo(() => isColdStart(transactions), [transactions]);
+
+  // Social feature — badge sync. All self-only data (own profile/
+  // transactions/caps), computed client-side reusing the SAME helpers the
+  // rest of the app already treats as the source of truth (isColdStart
+  // mirrors MLEngine exactly; currentStreak/longestStreak are the same
+  // fields computeStreakUpdate already maintains) rather than a second,
+  // drifting copy of that logic. Runs once per real session (guarded by
+  // the ref) rather than on every render — badges are write-once/idempotent
+  // anyway, but there's no reason to re-check on every transaction change.
+  const didSyncBadges = React.useRef(false);
+  useEffect(() => {
+    if (isDemoMode || !user || !profile || didSyncBadges.current) return;
+    didSyncBadges.current = true;
+    (async () => {
+      try {
+        await syncProfileBadge(user.uid, profile);
+        const existing = await fetchBadges(user.uid);
+        const existingIds = new Set(existing.map((b) => b.id));
+        await checkAndAwardBadges(user.uid, profile, transactions, coldStart, existingIds);
+      } catch (e) {
+        console.warn("Badge sync failed:", e);
+        didSyncBadges.current = false; // allow a retry on the next mount
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemoMode, user, profile]);
 
   // Phase 2 continuation — the week-bar strip is now a real date selector,
   // not decoration. `null` means "no day picked, show today's live view"

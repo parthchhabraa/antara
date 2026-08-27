@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User as FirebaseUser } from "firebase/auth";
-import { fetchDotGraph, DotGraphResult } from "@/lib/api";
+import { fetchDotGraph, DotGraphResult, syncArchetypeBadge } from "@/lib/api";
 import { Transaction } from "@/types";
 
 interface ArchetypeSheetProps {
@@ -42,6 +42,17 @@ export const ArchetypeSheet: React.FC<ArchetypeSheetProps> = ({ isOpen, onClose,
         if (!cancelled) {
           setResult(r);
           setState("ready");
+        }
+        // Social feature: keeps the friend-readable archetype badge in
+        // sync opportunistically, piggybacked on this already-happening
+        // real fetch rather than a second automatic call elsewhere — this
+        // is the one place the app calls dot-graph today. Best-effort; a
+        // failure here shouldn't disrupt the screen the user actually
+        // opened this sheet to see.
+        if (user) {
+          syncArchetypeBadge(user.uid, r.archetype, r.archetype_description, r.is_cold_start).catch((e) =>
+            console.warn("Syncing archetype badge failed:", e)
+          );
         }
       })
       .catch((err) => {

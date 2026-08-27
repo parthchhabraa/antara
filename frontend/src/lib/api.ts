@@ -1,6 +1,6 @@
 import { User as FirebaseUser } from "firebase/auth";
-import { collection, addDoc, doc, setDoc, deleteDoc, deleteField, updateDoc, runTransaction } from "firebase/firestore";
-import { Transaction, UserProfile, Wallet, IncomeEntry } from "@/types";
+import { collection, addDoc, doc, setDoc, deleteDoc, deleteField, updateDoc, runTransaction, getDocs } from "firebase/firestore";
+import { Transaction, UserProfile, Wallet, IncomeEntry, Friend, Badge, CategoryComparison } from "@/types";
 import { STARTER_CATEGORIES } from "./constants";
 import { db } from "./firebase";
 
@@ -1074,3 +1074,191 @@ export const recomputeBenchmarks = (user: FirebaseUser) =>
 
 export const fetchTrainingInsights = (user: FirebaseUser) =>
   adminFetch<TrainingInsights>("/api/v1/admin/training-insights", user);
+
+// ────────────────────────────────────────────────────────────────────────
+// Social — friends, badges, privacy-preserving comparison. THE ONE HARD
+// RULE: nothing here ever carries a real ₹ figure — see
+// backend/app/social.py's own header comment and firestore.rules's
+// isFriend() for the two layers that actually enforce this (backend
+// verifies the friendship server-side before computing anything; rules
+// separately gate direct client reads of badges to friends-only).
+// Friend-adding/removing is backend-mediated, not a raw client Firestore
+// write, because a client can only write to its OWN friends subcollection
+// (see firestore.rules) — writing both directions of a mutual friendship
+// needs the Admin SDK, which only the backend has.
+// ────────────────────────────────────────────────────────────────────────
+
+async function socialFetch<T>(path: string, user: FirebaseUser, body?: unknown): Promise<T> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const j = await res.json();
+      if (j?.detail) detail = j.detail;
+    } catch (e) {
+      // Non-JSON error body — the plain status code above is still useful.
+    }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+/** Own stable friend_token (generated server-side on first call), for
+ * rendering an "Add me" QR code. */
+export async function fetchFriendToken(user: FirebaseUser): Promise<string> {
+  const result = await socialFetch<{ friend_token: string }>("/api/v1/social/friend-token", user);
+  return result.friend_token;
+}
+
+export interface AddFriendResult {
+  friend_uid: string;
+  friend_display_name: string | null;
+}
+
+/** Completes a friendship from a scanned QR/NFC token. Throws with a
+ * user-facing message (see socialFetch) if the token doesn't resolve to a
+ * real account or is the caller's own. */
+export async function addFriendByToken(user: FirebaseUser, friendToken: string): Promise<AddFriendResult> {
+  return socialFetch<AddFriendResult>("/api/v1/social/add-friend", user, { friend_token: friendToken });
+}
+
+/** Removes a friendship, both directions, atomically. */
+export async function unfriendUser(user: FirebaseUser, friendUid: string): Promise<void> {
+  await socialFetch("/api/v1/social/unfriend", user, { friend_uid: friendUid });
+}
+
+export interface CategoryComparisonResult {
+  comparisons: CategoryComparison[];
+  requester_is_cold_start: boolean;
+  friend_is_cold_start: boolean;
+}
+
+/** Real, privacy-preserving comparison against a real friend — throws
+ * (403, surfaced via socialFetch's error) if the caller isn't actually
+ * friends with `friendUid`, verified server-side, not trusted from the
+ * client that called this. */
+export async function fetchCategoryComparison(user: FirebaseUser, friendUid: string): Promise<CategoryComparisonResult> {
+  return socialFetch<CategoryComparisonResult>("/api/v1/social/compare-categories", user, { friend_uid: friendUid });
+}
+
+export async function fetchFriendsList(uid: string): Promise<Friend[]> {
+  const snap = await getDocs(collection(db, "users", uid, "friends"));
+  return snap.docs.map((d) => ({ uid: d.id, ...(d.data() as Omit<Friend, "uid">) }));
+}
+
+export async function fetchBadges(uid: string): Promise<Badge[]> {
+  const snap = await getDocs(collection(db, "users", uid, "badges"));
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Badge, "id">) })) as Badge[];
+}
+
+// ── Badge sync — all self-only data (own profile/transactions/caps), so
+// computed client-side rather than needing a backend round-trip; reuses
+// the SAME helpers/fields the rest of the app already treats as the source
+// of truth (isColdStart mirrors MLEngine exactly; currentStreak/
+// longestStreak are the same fields computeStreakUpdate already
+// maintains) rather than a second, drifting copy of that logic. ──
+
+/** Keeps the two friend-readable "identity" badges (profile, archetype) in
+ * sync with real current data. Called opportunistically (Today screen
+ * mount, and after a dot-graph fetch for the archetype half) — cheap,
+ * idempotent merge writes, not a heavy sync job. */
+export async function syncProfileBadge(uid: string, profile: UserProfile): Promise<void> {
+  await setDoc(
+    doc(db, "users", uid, "badges", "profile"),
+    {
+      type: "profile",
+      displayName: profile.displayName,
+      photoURL: profile.photoURL,
+      member_since: profile.created_at,
+      currentStreak: profile.currentStreak ?? 0,
+      longestStreak: profile.longestStreak ?? 0,
+      updated_at: new Date().toISOString(),
+    },
+    { merge: true }
+  );
+}
+
+export async function syncArchetypeBadge(
+  uid: string,
+  archetypeName: string,
+  archetypeDescription: string,
+  isColdStartNow: boolean
+): Promise<void> {
+  await setDoc(
+    doc(db, "users", uid, "badges", "archetype"),
+    {
+      type: "archetype",
+      archetype_name: archetypeName,
+      archetype_description: archetypeDescription,
+      is_cold_start: isColdStartNow,
+      updated_at: new Date().toISOString(),
+    },
+    { merge: true }
+  );
+}
+
+const CAP_KEEPER_MARGIN = 0; // stayed strictly under the cap, not just at it
+
+/** Checks real, permanent achievement badges against real current data and
+ * awards (writes) any newly-earned ones — never un-awards. Idempotent: safe
+ * to call on every real Today-screen mount, only ever creates a doc that
+ * doesn't already exist. */
+export async function checkAndAwardBadges(
+  uid: string,
+  profile: UserProfile,
+  transactions: Transaction[],
+  coldStartNow: boolean,
+  existingBadgeIds: Set<string>
+): Promise<void> {
+  const toAward: { id: string; data: Record<string, unknown> }[] = [];
+  const now = new Date().toISOString();
+
+  const longest = profile.longestStreak ?? 0;
+  if (longest >= 7 && !existingBadgeIds.has("streak-7")) {
+    toAward.push({ id: "streak-7", data: { type: "streak", threshold: 7, earned_at: now } });
+  }
+  if (longest >= 30 && !existingBadgeIds.has("streak-30")) {
+    toAward.push({ id: "streak-30", data: { type: "streak", threshold: 30, earned_at: now } });
+  }
+
+  if (!coldStartNow && !existingBadgeIds.has("graduated-cold-start")) {
+    toAward.push({ id: "graduated-cold-start", data: { type: "graduated-cold-start", earned_at: now } });
+  }
+
+  // "Cap keeper" — stayed under a currently-set category cap for the last
+  // full calendar month. Caps aren't historically tracked (only the
+  // current value is known), so this checks last month's real spend
+  // against whatever cap is set *now* — a documented, honest
+  // approximation, not a claim of perfect historical accuracy.
+  const today = new Date();
+  const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 1); // exclusive
+  const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const monthKey = `${prevMonthStart.getFullYear()}-${String(prevMonthStart.getMonth() + 1).padStart(2, "0")}`;
+  const caps = profile.category_caps || {};
+  for (const [categoryId, cap] of Object.entries(caps)) {
+    const badgeId = `cap-keeper-${categoryId}-${monthKey}`;
+    if (existingBadgeIds.has(badgeId)) continue;
+    const spend = transactions
+      .filter((t) => t.category === categoryId)
+      .filter((t) => {
+        const ts = new Date(t.timestamp).getTime();
+        return ts >= prevMonthStart.getTime() && ts < prevMonthEnd.getTime();
+      })
+      .reduce((s, t) => s + t.amount, 0);
+    if (spend > 0 && spend < cap - CAP_KEEPER_MARGIN) {
+      toAward.push({
+        id: badgeId,
+        data: { type: "cap-keeper", category_id: categoryId, month: monthKey, earned_at: now },
+      });
+    }
+  }
+
+  for (const badge of toAward) {
+    await setDoc(doc(db, "users", uid, "badges", badge.id), badge.data);
+  }
+}

@@ -112,6 +112,35 @@ class AllocateBudgetResponse(BaseModel):
     pinned_total: float
     remaining_after_pinned: float
     over_allocated: bool
+
+# ── Social: friends, badges, privacy-preserving comparison ──
+# THE ONE HARD RULE: no schema below ever carries a real rupee figure.
+
+class AddFriendRequest(BaseModel):
+    friend_token: str = Field(..., min_length=1, max_length=64)
+
+class AddFriendResponse(BaseModel):
+    friend_uid: str
+    friend_display_name: Optional[str] = None
+
+class UnfriendRequest(BaseModel):
+    friend_uid: str
+
+class CompareCategoriesRequest(BaseModel):
+    friend_uid: str
+
+class CategoryComparison(BaseModel):
+    category_id: str
+    category_name: str
+    # 'much_less' | 'less' | 'similar' | 'more' | 'much_more' — a bucket
+    # label only, computed from each side's own share of their own total
+    # spend. Never a percentage, never a rank, never a rupee figure.
+    bucket: str
+
+class CompareCategoriesResponse(BaseModel):
+    comparisons: List[CategoryComparison]
+    requester_is_cold_start: bool
+    friend_is_cold_start: bool
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class HealthResponse(BaseModel):

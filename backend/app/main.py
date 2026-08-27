@@ -13,9 +13,12 @@ from app.schemas import (
     ChatRequest, ChatResponse,
     LearningCurveResponse,
     AllocateBudgetRequest, AllocateBudgetResponse,
+    AddFriendRequest, AddFriendResponse, UnfriendRequest,
+    CompareCategoriesRequest, CompareCategoriesResponse,
 )
 from app.ml.engine import MLEngine
 from app.ml import survey_etl, llm_features, ollama_client
+from app import social
 from app.firebase_admin import (
     initialize_firebase_admin, verify_firebase_token,
     require_superadmin, get_firestore_client
@@ -202,6 +205,63 @@ def _require_self_or_superadmin(current_user: dict, user_id: str) -> None:
     read anyone's data."""
     if current_user.get("uid") != user_id and current_user.get("role") != "superadmin":
         raise HTTPException(status_code=403, detail="Cannot access another user's data")
+
+
+# ── Social: friends, badges, privacy-preserving comparison (app/social.py) ──
+# Every route below identifies the caller ONLY from their verified token's
+# own uid (current_user["uid"]) — never from a client-supplied field in the
+# request body — since these routes mediate writes/reads that touch a
+# second person's data and a spoofable "who am I" field would defeat the
+# whole point of doing this server-side in the first place.
+
+@app.post("/api/v1/social/friend-token", tags=["Social"])
+async def get_friend_token(current_user: dict = Depends(verify_firebase_token)):
+    """Returns the caller's own stable friend_token, generating one on
+    first call. Used to render their "Add me" QR code."""
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+    token = social.ensure_friend_token(db, current_user["uid"])
+    return {"friend_token": token}
+
+@app.post("/api/v1/social/add-friend", response_model=AddFriendResponse, tags=["Social"])
+async def add_friend(req: AddFriendRequest, current_user: dict = Depends(verify_firebase_token)):
+    """Completes a friendship from a scanned QR/NFC token — see
+    app/social.py's add_friend_by_token for the mutual, atomic write."""
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+    try:
+        result = social.add_friend_by_token(db, current_user["uid"], req.friend_token)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return AddFriendResponse(**result)
+
+@app.post("/api/v1/social/unfriend", tags=["Social"])
+async def unfriend(req: UnfriendRequest, current_user: dict = Depends(verify_firebase_token)):
+    """Removes a friendship, both directions, atomically."""
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+    social.remove_friend(db, current_user["uid"], req.friend_uid)
+    return {"status": "removed"}
+
+@app.post("/api/v1/social/compare-categories", response_model=CompareCategoriesResponse, tags=["Social"])
+async def compare_categories(req: CompareCategoriesRequest, current_user: dict = Depends(verify_firebase_token)):
+    """Privacy-preserving category comparison against a real friend — see
+    app/social.py's compare_category_shares for the full bucketing logic
+    and the hard "no rupee figure ever leaves this function" rule. Requires
+    a real, currently-existing friendship (checked server-side against
+    Firestore, not trusted from the client) — a 403 here is a real privacy
+    boundary, not just a UI nicety."""
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+    try:
+        result = social.compare_category_shares(db, current_user["uid"], req.friend_uid)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return CompareCategoriesResponse(**result)
 
 
 @app.get("/api/v1/admin/status", tags=["Superadmin"])

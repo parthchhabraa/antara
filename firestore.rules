@@ -17,6 +17,20 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.role == 'superadmin';
     }
 
+    // Social feature: true when the caller is a real, currently-friended
+    // account of `ownerUserId` — checked by looking the caller's own uid
+    // up in `ownerUserId`'s own friends subcollection. Friendships are
+    // always written both directions in the same atomic batch (see
+    // backend/app/social.py — a normal client can only ever write to its
+    // *own* friends subcollection per the rule below, never someone
+    // else's, which is exactly why that mutual write has to happen
+    // server-side), so checking just this one direction is sufficient and
+    // can never be asymmetric in practice.
+    function isFriend(ownerUserId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(ownerUserId)/friends/$(request.auth.uid));
+    }
+
     // Beta allowlist check: admin/betaAllowlist keeps a flat `emails` array
     // (kept in sync with the detailed `entries` array by the client) so this
     // stays a cheap membership check instead of iterating entry maps.
@@ -88,6 +102,36 @@ service cloud.firestore {
       // sign-in, not per-collection).
       match /income/{incomeId} {
         allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+
+      // Friends — a user's own friend list is their own to read, never
+      // public, never friend-of-a-friend readable. Write is owner-only
+      // too: a real mutual friendship is only ever created/removed via
+      // the backend (POST /api/v1/social/add-friend, /unfriend), which
+      // uses the Admin SDK and so bypasses this rule entirely on both
+      // sides of the write — this owner-only client rule exists so a
+      // signed-in user can still read (list) their own friends directly,
+      // and defensively, not as the actual mechanism friendships get
+      // created through.
+      match /friends/{friendUid} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+
+      // Badges (types/index.ts's Badge — includes the "profile" and
+      // "archetype" summary docs the friend-view profile screen reads,
+      // not just achievement badges) — THE one collection in this app
+      // that's readable by someone other than its owner. Deliberately
+      // narrow: real friends only (isFriend, defined above), never a
+      // public or "any authenticated user" rule — archetype/streak/badge
+      // data is the one thing this app is willing to show a friend, and
+      // nothing here is ever a rupee figure (see app/social.py's own
+      // header comment) or budget/cap/wallet/instance data, which all
+      // stay on the untouched owner-only collections above. Write stays
+      // owner-only — a badge is only ever earned/synced by the account
+      // that earned it.
+      match /badges/{badgeId} {
+        allow read: if isOwner(userId) || isSuperAdmin() || isFriend(userId);
+        allow write: if isOwner(userId) || isSuperAdmin();
       }
     }
 
