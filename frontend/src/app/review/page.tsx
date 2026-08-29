@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { springs } from "@/lib/motion";
 import { CheckCircle } from "lucide-react";
 
 import { SurveyProgress } from "@/components/survey/SurveyProgress";
@@ -388,7 +389,7 @@ export default function SurveyPage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 24 }}
+        transition={springs.default}
         className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center px-8"
         key="thankyou"
       >
@@ -397,7 +398,7 @@ export default function SurveyPage() {
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.1 }}
+            transition={{ ...springs.default, delay: 0.1 }}
             className="w-16 h-16 rounded-full bg-purple-500/15 border border-purple-500/40 flex items-center justify-center"
           >
             <CheckCircle className="w-8 h-8 text-purple-400" />
@@ -471,7 +472,7 @@ export default function SurveyPage() {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             className="absolute inset-0 overflow-y-auto flex flex-col"
           >
             {content}

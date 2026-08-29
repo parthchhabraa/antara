@@ -2,6 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 
 interface StepContainerProps {
   eyebrow?: string;
@@ -28,7 +29,7 @@ export const StepContainer: React.FC<StepContainerProps> = ({
           key={eyebrow /* re-pop when the category changes */}
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 22 }}
+          transition={springs.default}
           className="mb-4"
         >
           {icon}

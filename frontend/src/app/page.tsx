@@ -17,6 +17,7 @@ import { NewUserOnboardingSheet } from "@/components/NewUserOnboardingSheet";
 import { AntaraWordmark } from "@/components/AntaraWordmark";
 import { CountUpNumber } from "@/components/CountUpNumber";
 import { PageTransition } from "@/components/PageTransition";
+import { springs } from "@/lib/motion";
 import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, DEMO_WALLETS, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
 import {
   calculateBurnMetrics,
@@ -440,7 +441,7 @@ export default function TodayPage() {
                   <motion.div
                     initial={{ height: 0 }}
                     animate={{ height: `${b.heightPct}%` }}
-                    transition={{ duration: 0.6, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ ...springs.default, delay: i * 0.04 }}
                     className={`w-full rounded ${b.heightPct > 60 ? "bg-primary-400" : "bg-gray-500/45"}`}
                   />
                 </div>

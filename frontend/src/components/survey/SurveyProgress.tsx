@@ -2,6 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 import { ArrowLeft } from "lucide-react";
 
 interface SurveyProgressProps {
@@ -37,7 +38,7 @@ export const SurveyProgress: React.FC<SurveyProgressProps> = ({
           <motion.div
             className="h-full rounded-full bg-purple-400 shadow-glow-purple"
             animate={{ width: `${pct}%` }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            transition={springs.default}
           />
         </div>
         {timeLeftLabel && (

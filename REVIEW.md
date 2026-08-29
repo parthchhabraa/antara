@@ -1,5 +1,60 @@
 # Antara — session log
 
+## Animation craft pass: shared spring config, two core-loop moments, everything else simplified
+
+**Status: COMPLETED — audited every Framer Motion transition in the codebase, consolidated onto one shared config, gave exactly two moments (BurnGauge, StreakBadge) real spring craft, simplified everything else (14 sheets, the nav-dot indicator, the whole onboarding survey, route transitions, the success-burst flourish). Two items flagged back per the brief's own instruction, both resolved by explicit user decision before touching them. Verified with real before/after evidence — including catching genuine mid-spring frames, not just settled start/end states. Deployed.**
+
+### 1. `lib/motion.ts` — the shared spring config
+
+A grep across every `.tsx` file for `type: "spring"` turned up something worth noting on its own: **14 different bottom sheets had already independently converged on the exact same `stiffness: 340, damping: 34` pair**, hand-copied into each one rather than shared — proof the app already had a de-facto "default sheet spring" that had just never been named. Alongside that, half a dozen genuinely different one-off pairs were scattered across the nav-dot indicator, the onboarding survey's step/choice/progress transitions, and the survey's "thank you" checkmark.
+
+[`frontend/src/lib/motion.ts`](frontend/src/lib/motion.ts) (new) exports exactly two named presets, per the brief:
+- **`springs.default`** — `stiffness: 340, damping: 34` (promoted from the 14-sheet convergence above, not re-derived — the goal was consolidating what already worked, not redesigning the feel). Sits right at the edge of critical damping: settles quickly, no visible bounce.
+- **`springs.snappy`** — `stiffness: 480, damping: 28, mass: 0.9`, deliberately underdamped (damping ratio ≈0.67) for one visible overshoot-and-settle "pop." Reserved for exactly two moments (below) and documented in the file itself as not-to-be-reached-for-elsewhere.
+
+**Now imports from this file, all converted from hand-tuned inline values**: all 14 sheets (`AddFriendSheet`, `ArchetypeSheet`, `BudgetSheet`, `CategoryDetailSheet`, `FriendsSheet`, `IncomeLogSheet`, `InstancesSheet`, `LearningCurveSheet`, `NewUserOnboardingSheet`, `QuickLogSheet`, `TransactionEditSheet`, `WalletsSheet`, `WhatsNewSheet`, `WhyPredictionSheet`), `MobileFrame`'s bottom-nav active-tab dot (×3), the whole onboarding survey (`AntaraMark`'s geometry-assemble, `ChoiceList`'s checkmark, `StepContainer`, `StepFooter`, `SurveyProgress`), `app/review/page.tsx`'s (the survey page) submit-screen transitions, and the Today screen's week-bar fill stagger. A final grep for `stiffness:`/`damping:` outside `lib/motion.ts` came back with exactly two matches — `BurnGauge.tsx` and `StreakBadge.tsx`, the two moments below, which is the intended and only remaining exception.
+
+### 2. The two core-loop moments — real spring craft
+
+**a) [`BurnGauge.tsx`](frontend/src/components/BurnGauge.tsx)** — Antara's "focus score" equivalent. Both the ring fill (`strokeDashoffset`) and the center count-up number now animate with `springs.snappy` instead of a plain 1.2s duration/cubic-bezier tween.
+
+*A real bug found and fixed along the way*: [`CountUpNumber.tsx`](frontend/src/components/CountUpNumber.tsx) — the shared count-up utility BurnGauge's number uses — was calling `animate(0, value, ...)` unconditionally on every value change, meaning a live update (e.g. right after logging a transaction) looked like the counter restarting from zero rather than updating smoothly from what was already on screen. Fixed to animate from the value actually displayed (tracked via a ref), for every user of the component — a correctness fix, not new per-moment craft, so it also benefits the two non-flagged `CountUpNumber` usages on the Today screen's stat tiles without giving them the snappy treatment itself.
+
+**Real evidence, not just claimed**: logged a real ₹500 in Demo Mode through the actual `QuickLogSheet` UI and burst-captured the ring every 30ms right after commit. Caught it genuinely mid-flight: **224% (baseline) → 312% (mid-interpolation) → 368% (spring overshoot, past the real 360% target) → 360% (settled)**. That overshoot-then-settle is exactly the underdamped `springs.snappy` physics working as designed, not a snap to the new number. See `EVIDENCE_burngauge_spring_overshoot.png`.
+
+**b) [`StreakBadge.tsx`](frontend/src/components/StreakBadge.tsx)** — previously had **zero animation** (a plain `{streak}` number swap). Now: the pill itself gets one `springs.snappy` scale-pop, and the digit cross-fades/scales via `AnimatePresence` + a `key={streak}` remount, both on the same shared snappy preset as BurnGauge so the two core-loop moments read as one consistent animation language rather than two unrelated one-offs. Only pops on a real increase (tracked via a ref comparison), not on every render.
+
+**Real evidence, real account, real data**: created a throwaway account with a genuine `currentStreak: 4`/`lastLoggedDate` set to the actual real previous calendar day, logged one real ₹150 transaction through the real UI (real Firestore write → real `computeStreakUpdate` → real `saveStreakUpdate` → real `refreshClaims`), and burst-captured the header every 40ms. Confirmed the real backend round-trip (`4` → `5`, not a fabricated jump) and caught a genuine intermediate frame: the pill mid-swap with the old digit gone, the new one not yet rendered, only the flame icon visible — a real transitional animation frame, not an instant snap. See `EVIDENCE_streakbadge_pop.png`. Test account, its data, and the temporary allowlist entry were all deleted afterward (see cleanup below).
+
+*(A real mistake caught and fixed mid-test, worth noting since it could look like a product bug otherwise: the first test run set the throwaway account's `lastLoggedDate` in ISO format (`"2026-08-28"`), but `computeStreakUpdate` compares against `Date.prototype.toDateString()` format (`"Fri Aug 28 2026"`) — the mismatch meant the string comparison never matched "yesterday," so the streak reset to 1 instead of continuing to 5. This was a test-data-setup bug, not a `computeStreakUpdate` bug — fixed the test data and reran; not a change to any shipped code.)*
+
+### 3. Everything else — simplified to plain/cheap
+
+- **`PageTransition.tsx`** (route-level transitions) — per the brief's explicit "skip page-transition flourishes": down from a 0.35s fade+14px-slide-up on a custom cubic-bezier to a near-instant 0.12s opacity-only fade.
+- **The 14 sheets, nav-dot, and survey components** — see section 1; same visual feel as before (the values didn't change, just where they live), but now provably one source of truth.
+- **The survey's step-to-step slide transition** (`app/review/page.tsx`) — down from 0.28s on a custom cubic-bezier to 0.18s on the plain built-in `"easeOut"`.
+
+### 4. Flagged back, not unilaterally decided — both resolved before any code changed
+
+Per the brief's own instruction, these two were surfaced with a recommendation and an explicit choice before touching either:
+
+- **`AntaraLoader`** (two-layer logo assembly on every app boot/auth-check) — **decision: keep as-is.** Reasoning it was flagged with: it's a real, functional loading state shown during actual async work (not a fake delay), plays once per mount in well under a second, and doesn't cleanly fit either bucket this brief defines (not a core-loop moment, but not generic sheet/chip boilerplate either). Zero code changes made to it.
+- **`SuccessBurst`** (radial confetti-dot burst behind the "thank you" checkmark at survey completion) — **decision: simplify, don't remove.** Down from 6 dots/0.7s/custom-ease to 3 dots/shorter 32px travel, riding `springs.default` for the actual dot travel (opacity's 0→1→0 pulse stays a plain tween, since Framer Motion doesn't support spring physics for a multi-keyframe-array target — see the code comment). The two related springs on the same "thank you" screen (the container fade-in, the checkmark circle pop) were also moved onto `springs.default` for consistency with this same decision, since they're part of the same success moment, not separately flagged.
+- **A third case found during the audit, not originally named in the brief, resolved by extension of the `SuccessBurst` decision**: the onboarding survey's own intro `AntaraMark` geometry-assemble animation (distinct from `AntaraLoader` — this one plays once at the *start* of the survey, purely decorative, gates no real async work) matches "skip onboarding illustration animations" more literally than `AntaraLoader` does, and doesn't share the reasoning that saved `AntaraLoader` (no real work gated behind it). Simplified onto `springs.default` rather than kept bespoke, consistent with the `SuccessBurst` "tone down, don't remove" treatment. Flagging this explicitly here since it wasn't part of the original two-item ask — happy to reconsider if that read is wrong.
+
+### 5. What was not touched
+
+`PullCanvas`'s dot-graph drift/orbit physics — per the brief, this is ambient data visualization, not a decorative page effect, and untouched.
+
+### Verification
+
+- Real screenshots/burst-captures for both core-loop moments (above), including genuinely catching intermediate spring frames, not just settled before/after states.
+- Regression check in Demo Mode: `InstancesSheet` opens correctly on `springs.default` (visually unchanged from before consolidation, since the numeric values didn't change); `/chat` (Ask Antara) renders correctly with its demo-mode gate; the real quick-log flow used for the BurnGauge test is itself the same quick-log flow the app's core loop depends on, and it worked end to end.
+- `npx tsc --noEmit` clean and `npm run build` clean after every change.
+- Test account (`Motion Test`), its Firestore data (profile, wallets, badges, transactions), and the temporary beta-allowlist entry were fully deleted afterward; the temporary `__e2e_token` browser-testing hook was fully reverted from `AuthContext.tsx` (confirmed via an empty `git diff` both times it was used this session).
+
+**Post-deploy, re-verified against the real live domains**: `api.antara.money/health` and `app.antara.money` both `200` after the final restart (post-cleanup) of `antara-frontend.service`. No backend changes this pass, so `antara-ml.service` was left untouched.
+
 ## Feature: Social layer — friends (QR/NFC), privacy-preserving comparison, badges, consolidated profile
 
 **Status: COMPLETED — built, deployed, and verified end to end with two real throwaway accounts through the real UI (not just backend calls): a real QR code rendered by one account was fed to the other account's real camera-scan code path via a genuine fake-camera video device (not a direct API shortcut), producing a real mutual friendship, whose privacy boundary was then verified three independent ways (application-level 403s, Firestore rules-level `permission-denied`s with a real second account, and a rendered-page text dump grepped for the ₹ symbol). Both test accounts and every trace of their data were deleted afterward.**

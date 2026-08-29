@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { springs } from "@/lib/motion";
 import { Circle, Orbit, Plus, Shield, LogOut, MessageCircle, UserCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { StreakBadge } from "./StreakBadge";
@@ -218,7 +219,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 {pathname === "/" && (
                   <motion.span
                     layoutId="nav-active-dot"
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    transition={springs.default}
                     className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
                   />
                 )}
@@ -235,7 +236,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 {pathname === "/graph" && (
                   <motion.span
                     layoutId="nav-active-dot"
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    transition={springs.default}
                     className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
                   />
                 )}
@@ -252,7 +253,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 {pathname === "/chat" && (
                   <motion.span
                     layoutId="nav-active-dot"
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    transition={springs.default}
                     className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
                   />
                 )}

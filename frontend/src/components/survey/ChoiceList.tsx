@@ -2,6 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { springs } from "@/lib/motion";
 import { Check } from "lucide-react";
 
 export interface ChoiceOption {
@@ -50,7 +51,7 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     exit={{ scale: 0 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                    transition={springs.default}
                   >
                     <Check className="w-3 h-3 text-white" strokeWidth={3} />
                   </motion.span>

@@ -3,6 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { CountUpNumber } from "./CountUpNumber";
+import { springs } from "@/lib/motion";
 
 interface BurnGaugeProps {
   burnPct: number; // 0-200+, 100 = exactly a safe day's pace
@@ -10,7 +11,17 @@ interface BurnGaugeProps {
   strokeWidth?: number;
 }
 
-// Whoop-style "burn rate vs. a safe day" ring. Fill is capped visually at
+// Whoop-style "burn rate vs. a safe day" ring — Antara's "focus score"
+// equivalent, the at-a-glance number the daily log→see-burn-rate habit loop
+// is built around. One of exactly two moments in the app that get real,
+// bespoke animation craft (`springs.snappy`, see lib/motion.ts) rather than
+// the shared default every other transition uses — both the ring fill and
+// the center count-up (CountUpNumber, passed `spring={springs.snappy}`
+// below) now animate with real spring physics, and genuinely re-animate
+// from whatever's currently on screen on a live value change (e.g. right
+// after logging a transaction), not just on first mount.
+//
+// Fill is capped visually at
 // 100% of the ring's sweep (burnPct itself can exceed 100 and is shown as-is
 // in the center number). Always renders in the violet brand gradient,
 // matching the reference design exactly — the ring used to swap to a
@@ -54,7 +65,7 @@ export const BurnGauge: React.FC<BurnGaugeProps> = ({ burnPct, size = 250, strok
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: circumference - (clamped / 100) * circumference }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+          transition={{ ...springs.snappy, delay: 0.15 }}
           style={{ filter: "drop-shadow(0 0 12px rgba(139,92,246,0.5))" }}
         />
         <defs>
@@ -68,7 +79,7 @@ export const BurnGauge: React.FC<BurnGaugeProps> = ({ burnPct, size = 250, strok
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[10px] font-medium tracking-[0.16em] text-primary-300">BURN RATE</span>
         <span className="mt-1.5 text-[52px] font-medium leading-none tracking-tight text-white">
-          <CountUpNumber value={burnPct} format={(n) => Math.round(n).toString()} />
+          <CountUpNumber value={burnPct} format={(n) => Math.round(n).toString()} spring={springs.snappy} />
           <span className="text-3xl">%</span>
         </span>
         <span className="mt-1 text-xs text-gray-500">of a safe day</span>

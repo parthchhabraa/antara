@@ -3,6 +3,7 @@
 import React from "react";
 import { motion, Variants } from "framer-motion";
 import { BRAND_DARK, BRAND_BLUE } from "@/lib/brand";
+import { springs } from "@/lib/motion";
 
 interface AntaraMarkProps {
   size?: number;
@@ -28,7 +29,7 @@ export const AntaraMark: React.FC<AntaraMarkProps> = ({ size = 96, animate = tru
       x: 0,
       rotate: 0,
       opacity: 1,
-      transition: { type: "spring", stiffness: 260, damping: 20, delay: 0.05 },
+      transition: { ...springs.default, delay: 0.05 },
     },
   };
   const rightVariants: Variants = {
@@ -37,7 +38,7 @@ export const AntaraMark: React.FC<AntaraMarkProps> = ({ size = 96, animate = tru
       x: 0,
       rotate: 0,
       opacity: 1,
-      transition: { type: "spring", stiffness: 260, damping: 20, delay: 0.14 },
+      transition: { ...springs.default, delay: 0.14 },
     },
   };
   const gapVariants: Variants = {
@@ -45,7 +46,7 @@ export const AntaraMark: React.FC<AntaraMarkProps> = ({ size = 96, animate = tru
     shown: {
       scaleY: 1,
       opacity: 1,
-      transition: { type: "spring", stiffness: 220, damping: 22, delay: 0.32 },
+      transition: { ...springs.default, delay: 0.32 },
     },
   };
 

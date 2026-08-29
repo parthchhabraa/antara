@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { springs } from "@/lib/motion";
 import { Delete, Trash2 } from "lucide-react";
 import { STARTER_CATEGORIES } from "@/lib/constants";
 import { Transaction } from "@/types";
@@ -118,7 +119,7 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 340, damping: 34 }}
+            transition={springs.default}
             className="absolute left-0 right-0 bottom-0 rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3.5" />

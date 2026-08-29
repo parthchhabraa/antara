@@ -2,6 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 import { ArrowRight, Loader2 } from "lucide-react";
 
 interface StepFooterProps {
@@ -46,7 +47,7 @@ export const StepFooter: React.FC<StepFooterProps> = ({
             <motion.span
               initial={{ x: 0 }}
               whileHover={{ x: 2 }}
-              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              transition={springs.default}
             >
               <ArrowRight className="w-4 h-4" />
             </motion.span>
