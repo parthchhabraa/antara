@@ -8,28 +8,26 @@
 // the "thank you" checkmark. That's exactly the "dozen slightly different"
 // problem this file exists to end.
 //
-// Two presets, deliberately, matching the animation brief's own philosophy:
-// most motion in the app should be cheap, native-feeling, and boring on
-// purpose — everything imports `springs.default`. `springs.snappy` is
-// reserved for the two moments that actually reinforce Antara's core habit
-// loop (BurnGauge's ring/count-up, StreakBadge's pop on a real streak
-// increment — see BurnGauge.tsx/StreakBadge.tsx) and should not be reached
-// for anywhere else without going back to whoever's driving that decision —
-// spreading "snappy" thin across many moments is the anti-pattern the brief
-// is explicitly avoiding.
+// Two presets: everything imports `springs.default`; `springs.snappy` is
+// reserved for the two moments that reinforce Antara's core habit loop
+// (BurnGauge's ring/count-up, StreakBadge's pop on a real streak increment —
+// see BurnGauge.tsx/StreakBadge.tsx) and shouldn't be reached for anywhere
+// else without going back to whoever's driving that decision — spreading
+// "snappy" thin across many moments is still the anti-pattern to avoid, even
+// after the retune below.
 //
-// Tuned to read as a platform-native (SwiftUI/UIKit-style) spring rather
-// than a webby ease curve: `default` sits right at the edge of critical
-// damping (damping ratio ≈0.92 at mass 1) — it settles quickly with no
-// visible bounce, which is exactly the feel the 14 sheets above had already
-// converged on by hand. `snappy` is deliberately a bit underdamped (ratio
-// ≈0.67) for one visible overshoot-and-settle "pop" — noticeably livelier,
-// reserved for the two moments above.
-// Narrow on purpose (not the full JSX `Transition` type) so this shape is
-// also directly usable as the third argument to framer-motion's imperative
-// `animate(from, to, options)` call (see CountUpNumber.tsx) — that call's
-// stricter `AnimationOptions` type rejects the broader `Transition` type's
-// orchestration-only fields (`when`, `staggerChildren`, etc.).
+// `default` was retuned after real feedback that the app's first pass at
+// this — a near-critically-damped default (damping ratio ≈0.92, no visible
+// bounce) — genuinely didn't read as more fluid anywhere: every sheet, the
+// nav dot, and the survey all import this constant, so they'd been left
+// mathematically almost identical to their pre-consolidation values on
+// purpose. That was the deliberate "boring on purpose" reading of the
+// original animation brief; explicitly reversed now in favor of visible
+// fluidity everywhere this constant is used. Retuned to ratio ≈0.73 — a
+// real, felt settle-with-a-touch-of-overshoot on every sheet/chip/nav
+// transition, softer than `snappy`'s ≈0.67 so the two core-loop moments
+// still read as distinctly livelier than everything else, but no longer
+// indistinguishable from "no spring at all."
 export interface SpringPreset {
   type: "spring";
   stiffness: number;
@@ -40,8 +38,8 @@ export interface SpringPreset {
 export const springs = {
   default: {
     type: "spring",
-    stiffness: 340,
-    damping: 34,
+    stiffness: 320,
+    damping: 26,
   } satisfies SpringPreset as SpringPreset,
   snappy: {
     type: "spring",

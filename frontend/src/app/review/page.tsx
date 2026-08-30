@@ -472,7 +472,7 @@ export default function SurveyPage() {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: 0.18, ease: "easeOut" }}
+            transition={springs.default}
             className="absolute inset-0 overflow-y-auto flex flex-col"
           >
             {content}
