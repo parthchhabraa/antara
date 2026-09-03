@@ -71,3 +71,66 @@ def test_ml_dot_graph_cold_start_vs_trained():
     assert mature_graph.is_cold_start is False
     assert mature_graph.model_mode == "TRAINED_EMBEDDING_V1"
     assert mature_graph.last_retrained_at is not None
+
+
+# ── Month-boundary handling (ML engine rewrite) ────────────────────────────
+#
+# Before this rewrite there was no "current calendar month" concept anywhere
+# in calculate_spend_predictions/allocate_budget — every transaction a user
+# ever logged fed straight into burn rate/predictions/category splits, so a
+# prior month's spending never stopped counting. These pin `now` (all three
+# methods below accept it precisely so tests don't depend on the real
+# clock) to a fixed date and assert the two behaviors the rewrite is
+# actually about: BILLING-PERIOD math resets every month, CUMULATIVE math
+# (confidence/cold-start) never does.
+
+def test_ml_burn_rate_excludes_prior_month_transactions():
+    now = datetime(2026, 9, 10)  # 10 days into September
+    transactions = [
+        # A big August transaction — must NOT leak into September's burn rate.
+        TransactionItem(amount=5000.0, category="food-snacks", timestamp=datetime(2026, 8, 15)),
+        TransactionItem(amount=200.0, category="food-snacks", timestamp=datetime(2026, 9, 5)),
+    ]
+    res = MLEngine.calculate_spend_predictions(
+        "boundary_user", transactions, monthly_budget=5000.0, now=now
+    )
+    # current_burn_rate_daily = this month's spend (₹200) / days elapsed this
+    # month (10) — not (₹5000 + ₹200) / 10, which is what leaking the prior
+    # month's transaction in would produce.
+    assert res.current_burn_rate_daily == round(200.0 / 10, 2)
+    food_breakdown = next(c for c in res.category_breakdown if c.category_id == "food-snacks")
+    assert food_breakdown.historical_spend == 200.0
+
+
+def test_ml_confidence_unaffected_by_month_boundary():
+    # 18 real logged days straddling the August/September boundary — only
+    # the last 3 (Sep 1-3) fall in "this month," but confidence/cold-start
+    # must reflect the full 18-day, account-lifetime history regardless.
+    now = datetime(2026, 9, 3)
+    transactions = [
+        TransactionItem(amount=100.0, category="food-snacks", timestamp=now - timedelta(days=17 - i))
+        for i in range(18)
+    ]
+    res = MLEngine.calculate_spend_predictions(
+        "straddle_user", transactions, monthly_budget=5000.0, now=now
+    )
+    assert res.is_cold_start is False
+    assert res.model_mode == "TRAINED_EMBEDDING_V1"
+    # Cumulative, not "how many of those days were in September" (~3).
+    assert res.data_days_logged == 18
+    assert res.data_points_count == 18
+    assert res.confidence_score >= 0.75
+
+
+def test_allocate_budget_excludes_prior_month_historical_spend():
+    now = datetime(2026, 9, 10)
+    transactions = [
+        # Big August spend in gaming-inapp — must not still dominate
+        # September's unpinned split just because it happened last month.
+        TransactionItem(amount=3000.0, category="gaming-inapp", timestamp=datetime(2026, 8, 20)),
+        TransactionItem(amount=100.0, category="food-snacks", timestamp=datetime(2026, 9, 5)),
+    ]
+    result = MLEngine.allocate_budget(transactions, monthly_budget=5000.0, pinned={}, now=now)
+    allocations = {a["category_id"]: a for a in result["allocations"]}
+    assert allocations["gaming-inapp"]["amount"] == 0.0
+    assert allocations["food-snacks"]["amount"] > 0.0

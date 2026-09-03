@@ -65,6 +65,21 @@ export interface BurnMetrics {
   wantPct: number;
 }
 
+// BILLING-PERIOD scoping for the Today/Pull screens' client-side burn math
+// — see the equivalent, more thoroughly-commented split in
+// backend/app/ml/engine.py (MLEngine._current_month_transactions). Before
+// this fix, `transactions` here was whatever the caller's live Firestore
+// query fetched (all-time, no date-range filter — see page.tsx/graph/
+// page.tsx's `onSnapshot(query(txCol, orderBy("timestamp", "desc")))`), so
+// crossing into a new month never changed anything: nothing was ever scoped
+// to "this month" to begin with. `isColdStart` below deliberately does NOT
+// use this — cold-start status is account-lifetime, same as the backend's
+// confidence score, and must never reset on a month boundary.
+export function filterToCurrentMonth(transactions: Transaction[], today: Date): Transaction[] {
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+  return transactions.filter((t) => new Date(t.timestamp).getTime() >= monthStart);
+}
+
 /**
  * Derived "burn rate vs. safe pace" metrics for the Today screen and its
  * detail views.
@@ -77,24 +92,31 @@ export interface BurnMetrics {
  * app (see the comment above DEMO_TRANSACTIONS in constants.ts). Demo mode
  * must pass a fixed reference date; live mode may pass the real current date
  * since live data only ever renders after mount (post-hydration).
+ *
+ * `transactions` may be the caller's full, all-time list — every metric
+ * below (spent/left/burn pace/risk rows/need-vs-want) is BILLING-PERIOD and
+ * gets scoped to the current calendar month right here, so a user opening
+ * the app for the first time in a new month sees these computed fresh off
+ * zero transactions, not a stale carried-over total from last month.
  */
 export function calculateBurnMetrics(
   transactions: Transaction[],
   monthlyBudget: number,
   today: Date
 ): BurnMetrics {
+  const monthTransactions = filterToCurrentMonth(transactions, today);
   const dayOfMonth = today.getDate();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const daysLeft = Math.max(1, daysInMonth - dayOfMonth);
 
-  const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
+  const spent = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
   const left = Math.max(0, monthlyBudget - spent);
 
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const todayStart = startOfDay(today);
   const sevenDaysAgoStart = todayStart - 6 * 86400000;
 
-  const weekSpend = transactions
+  const weekSpend = monthTransactions
     .filter((t) => new Date(t.timestamp).getTime() >= sevenDaysAgoStart)
     .reduce((sum, t) => sum + t.amount, 0);
   const weekRate = weekSpend / 7;
@@ -108,7 +130,7 @@ export function calculateBurnMetrics(
 
   // Trailing 7 calendar days, oldest to newest, for the week-bar strip.
   const dayTotals: Record<string, number> = {};
-  transactions.forEach((t) => {
+  monthTransactions.forEach((t) => {
     const key = new Date(t.timestamp).toDateString();
     dayTotals[key] = (dayTotals[key] || 0) + t.amount;
   });
@@ -134,7 +156,7 @@ export function calculateBurnMetrics(
   STARTER_CATEGORIES.forEach((c) => {
     byCategory[c.id] = 0;
   });
-  transactions.forEach((t) => {
+  monthTransactions.forEach((t) => {
     byCategory[t.category] = (byCategory[t.category] || 0) + t.amount;
   });
 
@@ -847,6 +869,22 @@ export async function saveCategoryCap(uid: string, categoryId: string, amount: n
 export async function clearCategoryCap(uid: string, categoryId: string): Promise<void> {
   const userRef = doc(db, "users", uid);
   await updateDoc(userRef, { [`category_caps.${categoryId}`]: deleteField() });
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Bug fix: "What's New" last-seen version, for real signed-in accounts.
+// Same profile-field pattern as monthly_budget/category_caps above — this
+// is the fix for the version that used to live only in localStorage (see
+// WhatsNewGate.tsx), which is inherently per-device and made the sheet
+// look "inconsistent" for any real user who ever used more than one
+// device/browser/PWA install. Firestore is now the source of truth for a
+// real account; localStorage is kept ONLY as the demo/guest-mode fallback,
+// since a guest has no real account doc to attach this to.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function saveLastSeenChangelogVersion(uid: string, version: string): Promise<void> {
+  const userRef = doc(db, "users", uid);
+  await setDoc(userRef, { last_seen_changelog_version: version } as Partial<UserProfile>, { merge: true });
 }
 
 // ────────────────────────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ import { springs } from "@/lib/motion";
 import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, DEMO_WALLETS, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
 import {
   calculateBurnMetrics,
+  filterToCurrentMonth,
   addLiveTransaction,
   deleteLiveTransaction,
   updateLiveTransaction,
@@ -321,7 +322,13 @@ export default function TodayPage() {
   };
 
   const detailCategory = STARTER_CATEGORIES.find((c) => c.id === detailCategoryId) || null;
-  const detailEntries = detailCategoryId ? transactions.filter((t) => t.category === detailCategoryId) : [];
+  // Bug fix: cap progress ("₹X left of ₹Y") used to sum every entry this
+  // category ever had, all-time — a cap "reset" every month in name only.
+  // Scoped to the current calendar month, same BILLING-PERIOD split as
+  // calculateBurnMetrics above (see filterToCurrentMonth in lib/api.ts).
+  const detailEntries = detailCategoryId
+    ? filterToCurrentMonth(transactions, today).filter((t) => t.category === detailCategoryId)
+    : [];
 
   // Both derived from `today` (fixed in demo mode, real in live mode — see the
   // hydration note on `today` above) rather than hardcoded "Aug": that was a

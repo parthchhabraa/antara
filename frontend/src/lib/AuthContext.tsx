@@ -11,7 +11,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { saveMonthlyBudget, saveCategoryCap, clearCategoryCap, applyInstanceAllocation } from "./api";
+import { saveMonthlyBudget, saveCategoryCap, clearCategoryCap, applyInstanceAllocation, saveLastSeenChangelogVersion } from "./api";
 import { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -34,6 +34,12 @@ interface AuthContextType {
   // (see lib/api.ts's applyInstanceAllocation), not a per-key update like
   // setCategoryCap above; an instance defines a complete allocation.
   applyInstance: (instanceId: string, allocation: Record<string, number>) => Promise<void>;
+  // Bug fix: "What's New" last-seen version, real signed-in accounts only —
+  // same "write if real, always update local state" shape as every field
+  // above. Demo/guest mode has no real account to attach this to, so
+  // WhatsNewGate itself keeps a localStorage-only fallback for that case
+  // rather than routing it through here (see UserProfile.last_seen_changelog_version).
+  markChangelogSeen: (version: string) => Promise<void>;
   toggleDemoMode: () => void;
   signInWithGoogle: () => Promise<void>;
   signInAsGuest: () => void;
@@ -390,6 +396,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile((prev) => (prev ? { ...prev, category_caps: allocation, active_instance_id: instanceId } : prev));
   };
 
+  // Bug fix: "What's New" used to persist purely in localStorage — inherently
+  // per-device, so a real signed-in user switching devices (or the PWA vs. a
+  // browser tab, or after clearing site data) would see it fire again, or
+  // falsely stay suppressed, depending on which device last wrote to
+  // localStorage. Firestore is now the source of truth for a real account,
+  // consistent across every device that account opens Antara on; demo/guest
+  // mode has no real account doc to write this to, so `user` is falsy there
+  // and only the local profile state updates (WhatsNewGate keeps its own
+  // localStorage-only path for that case, same as before this fix).
+  const markChangelogSeenField = async (version: string) => {
+    if (user) {
+      await saveLastSeenChangelogVersion(user.uid, version);
+    }
+    setProfile((prev) => (prev ? { ...prev, last_seen_changelog_version: version } : prev));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -407,6 +429,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setMonthlyBudget: setMonthlyBudgetField,
         setCategoryCap: setCategoryCapField,
         applyInstance: applyInstanceField,
+        markChangelogSeen: markChangelogSeenField,
         toggleDemoMode,
         signInWithGoogle,
         signInAsGuest,

@@ -16,6 +16,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
 import {
   calculateBurnMetrics,
+  filterToCurrentMonth,
   addLiveTransaction,
   deleteLiveTransaction,
   updateLiveTransaction,
@@ -127,12 +128,16 @@ export default function PullPage() {
 
   const metrics = calculateBurnMetrics(transactions, monthlyBudget, today);
   const selected = STARTER_CATEGORIES.find((c) => c.id === selectedId) || STARTER_CATEGORIES[0];
-  const selSpent = transactions.filter((t) => t.category === selected.id).reduce((s, t) => s + t.amount, 0);
-  const selCount = transactions.filter((t) => t.category === selected.id).length;
+  // Bug fix: the spotlight card's own copy already says "this month" — it
+  // just wasn't actually scoped that way. Same BILLING-PERIOD cap-progress
+  // fix as Today's page.tsx (see filterToCurrentMonth in lib/api.ts).
+  const monthTransactions = filterToCurrentMonth(transactions, today);
+  const selSpent = monthTransactions.filter((t) => t.category === selected.id).reduce((s, t) => s + t.amount, 0);
+  const selCount = monthTransactions.filter((t) => t.category === selected.id).length;
   const selectedCap = profile?.category_caps?.[selected.id] ?? selected.monthly_cap;
 
   const detailCategory = STARTER_CATEGORIES.find((c) => c.id === detailCategoryId) || null;
-  const detailEntries = detailCategoryId ? transactions.filter((t) => t.category === detailCategoryId) : [];
+  const detailEntries = detailCategoryId ? monthTransactions.filter((t) => t.category === detailCategoryId) : [];
 
   return (
     <MobileFrame onOpenQuickLog={() => setIsLogOpen(true)}>

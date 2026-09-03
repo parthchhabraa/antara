@@ -1,6 +1,6 @@
 import math
 from typing import List, Dict, Any, Tuple, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import numpy as np
 from app.schemas import (
     TransactionItem, SpendPredictResponse, CategoryForecast,
@@ -142,6 +142,67 @@ class MLEngine:
             cls.live_benchmarks_sample_size = benchmarks_doc.get("sampleSize", 0)
         return applied_any
 
+    # ------------------------------------------------------------------
+    # Two kinds of "history" — real bug fix, not a stylistic split.
+    #
+    # Before this rewrite, calculate_spend_predictions/allocate_budget (and
+    # the frontend's mirrored client-side math) summed EVERY transaction a
+    # user ever logged, with no concept of "this calendar month" anywhere.
+    # There was no reset to break — nothing was ever scoped to a period in
+    # the first place, so crossing into a new month never changed burn
+    # rate/predictions/exhaustion date/caps at all; a user's June spending
+    # kept inflating their "this month" numbers straight through July.
+    #
+    # BILLING-PERIOD data (this file: month_transactions / _current_month_*)
+    # resets every calendar month by construction — it is simply never fed
+    # a prior month's transactions. Burn rate, predicted spend, projected
+    # exhaustion date, category breakdowns/risk flags, and Instances'
+    # allocation math all live here.
+    #
+    # CUMULATIVE data (confidence score, is_cold_start/model_mode via
+    # _analyze_data_maturity, and calculate_learning_curve) is the opposite
+    # on purpose and must NEVER be rescoped to the current month — a user
+    # should get more confident the longer they've used Antara, full stop,
+    # not get thrown back into "early estimate" every time the 1st rolls
+    # around. If you're tempted to "fix" a month-boundary reset in
+    # confidence/cold-start, don't — that would be reintroducing a bug in
+    # the other direction.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _naive_utc(dt: datetime) -> datetime:
+        """Normalizes a timestamp for calendar-month comparisons.
+
+        `TransactionItem.timestamp` reaches this module two different ways:
+        offset-naive when a TransactionItem is constructed directly in
+        Python (the field's `default_factory=datetime.utcnow`, and every
+        existing test in tests/test_api.py), and offset-aware UTC when
+        pydantic parses a real request's JSON `"...Z"` ISO string from the
+        frontend — the path every live call actually takes. Comparing one
+        of each raises `TypeError: can't compare offset-naive and
+        offset-aware datetimes`, so every timestamp compared against "now"
+        in this module goes through here first.
+        """
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+
+    @staticmethod
+    def _month_start(now: Optional[datetime] = None) -> datetime:
+        now_ref = MLEngine._naive_utc(now or datetime.utcnow())
+        return datetime(now_ref.year, now_ref.month, 1)
+
+    @staticmethod
+    def _current_month_transactions(
+        transactions: List[TransactionItem], now: Optional[datetime] = None
+    ) -> List[TransactionItem]:
+        """BILLING-PERIOD scoping: every transaction timestamped on or after
+        the 1st of the current calendar month (through `now`), and nothing
+        before it. `now` is injectable so tests can pin "today" instead of
+        depending on the real clock; production callers leave it unset."""
+        month_start = MLEngine._month_start(now)
+        return [tx for tx in transactions if MLEngine._naive_utc(tx.timestamp) >= month_start]
+
     @staticmethod
     def _analyze_data_maturity(transactions: List[TransactionItem]) -> Tuple[bool, int, int]:
         """
@@ -209,6 +270,7 @@ class MLEngine:
         transactions: List[TransactionItem],
         monthly_budget: float,
         pinned: Dict[str, float],
+        now: Optional[datetime] = None,
     ) -> Dict[str, Any]:
         """"Instances" — a user pins exact amounts to whichever categories
         they choose; everything else (the remaining budget) gets split
@@ -221,11 +283,20 @@ class MLEngine:
         cold-start heuristic elsewhere in this file already uses (never a
         made-up figure), and is honestly flagged `is_early_estimate` rather
         than presented with false precision — same staged-honesty posture
-        as everywhere else in this module."""
+        as everywhere else in this module.
+
+        `monthly_budget` is being split for THIS calendar month, so the
+        "historical spend" the split is proportional to is this month's
+        spend only (BILLING-PERIOD) — a category that spiked last month but
+        has nothing logged yet this month shouldn't still be eating a big
+        slice of this month's unpinned remainder. Cold-start status
+        (`is_early_estimate`'s account-wide half) stays CUMULATIVE, same as
+        everywhere else — see the module note above _analyze_data_maturity."""
         is_cold_start, active_days, tx_count = MLEngine._analyze_data_maturity(transactions)
 
+        month_transactions = MLEngine._current_month_transactions(transactions, now)
         cat_totals: Dict[str, float] = {k: 0.0 for k in CATEGORIES_METADATA.keys()}
-        for tx in transactions:
+        for tx in month_transactions:
             cat_id = tx.category if tx.category in cat_totals else "miscellaneous"
             cat_totals[cat_id] += tx.amount
 
@@ -286,14 +357,29 @@ class MLEngine:
         user_id: str,
         transactions: List[TransactionItem],
         monthly_budget: float = 5000.0,
-        period_days: int = 30
+        period_days: int = 30,
+        now: Optional[datetime] = None,
     ) -> SpendPredictResponse:
+        # CUMULATIVE — confidence/cold-start/model-mode are account-lifetime
+        # by design (see the module note above _analyze_data_maturity) and
+        # must see every transaction ever logged, not just this month's.
         is_cold_start, active_days, tx_count = MLEngine._analyze_data_maturity(transactions)
-        total_historical = sum(tx.amount for tx in transactions)
-        
-        # Calculate category totals
+
+        # BILLING-PERIOD — burn rate, prediction, category breakdowns, and
+        # exhaustion date all reset every calendar month: they're computed
+        # only from transactions dated within the current month, never a
+        # prior one. `now_ref`/`days_into_month` are this month's "how far
+        # in are we" clock (mirrors the frontend's `today.getDate()` in
+        # lib/api.ts's calculateBurnMetrics), replacing the old `active_days`
+        # (lifetime) as the burn-rate time base.
+        now_ref = MLEngine._naive_utc(now or datetime.utcnow())
+        month_transactions = MLEngine._current_month_transactions(transactions, now_ref)
+        month_total = sum(tx.amount for tx in month_transactions)
+        days_into_month = (now_ref.date() - MLEngine._month_start(now_ref).date()).days + 1
+
+        # Calculate this month's category totals
         cat_totals: Dict[str, float] = {k: 0.0 for k in CATEGORIES_METADATA.keys()}
-        for tx in transactions:
+        for tx in month_transactions:
             cat_id = tx.category if tx.category in cat_totals else "miscellaneous"
             cat_totals[cat_id] += tx.amount
 
@@ -310,13 +396,15 @@ class MLEngine:
             confidence_score, model_mode = MLEngine._confidence_and_mode(is_cold_start, active_days, tx_count)
             last_retrained = None
 
-            # Blended daily burn rate: 70% taxonomy baseline + 30% observed
+            # Blended daily burn rate: 70% taxonomy baseline + 30% observed,
+            # "observed" being this month's pace so far (BILLING-PERIOD) —
+            # not the account's lifetime average.
             baseline_daily = monthly_budget / period_days
-            observed_daily = (total_historical / max(1, active_days)) if total_historical > 0 else baseline_daily
+            observed_daily = (month_total / max(1, days_into_month)) if month_total > 0 else baseline_daily
             blended_daily_burn = round((0.65 * baseline_daily) + (0.35 * observed_daily), 2)
             predicted_total = round(blended_daily_burn * period_days, 2)
-            
-            projected_days_left = max(0.0, (monthly_budget - total_historical) / max(1.0, blended_daily_burn))
+
+            projected_days_left = max(0.0, (monthly_budget - month_total) / max(1.0, blended_daily_burn))
 
             for cat_id, meta in CATEGORIES_METADATA.items():
                 hist_spend = cat_totals[cat_id]
@@ -369,19 +457,21 @@ class MLEngine:
             confidence_score, model_mode = MLEngine._confidence_and_mode(is_cold_start, active_days, tx_count)
             last_retrained = datetime.utcnow()
 
-            daily_burn_rate = total_historical / max(1, active_days)
+            # BILLING-PERIOD: this month's spend over this month's elapsed
+            # days, not the account's lifetime total/active_days.
+            daily_burn_rate = month_total / max(1, days_into_month)
             predicted_total = round(daily_burn_rate * period_days, 2)
-            projected_days_left = max(0.0, (monthly_budget - total_historical) / max(0.1, daily_burn_rate))
+            projected_days_left = max(0.0, (monthly_budget - month_total) / max(0.1, daily_burn_rate))
 
             for cat_id, meta in CATEGORIES_METADATA.items():
                 hist_spend = cat_totals[cat_id]
                 has_benchmark = bool(meta["benchmark_pct"])  # truthy: excludes both None and 0.0 (thin-sample zero)
-                pct_of_total = (hist_spend / total_historical) if total_historical > 0 else (meta["benchmark_pct"] or 0.0)
+                pct_of_total = (hist_spend / month_total) if month_total > 0 else (meta["benchmark_pct"] or 0.0)
 
                 # Dynamic category trend. Without a survey benchmark (Step 8 categories),
                 # there's no baseline to say a share is "too high" against, so skip the
                 # over-benchmark growth nudge and just project the observed rate forward.
-                cat_daily = hist_spend / max(1, active_days)
+                cat_daily = hist_spend / max(1, days_into_month)
                 over_benchmark = has_benchmark and pct_of_total > meta["benchmark_pct"]
                 predicted_cat = round(cat_daily * period_days * (1.08 if not meta["essential"] and over_benchmark else 1.0), 2)
                 trend_pct = round(((predicted_cat - hist_spend) / max(1.0, hist_spend)) * 100, 1)
@@ -423,7 +513,7 @@ class MLEngine:
         return SpendPredictResponse(
             user_id=user_id,
             predicted_total_spend=round(predicted_total, 2),
-            current_burn_rate_daily=round(total_historical / max(1, active_days), 2),
+            current_burn_rate_daily=round(month_total / max(1, days_into_month), 2),
             predicted_burn_rate_daily=round(predicted_total / period_days, 2),
             projected_days_until_budget_exhaustion=round(projected_days_left, 1),
             top_risk_categories=high_risk_categories,

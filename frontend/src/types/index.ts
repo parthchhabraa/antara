@@ -92,6 +92,17 @@ export interface UserProfile {
   // Instances UI to show which one is "Active"; category_caps itself
   // remains the single source of truth the rest of the app reads from.
   active_instance_id?: string;
+  // Bug fix: "What's New" used to persist purely in localStorage, which is
+  // per-device/per-browser — a real signed-in user on a second device (or
+  // the PWA vs. a browser tab, or after clearing site data) would see it
+  // fire again, or falsely stay suppressed, depending on which device last
+  // wrote to localStorage. Real signed-in accounts now persist the last
+  // acknowledged changelog version here instead, same profile-field
+  // pattern as monthly_budget/category_caps above — consistent across
+  // every device that account ever opens Antara on. Demo/guest mode has no
+  // real account to attach this to, so it keeps the localStorage fallback
+  // (see WhatsNewGate.tsx).
+  last_seen_changelog_version?: string;
 }
 
 export interface BetaAllowlistEntry {
