@@ -1,5 +1,62 @@
 # Antara — session log
 
+## Bug fixes: ML engine month-period handling (BILLING-PERIOD vs CUMULATIVE) + What's New cross-device sync
+
+**Status: CONTINUE — root cause for both bugs confirmed by reading the actual code paths (not guessed) before rewriting, per the brief's own instruction. Rewrite implemented with an explicit, documented BILLING-PERIOD/CUMULATIVE split; 3 new month-boundary tests added (20/20 backend tests pass including the 3 new ones; `npx tsc --noEmit` and `npm run build` both clean). Code is committed and pushed (hashes below). NOT done from this session: real-account/two-calendar-month Firestore verification, real two-device What's New verification, checking real existing beta accounts' actual stored values, and the production redeploy (pull + build + restart on draftsmanbrain, verify against api.antara.money/app.antara.money) — this is a Claude Code on the web / remote session with GitHub access only to `parthchhabraa/antara` (no SSH access to draftsmanbrain, no Firebase Admin credentials in this container). Someone with access to draftsmanbrain needs to pull this branch, rebuild both services, restart them, and run the real-account verification described below before this is actually live.**
+
+### 1. ML engine — root cause, confirmed before rewriting
+
+Traced exactly what `calculate_spend_predictions`/`allocate_budget` (`backend/app/ml/engine.py`) and the client-side burn math (`calculateBurnMetrics`, `frontend/src/lib/api.ts`) actually summed over:
+
+- **`calculate_spend_predictions`**: `total_historical = sum(tx.amount for tx in transactions)` — every transaction ever passed in, no date filter at all. Same for the per-category `cat_totals` feeding category breakdowns/risk flags.
+- **`allocate_budget`** (Instances): identical — `cat_totals` summed over the full `transactions` list, zero month-scoping.
+- **Frontend**: `app/page.tsx`/`app/graph/page.tsx` fetch a user's transactions with `query(txCol, orderBy("timestamp", "desc"))` — no `where`/date-range clause, genuinely all-time — and pass that same array straight into `calculateBurnMetrics` (`spent`/`left`/`weekRate`/`riskRows` all summed with no month filter) and into `CategoryDetailSheet`'s cap progress (`detailEntries = transactions.filter(t => t.category === id)`, again all-time). `graph/page.tsx`'s spotlight card literally prints "₹X **this month**" while computing that ₹X from the caller's entire history — the most visible instance of the bug, exactly as the brief predicted.
+
+Confirmed: the hypothesis was right. There was no reset to break — "this calendar month" was never a concept anywhere in this pipeline, backend or frontend. A user's spend from any prior month kept counting toward burn rate/predictions/caps indefinitely.
+
+### 2. What's New — root cause, confirmed before rewriting
+
+`WhatsNewGate.tsx` read/wrote `localStorage["antara_last_seen_version"]` unconditionally for every user, including real signed-in accounts — no `user`/`profile`/Firestore involvement anywhere in the component. A real account opening a second device, clearing site data, or using the installed PWA vs. a browser tab each has its own independent `localStorage`, so each computes its own separate "have I seen this version" answer for the same account — exactly the "inconsistent, doesn't show to everyone" symptom described. Could not additionally pull real existing beta accounts' actual stored values from this session (no Firebase Admin credentials available here — see the Status line); the fix includes a one-time migration path specifically to handle that unverified case gracefully (see below).
+
+### What changed
+
+**Backend (`backend/app/ml/engine.py`)** — explicit BILLING-PERIOD vs. CUMULATIVE split, documented in a new module-level comment block so a future session doesn't "fix" confidence/cold-start into resetting too:
+- New `MLEngine._current_month_transactions()` / `_month_start()` / `_naive_utc()` helpers. `_naive_utc` exists because a real request's transactions arrive as pydantic-parsed, timezone-aware UTC datetimes, while directly-constructed `TransactionItem`s (every existing test) are offset-naive — comparing the two raises `TypeError` without normalizing first, a real edge case hit while implementing this, not theoretical.
+- `calculate_spend_predictions` and `allocate_budget` both gained an optional `now: Optional[datetime]` parameter (for deterministic tests; production callers leave it unset, defaulting to the real clock). `is_cold_start`/`active_days`/`tx_count`/confidence/`model_mode` still see the FULL transaction list (CUMULATIVE, unchanged). Burn rate, predicted spend, exhaustion date, and category breakdowns/risk flags now only see `_current_month_transactions()` (BILLING-PERIOD) — `days_into_month` (mirroring the frontend's `today.getDate()`) replaces lifetime `active_days` as the burn-rate time base.
+- `calculate_learning_curve` — untouched, deliberately, per the brief (stays cumulative).
+- `generate_dot_graph` — untouched; it has no frontend consumer (per its own existing docstring) and wasn't in the brief's scope.
+
+**Frontend (`frontend/src/lib/api.ts`)** — new exported `filterToCurrentMonth(transactions, today)`, used inside `calculateBurnMetrics` (now BILLING-PERIOD-scoped for `spent`/`left`/`weekRate`/week bars/`riskRows`/need-vs-want; `isColdStart` deliberately left reading the full list, unchanged) and at the two category-cap-progress call sites: `app/page.tsx`'s `detailEntries` and `app/graph/page.tsx`'s `detailEntries`/`selSpent`/`selCount` — the exact "₹X left of ₹Y" / "₹X this month" progress the brief flagged as the most visible symptom.
+
+**What's New (`frontend/src/types/index.ts`, `AuthContext.tsx`, `lib/api.ts`, `WhatsNewGate.tsx`)** — new `UserProfile.last_seen_changelog_version` field, written via a new `saveLastSeenChangelogVersion` / `AuthContext.markChangelogSeen` (same "write to Firestore if real, always update local state" shape every other per-user field in `AuthContext` already uses — `setMonthlyBudget`/`setCategoryCap`/`applyInstance`). `WhatsNewGate` now checks `profile.last_seen_changelog_version` for a real signed-in user (`user && !isDemoMode`) and only falls back to the original `localStorage` path for demo/guest mode, matching the project's existing `category_caps` convention (real Firestore for signed-in users, local-only for demo). One-time migration: the first time a real account has no Firestore value yet, it adopts whatever this device's `localStorage` already has (if anything) as the seed value, rather than treating every pre-existing beta account as brand new — avoids both re-announcing a version they already dismissed on this device, and silently suppressing one they haven't. No `firestore.rules` change needed — `users/{userId}`'s existing `allow update: if isOwner(userId) || isSuperAdmin();` has no field-level allowlist, so this new field is already writable the same way `category_caps`/`monthly_budget` are.
+
+### Tests added (`backend/tests/test_api.py`)
+
+- `test_ml_burn_rate_excludes_prior_month_transactions` — a ₹5000 transaction dated last month plus a ₹200 one this month; asserts `current_burn_rate_daily` and the `food-snacks` category breakdown reflect only the ₹200, not ₹5200.
+- `test_ml_confidence_unaffected_by_month_boundary` — 18 real logged days straddling the Aug/Sep boundary (only ~3 fall in "this month"); asserts `is_cold_start`/`model_mode`/`confidence_score`/`data_days_logged` still reflect the full 18-day lifetime history, not just the ~3 days in the current month.
+- `test_allocate_budget_excludes_prior_month_historical_spend` — a big prior-month `gaming-inapp` transaction must not still dominate this month's unpinned Instances split.
+
+All 20 backend tests pass (`python3 -m pytest`, 6 in `test_api.py` including the 3 new ones, 14 pre-existing elsewhere unaffected). Frontend: `npx tsc --noEmit` and `npm run build` both clean (13/13 static pages).
+
+### Verification actually performed this session
+
+- Read/traced the real code paths for both bugs against the actual implementation before writing any fix — see "root cause" sections above.
+- Ran the full backend test suite (20/20 pass) and a full frontend production build (13/13 pages, clean typecheck) after every change.
+- Worked through the month-boundary scenarios the new tests encode with concrete numbers (a real ₹5000/₹200 split, an 18-day history straddling a real month boundary), not just "should work."
+
+### Verification NOT performed (needs draftsmanbrain / Firebase Admin access this session doesn't have)
+
+- A real account with real transactions spanning two calendar months, confirming live burn rate/caps/predictions genuinely exclude the prior month.
+- A real cross-device What's New check with an actual second browser profile signed into the same real account.
+- Checking real existing beta accounts' actual stored localStorage/Firestore values before vs. after.
+- Pulling this branch on draftsmanbrain, `npm run build`, restarting `antara-ml.service`/`antara-frontend.service`, and confirming `api.antara.money`/`app.antara.money` serve the new behavior.
+- No test data was created this session (nothing to clean up).
+
+### Commits (`antara`, branch `claude/ml-engine-changelog-fixes-f2c1x1`)
+
+- `b3f3774` — code + tests (engine.py rewrite, frontend month-scoping, What's New Firestore sync, 3 new tests).
+- This REVIEW.md update itself lands in the commit immediately following `b3f3774` — see `git log` on this branch for its hash.
+
 ## Animation craft pass, follow-up: `springs.default` retuned, scope reversed to broader fluidity
 
 **Status: COMPLETED — real feedback after the original pass ("the gui didn't change, the fluidity wasn't achieved") led to a real investigation, not a guess: confirmed via the live deployed JS bundle and a fresh runtime re-test that the original changes genuinely were live and working (the exact `springs` object, both presets, verified present in the production bundle; a live re-run of the BurnGauge test reproduced the same real overshoot behavior). The actual issue was scope, not a bug — `springs.default` was deliberately tuned to be nearly identical to what the 14 sheets already had ("boring on purpose," per the original brief's own instruction), so anything routed through it was mathematically almost unchanged. Explicit decision from the user: reverse that — broader fluidity across the whole GUI, not just the two core-loop moments.**
