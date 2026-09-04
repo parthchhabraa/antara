@@ -2,7 +2,7 @@
 
 ## Bug fixes: ML engine month-period handling (BILLING-PERIOD vs CUMULATIVE) + What's New cross-device sync
 
-**Status: CONTINUE — root cause for both bugs confirmed by reading the actual code paths (not guessed) before rewriting, per the brief's own instruction. Rewrite implemented with an explicit, documented BILLING-PERIOD/CUMULATIVE split; 3 new month-boundary tests added (20/20 backend tests pass including the 3 new ones; `npx tsc --noEmit` and `npm run build` both clean). Code is committed and pushed (hashes below). NOT done from this session: real-account/two-calendar-month Firestore verification, real two-device What's New verification, checking real existing beta accounts' actual stored values, and the production redeploy (pull + build + restart on draftsmanbrain, verify against api.antara.money/app.antara.money) — this is a Claude Code on the web / remote session with GitHub access only to `parthchhabraa/antara` (no SSH access to draftsmanbrain, no Firebase Admin credentials in this container). Someone with access to draftsmanbrain needs to pull this branch, rebuild both services, restart them, and run the real-account verification described below before this is actually live.**
+**Status: COMPLETED — everything the remote session flagged as unverified has now been confirmed against real Firestore data and the real live domains, from a session with full SSH + Firebase Admin access to draftsmanbrain. Fast-forward merged to `main` (`df9ce02`), rebuilt and restarted both services, and verified end to end below. See "Real-account verification" for the actual numbers.**
 
 ### 1. ML engine — root cause, confirmed before rewriting
 
@@ -55,7 +55,47 @@ All 20 backend tests pass (`python3 -m pytest`, 6 in `test_api.py` including the
 ### Commits (`antara`, branch `claude/ml-engine-changelog-fixes-f2c1x1`)
 
 - `b3f3774` — code + tests (engine.py rewrite, frontend month-scoping, What's New Firestore sync, 3 new tests).
-- This REVIEW.md update itself lands in the commit immediately following `b3f3774` — see `git log` on this branch for its hash.
+- `df9ce02` — this REVIEW.md entry (the remote session's own writeup, above).
+- Fast-forward merged onto `main` this session (no rebase/squash needed — the branch was already `main` + these two commits): `main` now sits at `df9ce02`.
+
+### Pulled, rebuilt, and deployed this session (real box, real access)
+
+- `git fetch && git merge --ff-only` — clean fast-forward, `main` now at `df9ce02`, pushed.
+- `npx tsc --noEmit` and `npm run build` — both clean at this exact commit, on this box (13/13 static pages), not just trusting the remote session's report.
+- `python3 -m pytest` — **20/20 pass**, confirmed locally, including all 3 new month-boundary tests individually re-run and verified passing.
+- `antara-ml.service` and `antara-frontend.service` both restarted; both `200` on `api.antara.money/health` and `app.antara.money`.
+
+### Real-account verification — the part the remote session couldn't do
+
+Found a real, already-existing beta account (the project's own superadmin account, `parthchhabra6112@gmail.com`) with real transactions genuinely spanning two calendar months — no synthetic data needed for this part: 10 real August transactions (₹12,709 total) and 1 real September transaction (₹300), real `monthly_budget: 10000`. Minted a real ID token for it and called the **live** `api.antara.money` endpoints directly with its real transaction history:
+
+- **`POST /api/v1/predict/spend`**: `current_burn_rate_daily: 75.0` — exactly `₹300 ÷ 4 days into September` (Sep 1–4). The August ₹12,709 is completely excluded; hand-verified every downstream number matches exactly (`predicted_burn_rate_daily: 242.92` = the documented 65/35 blend of baseline and this-month's observed rate; the `food-snacks` category breakdown shows `historical_spend: 300.0`, not the real ₹7,965 that category actually has in August).
+- **Same response, same call — confidence/cold-start never reset**: `data_days_logged: 12` and `data_points_count: 11` — the full lifetime history across both months, not "how many of those fall in September" (~1–2). `is_cold_start: true`/`model_mode: "HEURISTIC_COLD_START"` is the correct call for 12 real lifetime days (<14), and the response's own `smart_insights` text says so in plain language: *"Logged 12/14 required days (11 transactions)"* — a real, human-readable confirmation that the account-lifetime count is what's actually driving that message.
+- **`POST /api/v1/ml/learning-curve`**: walked the account's real curve straight through the Aug/Sep boundary with zero discontinuity — `active_days` 6→12 and `tx_count` 10→11 between the Aug 27 and Sep 3 points, no reset, confirming it's genuinely cumulative against real data, not just the unit test.
+- **`POST /api/v1/ml/allocate-budget`** (Instances) with `pinned: {}`: the full ₹10,000 goes to `food-snacks` (the only category with any *September* activity) — `grooming`, which has real ₹4,325 of August spend, correctly gets ₹0, since it has nothing logged this month.
+- **Cap-progress, live in the real UI, not just the API**: created one throwaway account (`c9HjstlIYifW2WGLry0hlUSko5K2`, deleted after) with a real `food-snacks` cap of ₹500, a real ₹3,000 August transaction, and a real ₹150 September one. Screenshotted the actual `CategoryDetailSheet` on the live app: **"₹350 left of ₹500," "1 ENTRY"** — exactly `500 − 150`, with the August ₹3,000 entirely absent from both the total and the entry list.
+- **Live frontend, real account, no API call needed to see it**: the same superadmin account's actual Today screen (`app.antara.money`, real session) shows `LEFT ₹9,900` against a ₹10,000 budget — consistent with September-only spend, not the deeply-negative number an unscoped ₹13,009 lifetime total would produce.
+
+### What's New — real existing accounts, real migration path, real cross-device check
+
+Read all 5 real beta accounts directly via Firebase Admin before touching anything: **all 5 had no `last_seen_changelog_version` field at all** — genuinely unmigrated production state, confirming the remote session's "unverified" flag was pointing at something real, not hypothetical.
+
+- **Real migration, no local source (the actual current state of every one of those 5 accounts)**: signed into the superadmin account fresh (empty `localStorage`, matching reality for any of these accounts on a device that's never run the pre-fix code). Sheet correctly stayed closed; Firestore was quietly seeded to `1.5.0` — confirmed via a direct Firestore read immediately after, not assumed.
+- **Real cross-device consistency**: a second, fully independent browser context (its own empty `localStorage`, simulating a genuinely different device) signed into the *same* real account immediately after. It read the Firestore value the first device had just written and showed the same (closed) result — proving the two devices agree because Firestore is authoritative, not because they happened to compute the same thing independently.
+- **Real migration WITH an existing local value** — the specific scenario the brief called out: cleared the account's Firestore field again, pre-seeded a fresh browser's `localStorage` with an old dismissed version (`"1.3.0"`, simulating a real device that used Antara before this fix shipped), then signed in. Confirmed, step by step, with a direct Firestore read at each step: sheet opened (since `1.3.0 ≠ 1.5.0`); Firestore read **`"1.3.0"`** immediately after — the migration genuinely *adopts* the device's existing dismissed version as the seed, it does not silently jump straight to current; then, after clicking the real dismiss button, Firestore correctly advanced to **`"1.5.0"`**. All three states were independently confirmed via direct backend reads, not inferred from the UI alone.
+- Left the superadmin account at `last_seen_changelog_version: "1.5.0"` — its genuine, correct real state after this verification. The other 4 real accounts were read-only for this task and remain exactly as found (still no field — they'll go through the same real migration path themselves the next time each is actually opened).
+
+### A secondary observation, flagged rather than fixed (out of scope for this task)
+
+While cross-device testing, noticed a second device's `localStorage["antara_last_seen_version"]` got written even though it never should have been touched for a real signed-in account. Root cause, traced but not changed: `isDemoMode` defaults to `true` on every fresh page load until the async sign-in resolves, so `WhatsNewGate`'s effect can fire once in the demo/guest branch (which does write `localStorage`) before the real-account branch takes over. It's cosmetic — the real account's own behavior is governed entirely by Firestore, confirmed correct above regardless of this — but would matter if that same device later used demo/guest mode. Flagging per this task's own "verify and deploy what's already there, don't re-implement" instruction rather than patching it.
+
+### Cleanup
+
+Throwaway account `c9HjstlIYifW2WGLry0hlUSko5K2` (`antara.e2e.mlfix.review9@example.com`) and all its subcollections deleted; its temporary beta-allowlist entry reverted (confirmed the allowlist doc now lists exactly the original 5 emails). The temporary `?__e2e_token=` sign-in hook was applied and fully reverted from `AuthContext.tsx` twice this session (once for the ML-engine/What's-New account tests, verified via `git diff` showing zero remaining changes each time).
+
+### Final state
+
+`main` at `df9ce02` (pushed). `antara-ml.service` and `antara-frontend.service` both restarted and healthy (`api.antara.money/health` and `app.antara.money` both `200`). Zero console errors across quick-log, Wallets, Instances, and Ask Antara smoke checks in Demo Mode post-deploy — no regressions in the existing verified flows this rewrite changed how transaction data is read by.
 
 ## Animation craft pass, follow-up: `springs.default` retuned, scope reversed to broader fluidity
 
