@@ -1,5 +1,30 @@
 # Antara — session log
 
+## Brief 1 (launch-readiness pack): verify production actually matches main
+
+**Status: COMPLETED — production was already caught up. No deploy gap existed by the time this session ran; this is a confirmation, not a re-fix.**
+
+The launch-readiness brief's Brief 1 was written against the assumption that this repo's previous top `REVIEW.md` entry ("Bug fixes: ML engine month-period handling...", `df9ce02`) was still `CONTINUE`-status — i.e. that the BILLING-PERIOD rewrite had been pushed but never redeployed/verified. That was true when the brief was written. It is no longer true: `main` had already advanced one commit past `df9ce02` to `60cc008` ("docs: record real-account verification for ML month-scoping + What's New fix") — a session with SSH + Firebase Admin access to draftsmanbrain had already done exactly what this brief asked for, including a live redeploy and real-account verification (see that section above, "Real-account verification — the part the remote session couldn't do").
+
+This session ran directly on `draftsmanbrain` (confirmed via `hostname`) with local access to the actual deployed checkout at `/home/parthchhabra/antara-deploy/antara` — not over SSH from elsewhere. Verified independently, without taking the prior write-up's word for it:
+
+- **Deployed checkout matches `origin/main` exactly**: `git status` clean, `HEAD` at `60cc008`, identical to `origin/main`.
+- **Both services running the current build**: `antara-ml.service` and `antara-frontend.service` both `active`, both started ~18:15 UTC today (2026-09-04); `frontend/.next/BUILD_ID` timestamp (18:15:05) sits seconds before that restart, so the running frontend is a fresh build of the checked-out code, not a stale artifact next to newer source.
+- **Backend fix is actually in the file being served**: `backend/app/ml/engine.py` on disk contains `_current_month_transactions`, the BILLING-PERIOD/CUMULATIVE split, and the module comments documenting it — not just claimed in a commit message.
+- **Full backend test suite green on this exact checkout**: `pytest` → 20/20 passed.
+- **Live health**: `api.antara.money/health` → `200 {"status":"healthy",...}`; `app.antara.money` → `200`.
+- **Independent real-data check, done fresh rather than re-reading the old one**: read the real superadmin account (`parthchhabra6112@gmail.com`, uid `Spymoj3HHwUe3rqF3Mo1JW8LjX42`) directly via Firebase Admin (read-only). Its August total (₹12,709) matches the prior session's cited figure exactly, confirming this is the same real account, not a different one. It now also has **new transactions the user logged live during this session** (₹26,000 tech-gadgets + ₹900 food-snacks at 18:30 UTC today, on top of the ₹300 already logged Sept 3) — real, fresh, previously-unverified data. Fed that real data straight into the deployed `MLEngine.calculate_spend_predictions` in-process (not a synthetic fixture): `current_burn_rate_daily` came back `6800.0`, exactly `₹27,200 ÷ 4 days into September`; `food-snacks` category breakdown showed `1200.0` (Sept-only: 300+900), not the ~₹8,085 lifetime figure; `grooming` (entirely an August category) showed `0.0`. Confirms the fix holds against data that didn't exist when it was last verified.
+  - Did **not** mint a live ID token to hit `api.antara.money` directly as this real user — that step was blocked by this session's own tooling as an impersonation-flavored action against a live external API, and re-running the engine function in-process against the same real data is equivalent verification without that risk. Flagging the distinction rather than quietly settling for less.
+- **What's New**: confirmed via direct Firestore read (not re-trusting the prior write-up) that this account's `last_seen_changelog_version` is `"1.5.0"`, matching what the prior session's real cross-device migration test left it at.
+
+Nothing needed fixing. No code changed. No redeploy performed (none was needed). No test data created or cleaned up.
+
+### Final state
+
+`main` at `60cc008` (already pushed by the prior session; this session added no new commits to `antara` beyond this doc entry). Deployed checkout on `draftsmanbrain` at `60cc008`, clean, matching. This entry itself: committed as noted below.
+
+---
+
 ## Bug fixes: ML engine month-period handling (BILLING-PERIOD vs CUMULATIVE) + What's New cross-device sync
 
 **Status: COMPLETED — everything the remote session flagged as unverified has now been confirmed against real Firestore data and the real live domains, from a session with full SSH + Firebase Admin access to draftsmanbrain. Fast-forward merged to `main` (`df9ce02`), rebuilt and restarted both services, and verified end to end below. See "Real-account verification" for the actual numbers.**
