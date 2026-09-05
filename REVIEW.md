@@ -34,7 +34,7 @@ Added real validation to `firestore.rules` for all four collections the brief na
 
 ### Final state
 
-`main` — see commit hash recorded below once pushed.
+`main` at `1fae112` (pushed).
 
 ---
 
