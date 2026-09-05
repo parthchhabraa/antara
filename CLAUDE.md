@@ -73,3 +73,26 @@ commit.
   from `git log -- REVIEW.md` if needed, not kept as separate files going
   forward except where a review was rescued from being uncommitted, e.g.
   `REVIEW.step13-uncommitted-draft.md`).
+- `infra/umami/` (Brief 5, 2026-09-05) — self-hosted Umami analytics,
+  `docker compose up -d` from this directory (real secrets in `.env` and
+  `.admin_password`, both gitignored, generated fresh on this box — not in
+  this repo, not recoverable from git). Served publicly at
+  `stats.antara.money` via the same Cloudflare named tunnel
+  (`antara-prod`) `app.antara.money`/`api.antara.money` already use — that
+  tunnel's config lives outside this repo entirely, at
+  `~/.cloudflared/config.yml` on draftsmanbrain, and needed a third
+  ingress rule added for this (`antara-tunnel.service` restarted to pick
+  it up). The website id the frontend actually points at
+  (`NEXT_PUBLIC_UMAMI_WEBSITE_ID`) lives in `frontend/.env.local`
+  (gitignored) — see `REVIEW.md`'s Brief 5 entry for the actual value if
+  that file is ever lost and needs recreating.
+- This repo's own checkout on draftsmanbrain lives at
+  `/home/parthchhabra/antara-deploy/antara` (not a fresh clone each
+  session — the same working tree `antara-ml.service`/
+  `antara-frontend.service` actually run from). `firebase deploy` for
+  `firestore.rules` fails on this box's service account (missing
+  `serviceusage.services.get`) — deploy via the Firebase Rules REST API
+  directly instead (create a ruleset, point the `cloud.firestore` release
+  at it), and always read the live ruleset back to confirm rather than
+  trusting the deploy call's own response (see Briefs 2/3/5 in
+  `REVIEW.md` for the exact calls).

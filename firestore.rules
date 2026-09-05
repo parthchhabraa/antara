@@ -397,5 +397,31 @@ service cloud.firestore {
     match /admin/categoryBenchmarks {
       allow read, write: if isSuperAdmin();
     }
+
+    // Brief 5 (2026-09-05): in-app feedback. Owner-create-only, same
+    // "write-only from the client, superadmin reads it back" shape
+    // survey_responses above already uses, but authenticated (not
+    // anonymous) since this is real signed-in accounts reaching for a
+    // profile-screen "send feedback" sheet, not a public survey — the
+    // document is tied to the real uid that wrote it (checked against the
+    // token, not trusted from the body) so a caller can't submit feedback
+    // as someone else. No update/delete from the client at all — a
+    // submitted note is immutable once sent, same posture as
+    // survey_responses' own submissions.
+    function isValidFeedback() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['uid', 'message', 'app_version', 'user_agent', 'submitted_at'])
+        && d.keys().hasOnly(['uid', 'message', 'app_version', 'user_agent', 'submitted_at'])
+        && d.uid == request.auth.uid
+        && d.message is string && d.message.size() > 0 && d.message.size() <= 2000
+        && d.app_version is string && d.app_version.size() <= 40
+        && d.user_agent is string && d.user_agent.size() <= 500
+        && d.submitted_at is string;
+    }
+
+    match /feedback/{feedbackId} {
+      allow create: if isAuthenticated() && isValidFeedback();
+      allow read: if isSuperAdmin();
+    }
   }
 }

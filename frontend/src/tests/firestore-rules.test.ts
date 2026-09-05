@@ -416,4 +416,78 @@ describe("Firestore Security Rules Tests", () => {
       })
     );
   });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Brief 5 (2026-09-05): in-app feedback — owner-create-only,
+  // superadmin-read. Doesn't need a `beta` claim (isAuthenticated() only,
+  // matching backend/app/main.py's own routes that don't gate on the
+  // allowlist — feedback isn't a Live Mode financial write).
+  // ──────────────────────────────────────────────────────────────────────
+
+  test("Authenticated user CAN submit their own feedback", async () => {
+    const aliceDb = testEnv.authenticatedContext("user_alice", { email: "alice@example.com" }).firestore();
+    await assertSucceeds(
+      aliceDb.collection("feedback").add({
+        uid: "user_alice",
+        message: "The Pull screen is confusing on first open.",
+        app_version: "1.5.0",
+        user_agent: "test-agent",
+        submitted_at: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("User CANNOT submit feedback with someone else's uid", async () => {
+    const aliceDb = testEnv.authenticatedContext("user_alice", { email: "alice@example.com" }).firestore();
+    await assertFails(
+      aliceDb.collection("feedback").add({
+        uid: "user_bob", // spoofed — doesn't match request.auth.uid
+        message: "Pretending to be Bob.",
+        app_version: "1.5.0",
+        user_agent: "test-agent",
+        submitted_at: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Feedback message over 2000 characters CANNOT be submitted", async () => {
+    const aliceDb = testEnv.authenticatedContext("user_alice", { email: "alice@example.com" }).firestore();
+    await assertFails(
+      aliceDb.collection("feedback").add({
+        uid: "user_alice",
+        message: "x".repeat(2001),
+        app_version: "1.5.0",
+        user_agent: "test-agent",
+        submitted_at: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Regular user CANNOT read feedback (not even their own)", async () => {
+    const aliceDb = testEnv.authenticatedContext("user_alice", { email: "alice@example.com" }).firestore();
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection("feedback").doc("fb1").set({
+        uid: "user_alice",
+        message: "hi",
+        app_version: "1.5.0",
+        user_agent: "test-agent",
+        submitted_at: new Date().toISOString(),
+      });
+    });
+    await assertFails(aliceDb.collection("feedback").doc("fb1").get());
+  });
+
+  test("Superadmin CAN read feedback", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection("feedback").doc("fb1").set({
+        uid: "user_alice",
+        message: "hi",
+        app_version: "1.5.0",
+        user_agent: "test-agent",
+        submitted_at: new Date().toISOString(),
+      });
+    });
+    const superadminDb = testEnv.authenticatedContext("user_parth", { role: "superadmin" }).firestore();
+    await assertSucceeds(superadminDb.collection("feedback").doc("fb1").get());
+  });
 });

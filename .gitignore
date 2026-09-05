@@ -40,3 +40,8 @@ firestore-debug.log
 ui-debug.log
 firebase-debug.log
 .firebase/
+
+# Brief 5 (2026-09-05): Umami self-hosted analytics secrets — the
+# docker-compose.yml itself is tracked, these generated values are not.
+infra/umami/.env
+infra/umami/.admin_password

@@ -12,6 +12,7 @@ import {
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
 import { saveMonthlyBudget, saveCategoryCap, clearCategoryCap, applyInstanceAllocation, saveLastSeenChangelogVersion, syncBetaClaim } from "./api";
+import { trackEvent } from "./analytics";
 import { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -230,6 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (allowed) {
               if (existed) {
                 setIsDemoMode(false);
+                trackEvent("signed_in");
                 // Step 13: an already-existing real account that's never set
                 // a real budget (a pre-Step-13 profile, or the 0 sentinel —
                 // shouldn't normally happen since confirmConsent below
@@ -246,6 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // between here and confirmConsent()/declineConsent() below.
                 setPendingConsentUser(fbUser);
                 setPendingConsent(true);
+                trackEvent("signed_in");
               }
             } else {
               console.warn(`Beta access blocked for ${fbUser.email}: not on allowlist and public signup is off.`);
@@ -357,6 +360,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsDemoMode(false);
     setPendingConsent(false);
     setPendingConsentUser(null);
+    trackEvent("consented");
     // Step 13: a brand-new non-superadmin profile always starts with the
     // monthly_budget: 0 sentinel (see buildNewProfile) — so this is
     // unconditional here, not another needsBudgetSetup check. AppBootGate

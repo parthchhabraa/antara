@@ -63,12 +63,15 @@ export default function PrivacyPage() {
       <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Your choices</h2>
       <p>
         You can use Demo Mode without ever creating an account or sharing any real data — it's a fully local,
-        made-up dataset. If you have a real account and want your data deleted, email{" "}
+        made-up dataset. If you have a real account, your profile screen has real "Export my data" and "Delete my
+        account" buttons — export gives you a JSON copy of everything the app has on you, and delete permanently
+        removes your profile, transactions, wallets, income, budget instances, friend connections, and badges, then
+        your sign-in itself, with no grace period. You can also email{" "}
         <a href="mailto:parthchhabra6112@gmail.com" className="text-primary-300 underline">
           parthchhabra6112@gmail.com
         </a>{" "}
-        and we'll remove it. This is a small early-stage beta run by one person, not a company with a dedicated
-        privacy team — that email reaches the person who actually operates the app.
+        instead, or with any other question. This is a small early-stage beta run by one person, not a company with
+        a dedicated privacy team — that email reaches the person who actually operates the app.
       </p>
 
       <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Teens &amp; minors</h2>

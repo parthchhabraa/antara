@@ -2,12 +2,14 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Users } from "lucide-react";
 import { MobileFrame } from "@/components/MobileFrame";
 import { PageTransition } from "@/components/PageTransition";
 import { ProfileView } from "@/components/ProfileView";
 import { FriendsSheet } from "@/components/FriendsSheet";
+import { AccountSettingsSection } from "@/components/AccountSettingsSection";
 import { useAuth } from "@/lib/AuthContext";
 
 // Social feature — self-view profile route. Wraps the same ProfileView the
@@ -16,9 +18,26 @@ import { useAuth } from "@/lib/AuthContext";
 // (budget, caps) come from the real signed-in profile — never passed on
 // the friend route.
 export default function ProfilePage() {
-  const { user, profile, isDemoMode } = useAuth();
+  const { user, profile, isDemoMode, isSuperAdmin, signOut } = useAuth();
+  const router = useRouter();
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 3000);
+  };
+
+  // Brief 5 (2026-09-05): the account is already gone server-side by the
+  // time this fires (DeleteAccountSheet only calls it after the backend
+  // delete succeeds) — this just gets the client out of a now-invalid
+  // signed-in state and back to the front door, same as any other
+  // sign-out. No confirmation dialog here; that already happened in the
+  // sheet itself.
+  const handleAccountDeleted = async () => {
+    await signOut();
+    router.push("/");
+  };
 
   return (
     <MobileFrame>
@@ -62,15 +81,21 @@ export default function ProfilePage() {
           <p className="py-16 text-center text-xs text-gray-500">Profiles need a real signed-in account.</p>
         )}
 
+        {/* Brief 5 (2026-09-05): export/feedback/delete — self-only, real
+            signed-in accounts only. Superadmin excluded: the backend
+            itself refuses to delete that one operator account (see
+            main.py), and offering a button that always fails would just
+            be confusing, not a real safeguard. */}
+        {user && !isDemoMode && !isSuperAdmin && (
+          <AccountSettingsSection user={user} onToast={showToast} onAccountDeleted={handleAccountDeleted} />
+        )}
+
         <FriendsSheet
           isOpen={isFriendsOpen}
           onClose={() => setIsFriendsOpen(false)}
           user={user}
           isDemoMode={isDemoMode}
-          onToast={(message) => {
-            setToast(message);
-            window.setTimeout(() => setToast(null), 3000);
-          }}
+          onToast={showToast}
         />
 
         {toast && (

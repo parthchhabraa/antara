@@ -21,7 +21,7 @@ from app.schemas import (
 )
 from app.ml.engine import MLEngine
 from app.ml import survey_etl, llm_features, ollama_client
-from app import social
+from app import social, account
 from app.firebase_admin import (
     initialize_firebase_admin,
     require_superadmin, get_firestore_client, set_beta_claim
@@ -151,6 +151,45 @@ async def sync_claims(current_user: dict = Depends(enforce_general_rate_limit)):
         logger.error("sync_claims: failed to write beta claim for %s: %s", uid, e)
         raise HTTPException(status_code=503, detail="Could not update beta status")
     return {"beta": is_beta}
+
+# Brief 5 (2026-09-05): real account deletion + data export. Both act only
+# on the caller's own uid (from the verified token, never a request-body
+# parameter a client could substitute another account's id into). See
+# app/account.py's own module docstring for why deletion in particular has
+# to be server-side via the Admin SDK — a client-side batch of Firestore
+# deletes could never correctly clean up the reverse side of a mutual
+# friendship, the same reason app/social.py's add/remove-friend is already
+# server-mediated.
+@app.post("/api/v1/account/delete", tags=["Account"])
+async def delete_my_account(current_user: dict = Depends(enforce_general_rate_limit)):
+    """Deletes the caller's own account: every transaction/wallet/income/
+    instance/friend/badge doc, the reverse friend pointer on every real
+    friend's own account, the profile doc, and the Firebase Auth user
+    itself. Irreversible — the frontend is responsible for a real two-step
+    confirm before ever calling this; this endpoint does exactly what it's
+    asked the moment it's asked.
+
+    Superadmin cannot delete itself through this self-service path — this
+    app has exactly one operator account, and self-service deletion isn't
+    the intended path for the one account everything else (including this
+    endpoint's own rate limiting) already treats as a special case.
+    """
+    if current_user.get("role") == "superadmin":
+        raise HTTPException(status_code=403, detail="The superadmin account can't be deleted through this endpoint.")
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable — can't safely delete your account right now")
+    summary = account.delete_account(db, current_user["uid"])
+    return summary
+
+@app.get("/api/v1/account/export", tags=["Account"])
+async def export_my_account(current_user: dict = Depends(enforce_general_rate_limit)):
+    """Everything the caller's own account owns, as one JSON document —
+    the actual content behind the "Export my data" button. Read-only."""
+    db = get_firestore_client()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable — can't export your data right now")
+    return account.export_account_data(db, current_user["uid"])
 
 @app.post("/api/v1/predict/spend", response_model=SpendPredictResponse, tags=["ML Prediction"])
 async def predict_spending(

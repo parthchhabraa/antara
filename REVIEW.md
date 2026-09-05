@@ -1,5 +1,69 @@
 # Antara — session log
 
+## Brief 5 (launch-readiness pack): account deletion, data export, feedback, and analytics
+
+**Status: COMPLETED — all four parts built, deployed live, and verified against real production, including a real two-account friend-deletion test and a live analytics event round-trip.**
+
+### Account deletion (`backend/app/account.py`, new)
+
+`POST /api/v1/account/delete` — server-side via the Admin SDK, not a client-side batch of Firestore deletes, for the same reason `app/social.py`'s add/remove-friend already has to be: a client can only ever write to its own `friends` subcollection, so cleaning up the *other side* of every mutual friendship this account has isn't something a client could do correctly on its own. Deletes every transaction/wallet/income/instance/friend/badge doc, the reverse friend pointer on every real friend's own account, the profile doc, then the Firebase Auth user itself. Superadmin is blocked from self-deleting through this endpoint (403) — this app has exactly one operator account.
+
+Frontend: `DeleteAccountSheet.tsx`, using the same two-tap "arm, then tap again to confirm" idiom `TransactionEditSheet` already established for deletes in this app (not a native `window.confirm()`) — opening the sheet is step one, the arm-then-confirm button is step two, no dark patterns. Reachable from a new self-only "Account" section on the profile screen (`AccountSettingsSection.tsx`), hidden for superadmin (the backend would refuse it anyway; showing a button that always fails isn't a real safeguard).
+
+**Verified with a real throwaway account that has a real friend — the actual point of doing this server-side, not the easy part**: created two real accounts, connected them as real mutual friends via the live `/api/v1/social/friend-token` + `/api/v1/social/add-friend` endpoints (not a direct Firestore write — the real mechanism), gave the first a real transaction/wallet/income/instance, then called the real `/api/v1/account/delete` for it. Independently confirmed afterward, by direct read: the deleted account's profile, every subcollection, and its Auth user are all gone; **the friend's own `friends` subcollection is empty — no dangling entry** (this is the one thing a naive client-side deletion would have gotten wrong); the friend's own account and data are completely untouched. Deleted the second account the same way afterward, confirmed both fully gone (Firebase Auth user count back to 6, exactly what it was before this session's testing).
+
+6 new backend tests (`tests/test_account.py`, an in-memory fake Firestore faithful enough for delete/export's actual usage) plus the live check above — the fake-Firestore tests catch logic bugs fast in CI; the live check is what actually proves the friend-cleanup works against the real mechanism.
+
+### Data export
+
+`GET /api/v1/account/export` — read-only, walks the exact same subcollection list deletion does (kept as one shared list in `account.py` so the two can't quietly drift — a collection missing from one would either leak past a deletion or be missing from an export). Frontend downloads it as a real `.json` file via a `Blob`/`<a download>`, from the same "Account" section. Verified live against the real throwaway account above before deleting it — every real field present, correctly shaped.
+
+### Feedback
+
+A sheet reachable from the same profile section, writing directly to a new `feedback` Firestore collection (owner-create-only, superadmin-read — `firestore.rules`, checked against the token's own uid so a caller can't submit as someone else) rather than a backend endpoint, since there's no server-side logic to run. Includes the message, `CURRENT_APP_VERSION` (`lib/changelog.ts`), and a truncated user agent. Verified live: a real submission via the real production rules succeeded, the same account could not read it back (403), and a superadmin token could.
+
+**Contact address on `/terms` and `/privacy`**: already real and monitored (`parthchhabra6112@gmail.com` — the account operating this box) — checked, not assumed. Updated `/privacy`'s "Your choices" section to actually mention the new self-service export/delete buttons, since it previously only described emailing for deletion.
+
+### Analytics — self-hosted Umami, live at `stats.antara.money`
+
+Umami over Plausible: a single self-hosted container plus Postgres, no separate ClickHouse to run alongside an LLM sharing this box's one GPU. Set up via Docker Compose (`infra/umami/docker-compose.yml`, now tracked in this repo — real secrets in `infra/umami/.env` and `.admin_password`, both gitignored, generated fresh on this box, not recoverable from git). Both containers bound to `127.0.0.1` only — reachable from this box alone, exposed publicly at `stats.antara.money` purely through the existing Cloudflare named tunnel (`antara-prod`), the same posture `antara-frontend.service`/`antara-ml.service` already have. A new DNS record and a third tunnel ingress rule were added for this (`~/.cloudflared/config.yml`, outside this repo — see the new `CLAUDE.md` note); `antara-tunnel.service` restarted to pick it up, confirmed `app.antara.money` and `api.antara.money` still work afterward, not just the new subdomain.
+
+**This required standing up new public infrastructure (a subdomain, a DNS record, a new internet-facing Docker service) — checked in with the user before doing any of it, rather than treating it as an implicit part of "continue."**
+
+First-run setup done via the actual web UI (Playwright — Umami's admin API rejected the documented password-change call with a 405 on this version, so drove the real form instead of guessing at an undocumented API shape): default `admin`/`umami` password changed to a generated one (`infra/umami/.admin_password`), a website entry created for `app.antara.money` (id `553217f3-2fa2-4b26-86e5-dd6826def242`, recorded in `frontend/.env.local` as `NEXT_PUBLIC_UMAMI_WEBSITE_ID` — gitignored, not in this repo; recorded here so it's recoverable if that file is ever lost).
+
+**Aggregate only, by design, not by accident**: no third-party ad-tech SDK — the tracking script is served from this project's own infrastructure, never leaves it. Umami's own event record for a real test hit showed country-level geolocation (`IN`) but no city, no raw IP, no account identifier of any kind — confirmed by reading the actual stored record back via the API, not assumed from Umami's documentation.
+
+**The one funnel, instrumented**: landed → signed in → consented → first transaction logged → returned on day 2 → still logging on day 7.
+- *Landed*: Umami's own automatic pageview tracking — no custom code.
+- *Signed in*: fired in `AuthContext.tsx` the moment a real (non-superadmin) account reaches Live Mode, for both a returning account and a brand-new one still pending consent.
+- *Consented*: fired in `confirmConsent()`.
+- *First transaction logged*: fired in `lib/api.ts`'s `addLiveTransaction` on every real log, not specially detected as "first" client-side — Umami's own Funnels report treats "this event happened at least once for this visitor" as the step being reached, so this is simpler and has the same correct funnel semantics.
+- *Day-2 / day-7 return*: Umami's built-in Retention report, computed from the same anonymous per-browser visitor id every pageview already carries — no extra event needed.
+- Superadmin's own sign-ins are deliberately not tracked, so the one operator's own testing sessions don't pollute the funnel.
+
+New `frontend/src/lib/analytics.ts` — a single `trackEvent()` that no-ops silently on any failure (ad-blocker, ingest down, script not yet loaded) so analytics can never break the app it's measuring, with a comment making explicit that no event here may ever carry an email/uid/amount/category — aggregate product-funnel telemetry only.
+
+**Verified live, not just "should work"**: a real headless browser against the real production domain confirmed `window.umami` loads, the automatic pageview and a manually-fired custom event both reached the real Umami instance (checked via its own API, not the browser's network tab alone) with the right shape and no PII. One real anonymous test pageview/session now exists in Umami's data as a result — harmless (no PII, aggregate-only exactly as designed) and left in place rather than trying to selectively purge one session from an analytics store not built for that.
+
+### Deployed live, all four parts
+
+`firestore.rules` (the `feedback` collection) deployed via the same Rules REST API path as Briefs 2/3, confirmed byte-identical to the repo file by reading it back. Both `antara-ml.service` and `antara-frontend.service` restarted and healthy. Docker enabled at boot and Umami's containers use `restart: unless-stopped`, so both survive a reboot without any extra systemd unit.
+
+### Tests
+
+39/39 backend (33 prior + 6 new in `tests/test_account.py`). 33/33 Firestore-rules-emulator tests (28 prior + 5 new for `feedback`). Frontend `tsc --noEmit` and `npm run build` both clean.
+
+### Cleanup
+
+Both throwaway accounts from the friend-deletion test, and the account used for the live feedback-write check, fully deleted (Firebase Auth user count confirmed back to 6). The one test feedback document removed via the Admin SDK (the only way to remove it at all — the rules correctly forbid any client from deleting feedback). No throwaway data left in Firestore. The one anonymous Umami test session is the only intentional exception to "clean up test data," for the reason stated above.
+
+### Final state
+
+`main` — see commit hash recorded below once pushed.
+
+---
+
 ## Brief 4 (launch-readiness pack): rate limiting, an LLM queue, and a defined degraded mode
 
 **Status: COMPLETED — all three layers built, deployed live, and verified against real production; degraded mode walked end-to-end with antara-ml.service actually stopped (not "should work"), using a real headless browser against a real throwaway account, and one real bug found and fixed along the way.**

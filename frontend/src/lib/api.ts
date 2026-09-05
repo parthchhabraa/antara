@@ -3,6 +3,8 @@ import { collection, addDoc, doc, setDoc, deleteDoc, deleteField, updateDoc, run
 import { Transaction, UserProfile, Wallet, IncomeEntry, Friend, Badge, CategoryComparison } from "@/types";
 import { STARTER_CATEGORIES } from "./constants";
 import { db } from "./firebase";
+import { CURRENT_APP_VERSION } from "./changelog";
+import { trackEvent } from "./analytics";
 
 // Backend base URL for calls that go directly to the ML API rather than
 // through Next.js's own rewrite (next.config.js: /api/v1/:path* ->
@@ -332,6 +334,7 @@ export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id"
   if (!tx.wallet_id) {
     const txCol = collection(db, "users", uid, "transactions");
     await addDoc(txCol, tx);
+    trackEvent("transaction_logged");
     return;
   }
   const txRef = doc(collection(db, "users", uid, "transactions"));
@@ -348,6 +351,12 @@ export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id"
       transaction.update(walletRef, { balance: current - tx.amount });
     }
   });
+  // Brief 5 (2026-09-05): funnel step 4 — fired every real log, not just
+  // the first ever. Umami's own Funnels report treats "this event happened
+  // at least once for this visitor" as the step being reached, so firing
+  // on every log (rather than tracking "is this their first?" client-side)
+  // still gives the right funnel semantics with far less code.
+  trackEvent("transaction_logged");
 }
 
 // Step 13 — delete/edit. Deliberately does NOT touch streak fields: the
@@ -951,6 +960,61 @@ export async function syncBetaClaim(user: FirebaseUser): Promise<void> {
   if (!res.ok) {
     throw new Error(await parseErrorDetail(res));
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Brief 5 (2026-09-05): account deletion + data export. Both call a
+// backend endpoint (see backend/app/account.py) rather than doing this
+// client-side — deletion in particular has to be server-side via the
+// Admin SDK to correctly clean up the reverse side of every mutual
+// friendship this account has (see that module's own docstring for why).
+// ────────────────────────────────────────────────────────────────────────
+
+export async function deleteMyAccount(user: FirebaseUser): Promise<void> {
+  const token = await user.getIdToken();
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/account/delete`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  }, "Couldn't reach the server to delete your account — try again in a moment.");
+  if (!res.ok) {
+    throw new Error(await parseErrorDetail(res));
+  }
+}
+
+/** Downloads everything the signed-in account owns as one JSON object —
+ * the actual data behind the "Export my data" button. Returns the parsed
+ * object; the caller (ProfileSettingsSheet) is responsible for turning it
+ * into an actual file download. */
+export async function exportMyData(user: FirebaseUser): Promise<Record<string, unknown>> {
+  const token = await user.getIdToken();
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/account/export`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  }, "Couldn't reach the server to export your data — try again in a moment.");
+  if (!res.ok) {
+    throw new Error(await parseErrorDetail(res));
+  }
+  return res.json();
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Brief 5 (2026-09-05): in-app feedback. A direct Firestore write (owner-
+// create only, superadmin-read — see firestore.rules), not a backend
+// endpoint: this is a simple append-only write with no server-side logic
+// needed, the same shape survey_responses already uses for a public,
+// unauthenticated version of the same idea.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function submitFeedback(user: FirebaseUser, message: string): Promise<void> {
+  const trimmed = message.trim();
+  if (!trimmed) return;
+  await addDoc(collection(db, "feedback"), {
+    uid: user.uid,
+    message: trimmed.slice(0, 2000),
+    app_version: CURRENT_APP_VERSION,
+    user_agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : "unknown",
+    submitted_at: new Date().toISOString(),
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────
