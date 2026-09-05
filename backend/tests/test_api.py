@@ -1,7 +1,101 @@
 import pytest
 from datetime import datetime, timedelta
+from fastapi.testclient import TestClient
 from app.ml.engine import MLEngine, CATEGORIES_METADATA
 from app.schemas import TransactionItem
+from app.main import app
+from app.firebase_admin import verify_firebase_token
+
+# ────────────────────────────────────────────────────────────────────────
+# Brief 2 (2026-09-04): POST /api/v1/auth/sync-claims — resolves beta-
+# allowlist membership server-side and stamps it onto the caller's own
+# custom claims, so firestore.rules can check a token claim instead of the
+# client reading admin/betaAllowlist directly (see REVIEW.md). These tests
+# exercise the route itself, not real Firebase Auth/Firestore: the auth
+# dependency is overridden (this repo has no fixture for minting real
+# Firebase ID tokens in tests) and get_firestore_client/set_beta_claim are
+# monkeypatched, so this only proves the route's own logic — the actual
+# firestore.rules enforcement of the resulting claim is covered separately
+# by frontend/src/tests/firestore-rules.test.ts against the real emulator.
+# ────────────────────────────────────────────────────────────────────────
+
+client = TestClient(app)
+
+class _FakeSnapshot:
+    def __init__(self, data):
+        self._data = data
+        self.exists = data is not None
+
+    def to_dict(self):
+        return self._data
+
+class _FakeDocRef:
+    def __init__(self, data):
+        self._data = data
+
+    def get(self):
+        return _FakeSnapshot(self._data)
+
+class _FakeCollectionRef:
+    def __init__(self, data):
+        self._data = data
+
+    def document(self, _doc_id):
+        return _FakeDocRef(self._data)
+
+class _FakeFirestoreClient:
+    """Stands in for firestore.client() — only collection("admin")
+    .document("betaAllowlist").get() is exercised by sync_claims."""
+    def __init__(self, allowlist_emails):
+        self._allowlist_emails = allowlist_emails
+
+    def collection(self, name):
+        assert name == "admin"
+        return _FakeCollectionRef({"emails": self._allowlist_emails} if self._allowlist_emails is not None else None)
+
+def _override_auth(uid: str, email: str):
+    def _fake_verify():
+        return {"uid": uid, "email": email}
+    return _fake_verify
+
+def test_sync_claims_grants_beta_for_allowlisted_email(monkeypatch):
+    monkeypatch.setattr("app.main.get_firestore_client", lambda: _FakeFirestoreClient(["Alice@Example.com"]))
+    captured = {}
+    monkeypatch.setattr("app.main.set_beta_claim", lambda uid, is_beta: captured.update(uid=uid, is_beta=is_beta))
+    app.dependency_overrides[verify_firebase_token] = _override_auth("uid_alice", "alice@example.com")
+    try:
+        res = client.post("/api/v1/auth/sync-claims")
+    finally:
+        app.dependency_overrides.pop(verify_firebase_token, None)
+    assert res.status_code == 200
+    assert res.json() == {"beta": True}
+    assert captured == {"uid": "uid_alice", "is_beta": True}
+
+def test_sync_claims_denies_beta_for_non_allowlisted_email(monkeypatch):
+    monkeypatch.setattr("app.main.get_firestore_client", lambda: _FakeFirestoreClient(["someone.else@example.com"]))
+    captured = {}
+    monkeypatch.setattr("app.main.set_beta_claim", lambda uid, is_beta: captured.update(uid=uid, is_beta=is_beta))
+    app.dependency_overrides[verify_firebase_token] = _override_auth("uid_alice", "alice@example.com")
+    try:
+        res = client.post("/api/v1/auth/sync-claims")
+    finally:
+        app.dependency_overrides.pop(verify_firebase_token, None)
+    assert res.status_code == 200
+    assert res.json() == {"beta": False}
+    assert captured == {"uid": "uid_alice", "is_beta": False}
+
+def test_sync_claims_fails_closed_when_firestore_unavailable(monkeypatch):
+    monkeypatch.setattr("app.main.get_firestore_client", lambda: None)
+    captured = {}
+    monkeypatch.setattr("app.main.set_beta_claim", lambda uid, is_beta: captured.update(uid=uid, is_beta=is_beta))
+    app.dependency_overrides[verify_firebase_token] = _override_auth("uid_alice", "alice@example.com")
+    try:
+        res = client.post("/api/v1/auth/sync-claims")
+    finally:
+        app.dependency_overrides.pop(verify_firebase_token, None)
+    assert res.status_code == 200
+    assert res.json() == {"beta": False}
+    assert captured == {"uid": "uid_alice", "is_beta": False}
 
 def test_ml_cold_start_heuristic_mode():
     # User with only 2 days of transactions (less than 14 days threshold)

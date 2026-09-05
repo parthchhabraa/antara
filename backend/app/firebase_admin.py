@@ -65,3 +65,28 @@ def require_superadmin(user: Dict[str, Any] = Depends(verify_firebase_token)) ->
     if user.get("role") != "superadmin":
         raise HTTPException(status_code=403, detail="Superadmin privilege required")
     return user
+
+def set_beta_claim(uid: str, is_beta: bool) -> None:
+    """Stamps (or clears) the `beta` custom claim on a real Firebase Auth
+    user record. This is the server-side half of closing the beta-allowlist
+    leak: firestore.rules used to let any authenticated user read
+    admin/betaAllowlist (a flat array of every beta tester's email) just so
+    the client could check its own membership; now the client's membership
+    is resolved here, server-side, via the Admin SDK, and stamped onto the
+    token instead — the rule can then check `request.auth.token.beta`
+    (free) rather than reading that document at all.
+
+    Preserves whatever other custom claims already exist on the account
+    (e.g. `role: "superadmin"`, set out-of-band today — nothing in this
+    codebase calls set_custom_user_claims yet besides this function) rather
+    than clobbering them. No-ops if the claim already matches, so a normal
+    sign-in that's already synced doesn't cost an extra Admin SDK write
+    every time.
+    """
+    initialize_firebase_admin()
+    user_record = auth.get_user(uid)
+    existing_claims = dict(user_record.custom_claims or {})
+    if existing_claims.get("beta") == is_beta:
+        return
+    existing_claims["beta"] = is_beta
+    auth.set_custom_user_claims(uid, existing_claims)

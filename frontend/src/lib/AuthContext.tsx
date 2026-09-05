@@ -11,7 +11,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { saveMonthlyBudget, saveCategoryCap, clearCategoryCap, applyInstanceAllocation, saveLastSeenChangelogVersion } from "./api";
+import { saveMonthlyBudget, saveCategoryCap, clearCategoryCap, applyInstanceAllocation, saveLastSeenChangelogVersion, syncBetaClaim } from "./api";
 import { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -90,25 +90,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pendingConsentUser, setPendingConsentUser] = useState<FirebaseUser | null>(null);
   const [pendingBudgetSetup, setPendingBudgetSetup] = useState<boolean>(false);
 
-  const checkAllowlist = async (email: string | null): Promise<boolean> => {
-    if (!email) return false;
+  // Brief 2 (2026-09-04): used to read admin/betaAllowlist (a flat array of
+  // every beta tester's email) directly from the client to check
+  // membership — which required that document be world-readable-by-any-
+  // authenticated-user, leaking the whole list. Membership is now resolved
+  // server-side (POST /api/v1/auth/sync-claims, Admin SDK) and stamped onto
+  // this account's own custom claims; this just triggers that sync and
+  // reads the result back off a freshly-refreshed ID token. Runs on every
+  // sign-in/page load (see the onAuthStateChanged handler below), which is
+  // also what re-grants access to an already-allowlisted account on its
+  // next sign-in with no superadmin action needed, and what would revoke a
+  // removed account's access the next time they open the app.
+  //
+  // Fails toward "keep whatever this session already had": if the backend
+  // sync call fails (e.g. draftsmanbrain/the API is briefly down), the
+  // forced token refresh still succeeds against Firebase's own token
+  // endpoint (a different, far-more-available service) and returns
+  // whatever claim was last durably set — so a already-approved account
+  // doesn't get bounced by a backend blip, while an account that has never
+  // successfully synced still fails closed (no claim = not beta).
+  const checkBetaClaim = async (fbUser: FirebaseUser): Promise<boolean> => {
     try {
-      const allowlistRef = doc(db, "admin", "betaAllowlist");
-      const snap = await getDoc(allowlistRef);
-      if (!snap.exists()) return false;
-      const emails: string[] = (snap.data().emails as string[]) || [];
-      return emails.some((e) => e?.toLowerCase() === email.toLowerCase());
+      await syncBetaClaim(fbUser);
     } catch (e) {
-      console.warn("Beta allowlist check failed:", e);
-      return false;
+      console.warn("Beta claim sync failed (backend unreachable?) — falling back to last-known claim:", e);
+    }
+    try {
+      const tokenResult = await fbUser.getIdTokenResult(true);
+      return tokenResult.claims.beta === true;
+    } catch (e) {
+      console.warn("ID token refresh failed, falling back to cached claims:", e);
+      try {
+        const cached = await fbUser.getIdTokenResult(false);
+        return cached.claims.beta === true;
+      } catch {
+        return false;
+      }
     }
   };
 
-  // Step 12: public-launch toggle. Doesn't replace checkAllowlist above —
+  // Step 12: public-launch toggle. Doesn't replace checkBetaClaim above —
   // it's an independent, additional path in, superadmin-controlled via
   // admin/launchConfig (see SuperadminPanel.tsx's PublicSignupToggle).
   // Fails closed on any error or a missing doc, same posture as
-  // checkAllowlist: an unreadable config should never accidentally open
+  // checkBetaClaim: an unreadable config should never accidentally open
   // signup, only ever accidentally keep it closed.
   const checkPublicSignupEnabled = async (): Promise<boolean> => {
     try {
@@ -196,11 +221,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!existed) await createProfile(fbUser, true);
             setIsDemoMode(false);
           } else {
-            // Step 12: two independent paths to Live Mode — the existing
-            // allowlist (unchanged) and the new public-signup toggle. Either
-            // one is enough; neither is required if the other passes.
+            // Step 12: two independent paths to Live Mode — the allowlist
+            // (now claim-based, Brief 2) and the public-signup toggle.
+            // Either one is enough; neither is required if the other
+            // passes.
             const publicOpen = await checkPublicSignupEnabled();
-            const allowed = publicOpen || (await checkAllowlist(fbUser.email));
+            const allowed = publicOpen || (await checkBetaClaim(fbUser));
             if (allowed) {
               if (existed) {
                 setIsDemoMode(false);

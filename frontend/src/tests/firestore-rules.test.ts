@@ -49,7 +49,12 @@ describe("Firestore Security Rules Tests", () => {
 
   // Seeds admin/betaAllowlist bypassing rules, mirroring how the superadmin
   // panel actually writes it (both the flat `emails` array rules check against,
-  // and the richer `entries` array the UI displays).
+  // and the richer `entries` array the UI displays). Brief 2 (2026-09-04):
+  // the rules no longer read this document to gate transaction writes (see
+  // isBetaAllowlisted() in firestore.rules — it's a `request.auth.token.beta`
+  // check now, resolved server-side by POST /api/v1/auth/sync-claims), so
+  // this helper is only still relevant for the admin/betaAllowlist
+  // read/write-permission tests further down, not the gating tests.
   async function seedAllowlist(emails: string[]) {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await context
@@ -79,10 +84,14 @@ describe("Firestore Security Rules Tests", () => {
     );
   });
 
-  test("Allowlisted user Alice CAN read and write her own transactions", async () => {
-    await seedAllowlist(["alice@example.com"]);
+  // Brief 2 (2026-09-04): isBetaAllowlisted() is now a `request.auth.token.beta`
+  // check, not a Firestore read — so these gating tests set the `beta` custom
+  // claim directly on the test context instead of seeding admin/betaAllowlist
+  // (that document's own read/write permissions are tested separately below).
+
+  test("User with a `beta: true` custom claim CAN read and write her own transactions", async () => {
     const aliceDb = testEnv
-      .authenticatedContext("user_alice", { email: "alice@example.com" })
+      .authenticatedContext("user_alice", { email: "alice@example.com", beta: true })
       .firestore();
     const aliceTx = aliceDb.doc("users/user_alice/transactions/tx_1");
     await assertSucceeds(
@@ -96,8 +105,23 @@ describe("Firestore Security Rules Tests", () => {
     await assertSucceeds(aliceTx.get());
   });
 
-  test("Authenticated but NON-allowlisted user CANNOT write her own transactions", async () => {
-    await seedAllowlist(["someone.else@example.com"]);
+  test("Authenticated user with `beta: false` CANNOT write her own transactions", async () => {
+    const aliceDb = testEnv
+      .authenticatedContext("user_alice", { email: "alice@example.com", beta: false })
+      .firestore();
+    const aliceTx = aliceDb.doc("users/user_alice/transactions/tx_1");
+    await assertFails(
+      aliceTx.set({
+        amount: 250,
+        category: "food-snacks",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Authenticated user with no `beta` claim at all CANNOT write transactions", async () => {
+    // No beta claim in the context at all — the pre-sync-claims state for a
+    // brand-new account, or an account whose claim sync has never run.
     const aliceDb = testEnv
       .authenticatedContext("user_alice", { email: "alice@example.com" })
       .firestore();
@@ -111,23 +135,7 @@ describe("Firestore Security Rules Tests", () => {
     );
   });
 
-  test("Authenticated user with no betaAllowlist doc at all CANNOT write transactions", async () => {
-    // No seedAllowlist() call - admin/betaAllowlist doesn't exist yet.
-    const aliceDb = testEnv
-      .authenticatedContext("user_alice", { email: "alice@example.com" })
-      .firestore();
-    const aliceTx = aliceDb.doc("users/user_alice/transactions/tx_1");
-    await assertFails(
-      aliceTx.set({
-        amount: 250,
-        category: "food-snacks",
-        timestamp: new Date().toISOString(),
-      })
-    );
-  });
-
-  test("Superadmin CAN write to any user's transactions even when not on the allowlist", async () => {
-    await seedAllowlist(["someone.else@example.com"]);
+  test("Superadmin CAN write to any user's transactions even without a `beta` claim", async () => {
     const superadminDb = testEnv
       .authenticatedContext("user_parth", { email: "parthchhabra6112@gmail.com", role: "superadmin" })
       .firestore();
@@ -141,10 +149,9 @@ describe("Firestore Security Rules Tests", () => {
     );
   });
 
-  test("User Bob CANNOT read or write Alice's transactions", async () => {
-    await seedAllowlist(["bob@example.com", "alice@example.com"]);
+  test("User Bob CANNOT read or write Alice's transactions, even with `beta: true`", async () => {
     const bobDb = testEnv
-      .authenticatedContext("user_bob", { email: "bob@example.com" })
+      .authenticatedContext("user_bob", { email: "bob@example.com", beta: true })
       .firestore();
     const aliceTx = bobDb.doc("users/user_alice/transactions/tx_1");
     await assertFails(aliceTx.get());
@@ -202,5 +209,26 @@ describe("Firestore Security Rules Tests", () => {
         emails: ["parthchhabra6112@gmail.com", "beta.tester@antara.app"],
       })
     );
+  });
+
+  // Brief 2 (2026-09-04) — the actual leak this brief closes: this document
+  // holds a flat array of every beta tester's email address, and used to be
+  // `allow read: if isAuthenticated()`. Any signed-in account, allowlisted
+  // or not (including a brand-new public signup), could read the whole
+  // list straight out of the browser console. Now superadmin-only.
+  test("Regular authenticated user (even with a `beta: true` claim) CANNOT read admin/betaAllowlist", async () => {
+    await seedAllowlist(["alice@example.com", "some.other.teen@example.com"]);
+    const aliceDb = testEnv
+      .authenticatedContext("user_alice", { email: "alice@example.com", beta: true })
+      .firestore();
+    await assertFails(aliceDb.doc("admin/betaAllowlist").get());
+  });
+
+  test("Superadmin CAN read admin/betaAllowlist", async () => {
+    await seedAllowlist(["alice@example.com"]);
+    const superadminDb = testEnv
+      .authenticatedContext("user_parth", { email: "parthchhabra6112@gmail.com", role: "superadmin" })
+      .firestore();
+    await assertSucceeds(superadminDb.doc("admin/betaAllowlist").get());
   });
 });

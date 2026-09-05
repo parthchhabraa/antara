@@ -888,6 +888,29 @@ export async function saveLastSeenChangelogVersion(uid: string, version: string)
 }
 
 // ────────────────────────────────────────────────────────────────────────
+// Brief 2 (2026-09-04): beta-allowlist membership check, server-side.
+// admin/betaAllowlist used to be readable by any authenticated user so
+// AuthContext could check membership itself with a plain Firestore read —
+// which also meant handing every beta tester's email address to every
+// other signed-in account. This calls the backend instead (Admin SDK,
+// server-side only) to resolve membership and stamp it onto the caller's
+// own custom claims; the caller still has to force a token refresh
+// afterwards (see AuthContext's checkBetaClaim) to see the claim take
+// effect — this function only triggers the write.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function syncBetaClaim(user: FirebaseUser): Promise<void> {
+  const token = await user.getIdToken();
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/sync-claims`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error(`sync-claims failed: ${res.status}`);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────
 // "Instances" — named, savable budget-allocation profiles. A user pins
 // exact amounts to whichever categories they choose; POST
 // /api/v1/ml/allocate-budget (backend/app/ml/engine.py's allocate_budget)

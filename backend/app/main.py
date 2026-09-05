@@ -1,9 +1,12 @@
 import os
+import logging
 import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+
+logger = logging.getLogger("antara.auth")
 
 from app.schemas import (
     SpendPredictRequest, SpendPredictResponse,
@@ -21,7 +24,7 @@ from app.ml import survey_etl, llm_features, ollama_client
 from app import social
 from app.firebase_admin import (
     initialize_firebase_admin, verify_firebase_token,
-    require_superadmin, get_firestore_client
+    require_superadmin, get_firestore_client, set_beta_claim
 )
 
 app = FastAPI(
@@ -99,6 +102,54 @@ async def health_check():
         version="1.0.0",
         timestamp=datetime.utcnow()
     )
+
+# Brief 2 (2026-09-04): closes the beta-allowlist email leak. admin/betaAllowlist
+# used to be readable by any authenticated user purely so the client could
+# check its own membership — which also meant it handed every beta tester's
+# email address to every other signed-in account, including the very first
+# stranger public signup would let in. Allowlist membership is now resolved
+# here instead, server-side via the Admin SDK, and stamped onto the caller's
+# own Firebase Auth custom claims (`beta: true/false`) — firestore.rules'
+# isBetaAllowlisted() then checks request.auth.token.beta directly, which is
+# both unreadable-by-the-client and free (no per-write Firestore get()).
+@app.post("/api/v1/auth/sync-claims", tags=["Auth"])
+async def sync_claims(current_user: dict = Depends(verify_firebase_token)):
+    """
+    Called by AuthContext on every sign-in / page load for a real,
+    non-superadmin account. Resolves the caller's own beta-allowlist
+    membership (by email, case-insensitive) against admin/betaAllowlist and
+    writes the result onto their own uid's custom claims — a caller can
+    only ever affect their own claims here (verify_firebase_token already
+    ties `current_user` to the token's own uid; there's no user_id
+    parameter to spoof).
+
+    Fails closed: if Firestore is unreachable or the caller has no email,
+    `beta` is stamped `false` rather than left stale/true. The client must
+    force a token refresh (getIdTokenResult(true)) after calling this for
+    the new claim to actually be visible — this endpoint only changes what
+    the *next* minted token will contain.
+    """
+    uid = current_user["uid"]
+    email = (current_user.get("email") or "").strip().lower()
+    is_beta = False
+    if email:
+        db = get_firestore_client()
+        if db is None:
+            logger.warning("sync_claims: Firestore unavailable, failing closed for %s", uid)
+        else:
+            try:
+                snap = db.collection("admin").document("betaAllowlist").get()
+                if snap.exists:
+                    emails = (snap.to_dict() or {}).get("emails", []) or []
+                    is_beta = any((e or "").strip().lower() == email for e in emails)
+            except Exception as e:
+                logger.warning("sync_claims: allowlist read failed for %s: %s", uid, e)
+    try:
+        set_beta_claim(uid, is_beta)
+    except Exception as e:
+        logger.error("sync_claims: failed to write beta claim for %s: %s", uid, e)
+        raise HTTPException(status_code=503, detail="Could not update beta status")
+    return {"beta": is_beta}
 
 @app.post("/api/v1/predict/spend", response_model=SpendPredictResponse, tags=["ML Prediction"])
 async def predict_spending(

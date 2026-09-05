@@ -31,13 +31,21 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/users/$(ownerUserId)/friends/$(request.auth.uid));
     }
 
-    // Beta allowlist check: admin/betaAllowlist keeps a flat `emails` array
-    // (kept in sync with the detailed `entries` array by the client) so this
-    // stays a cheap membership check instead of iterating entry maps.
+    // Beta allowlist check — Brief 2 (2026-09-04): this used to do a
+    // get() on admin/betaAllowlist directly (billed on every single
+    // transaction write, and rules cap out at 10 get()s/request) and
+    // required that document be readable by any authenticated user so the
+    // client could run the equivalent check itself — which also handed
+    // every beta tester's email address to every other signed-in account,
+    // including the very first stranger public signup would let in.
+    // Membership is now resolved server-side instead (POST
+    // /api/v1/auth/sync-claims, via the Admin SDK) and stamped onto the
+    // caller's own ID token as a custom claim at sign-in; this is now a
+    // free token check, and admin/betaAllowlist's own read rule below is
+    // superadmin-only. isPublicSignupEnabled() below still does a get() —
+    // deliberately left as-is for now (see its own comment).
     function isBetaAllowlisted() {
-      return isAuthenticated() &&
-        exists(/databases/$(database)/documents/admin/betaAllowlist) &&
-        request.auth.token.email in get(/databases/$(database)/documents/admin/betaAllowlist).data.emails;
+      return isAuthenticated() && request.auth.token.beta == true;
     }
 
     // Step 12: public-launch toggle. Defaults closed (missing doc, or the
@@ -47,6 +55,16 @@ service cloud.firestore {
     // also passing this (or isBetaAllowlisted()) still can't write real
     // transactions; the two gates are independent and this one can't be
     // bypassed by editing client code.
+    // Cost note (Brief 2, 2026-09-04): still a get() per write, unlike
+    // isBetaAllowlisted() above. Left as-is deliberately for this brief —
+    // admin/launchConfig's read rule has to stay open to any authenticated
+    // user anyway (a brand-new, possibly not-yet-allowlisted sign-in needs
+    // to read it to find out whether public signup is even on), so there's
+    // no matching leak to close here the way there was for betaAllowlist,
+    // and folding this into a custom claim too would mean re-syncing every
+    // signed-in user's claims the moment a superadmin flips the toggle,
+    // which a claim (only refreshed at sign-in) can't do live. Revisit if
+    // this get() actually shows up in cost, not preemptively.
     function isPublicSignupEnabled() {
       return exists(/databases/$(database)/documents/admin/launchConfig) &&
         get(/databases/$(database)/documents/admin/launchConfig).data.publicSignupEnabled == true;
@@ -147,9 +165,14 @@ service cloud.firestore {
       allow write: if isSuperAdmin(); // Server writes via Admin SDK (bypasses rules) or superadmin token
     }
 
-    // Admin Beta Allowlist
+    // Admin Beta Allowlist — Brief 2 (2026-09-04): was `if isAuthenticated()`,
+    // meaning any signed-in account (including a brand-new public signup)
+    // could read this document straight out of the browser console and get
+    // every beta tester's email address in one call. The client no longer
+    // needs to read this at all (see isBetaAllowlisted() above), so this is
+    // now superadmin-only in both directions.
     match /admin/betaAllowlist {
-      allow read: if isAuthenticated();
+      allow read: if isSuperAdmin();
       allow write: if isSuperAdmin();
     }
 

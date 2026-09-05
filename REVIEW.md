@@ -1,5 +1,44 @@
 # Antara — session log
 
+## Brief 2 (launch-readiness pack): close the beta-allowlist email leak
+
+**Status: COMPLETED — fixed, tested, deployed live (backend + firestore.rules + frontend), and verified end to end against real production with two throwaway accounts. Also surfaced an unrelated but urgent live-production finding — see "Found along the way" below.**
+
+`admin/betaAllowlist` (a flat array of every beta tester's email address) had `allow read: if isAuthenticated()` — any signed-in account, allowlisted or not, could read the whole list from the browser console. Fixed per the brief's three-part shape:
+
+1. **New backend endpoint, `POST /api/v1/auth/sync-claims`** (`backend/app/main.py`, `backend/app/firebase_admin.py`'s new `set_beta_claim`). Resolves the caller's own beta-allowlist membership server-side via the Admin SDK and stamps it onto their own Firebase Auth custom claims (`beta: true/false`) — preserves any other existing claims (`role: superadmin`), fails closed (Firestore unreachable → `beta: false`, never stale-true), no-ops if the claim already matches. A caller can only ever affect their own uid (tied to the verified token).
+2. **`firestore.rules`**: `isBetaAllowlisted()` is now `request.auth.token.beta == true` — free, no `get()`, unreadable by the client. `admin/betaAllowlist`'s read rule is now `isSuperAdmin()`-only. `isPublicSignupEnabled()` deliberately left as a `get()` for now, per the brief, with a comment explaining why (its read rule has to stay open to any authenticated user regardless, so there's no matching leak to close, and a claim can't react to a superadmin flipping that toggle live).
+3. **`frontend/src/lib/AuthContext.tsx`**: `checkAllowlist`'s direct Firestore read is replaced by `checkBetaClaim`, which calls the new endpoint then force-refreshes the ID token (`getIdTokenResult(true)`) to read the claim back. Runs on every sign-in/page load (existing `onAuthStateChanged` handler), which is also what re-syncs an already-approved account's claim with no superadmin action needed, and what would revoke a removed account's access the next time they open the app. If the backend call itself fails, the forced token refresh still succeeds against Firebase's own token endpoint (different, more available service) and returns whatever claim was last durably set — an already-approved account isn't bounced by a backend blip; an account that's never successfully synced still fails closed.
+
+### Tests
+
+- `backend/tests/test_api.py`: 3 new tests for `sync_claims` (grants for an allowlisted email, denies for a non-allowlisted one, fails closed when Firestore is unreachable), using `TestClient` + `dependency_overrides` + monkeypatched Firestore/claims calls — no real Firebase touched. Full suite: **23/23 pass**.
+- `frontend/src/tests/firestore-rules.test.ts`: rewrote the allowlist-gating tests to set `beta` claims directly on the emulator's `authenticatedContext` (matching the new rule shape) instead of seeding the Firestore doc, and added the two tests that actually cover this brief's finding — a regular authenticated user (even with `beta: true`) cannot read `admin/betaAllowlist`; a superadmin can. Full suite against the local emulator: **12/12 pass**.
+- `npx tsc --noEmit` and `npm run build`: both clean (13/13 static pages).
+
+### Deployed and verified live, not just committed
+
+- Restarted `antara-ml.service` (new endpoint) and `antara-frontend.service` (rebuilt) on `draftsmanbrain`; both `active`, `/health` and `app.antara.money` both 200; confirmed the new route exists (`POST /api/v1/auth/sync-claims` → 401 without a token, not 404).
+- **Deployed `firestore.rules` live** via the Firebase Rules REST API directly (`firebase deploy` itself failed — the service account lacks the `serviceusage.services.get` permission firebase-tools' preflight check wants; used `firebaserules.googleapis.com` — create a ruleset, then point the `cloud.firestore` release at it — which only needs the Firebase Rules API permissions the service account already has). Independently confirmed the live ruleset, not just the API's echo: fetched the deployed ruleset's actual content back and diffed it byte-for-byte against the repo's `firestore.rules` — identical.
+- **Real end-to-end verification against live production**, per the brief's explicit ask, with two throwaway Firebase Auth accounts (`antara.e2e.brief2.allowlisted@example.com`, `...notallowlisted@...`), not just the emulator:
+  - Added the first to the live `admin/betaAllowlist`, called the live `sync-claims` endpoint for both: got back `{"beta": true}` and `{"beta": false}` respectively, exactly as expected.
+  - Confirmed via a direct Admin SDK read that the custom claims actually landed on the real Auth records (`{'beta': True}` / `{'beta': False}`), not just in the HTTP response.
+  - Re-minted ID tokens carrying the fresh claims and hit the live Firestore REST API directly: the `beta:true` account's own transaction write succeeded, the `beta:false` account's failed with `403 PERMISSION_DENIED` — isolated from `admin/launchConfig.publicSignupEnabled` (see below) by toggling it off for the duration of this specific check, then restoring it.
+  - Both throwaway accounts got `403 PERMISSION_DENIED` reading `admin/betaAllowlist` directly — the actual leak, confirmed closed against live rules, not just the emulator.
+- **Cleanup**: both throwaway accounts, their profile docs, and their transaction docs deleted; the temporary allowlist entry removed and the live `emails` array confirmed (by direct read) to match the original 5 exactly; `admin/launchConfig.publicSignupEnabled` restored to its original value and confirmed. No test data left behind.
+
+### Found along the way — flagging, not fixing, this session
+
+**`admin/launchConfig.publicSignupEnabled` is currently `true` in live production right now.** Public signup is already open — any signed-in Google account can already write real transactions today, independent of the beta allowlist entirely (the two gates are an OR, by design). This surfaced because the second throwaway account's transaction write unexpectedly succeeded despite having `beta: false`; tracing it back, `isPublicSignupEnabled()` alone was already letting it through.
+
+This wasn't broken by this session and wasn't touched — restored to exactly `true` after the isolated test above. But it means the ordering assumption underneath this whole launch-readiness brief pack — "P0 items 1/3/4/5/8/9 gate flipping the toggle" — no longer holds: **the toggle is already flipped.** None of Firebase App Check (P0-1), Firestore field validation (P0-3), or backend rate limiting (P0-5) exist yet. Whether this was intentional (e.g. testing your own account's Live Mode tonight, which lines up with the fresh transactions on your account noted in the Brief 1 entry above) or left on from earlier testing, it's worth a direct, immediate decision: leave it on knowing the gap, or flip it back off until Briefs 3–5 land. Not something to decide silently on your behalf.
+
+### Final state
+
+`main` — this session's commit not yet pushed at the time this entry was written; see the commit hash noted alongside it below. Deployed checkout on `draftsmanbrain` matches. Live `firestore.rules` confirmed byte-identical to the repo file. `admin/launchConfig.publicSignupEnabled` unchanged at `true` (flagged above, not altered as a fix).
+
+---
+
 ## Brief 1 (launch-readiness pack): verify production actually matches main
 
 **Status: COMPLETED — production was already caught up. No deploy gap existed by the time this session ran; this is a confirmation, not a re-fix.**
