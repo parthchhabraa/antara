@@ -4,6 +4,7 @@ import {
   initializeTestEnvironment,
   RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
+import { Timestamp } from "firebase/firestore";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -230,5 +231,189 @@ describe("Firestore Security Rules Tests", () => {
       .authenticatedContext("user_parth", { email: "parthchhabra6112@gmail.com", role: "superadmin" })
       .firestore();
     await assertSucceeds(superadminDb.doc("admin/betaAllowlist").get());
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Brief 3 (2026-09-05): field validation. Before this, ownership + the
+  // beta claim/public-signup gate was the only check on a write — a
+  // `beta: true` account could otherwise write literally any document
+  // shape into its own transactions/wallets/income/instances. Every case
+  // below uses a `beta: true` context specifically to prove the rejection
+  // comes from isValidTransaction()/etc., not from the allowlist gate.
+  // ──────────────────────────────────────────────────────────────────────
+
+  const aliceBetaDb = () =>
+    testEnv.authenticatedContext("user_alice", { email: "alice@example.com", beta: true }).firestore();
+
+  test("A valid transaction with every optional field set CAN be written", async () => {
+    await assertSucceeds(
+      aliceBetaDb().doc("users/user_alice/transactions/tx_valid").set({
+        amount: 250,
+        category: "food-snacks",
+        subcategory: "Swiggy/Zomato",
+        note: "Lunch",
+        timestamp: new Date().toISOString(),
+        source: "upi",
+        wallet_id: "wallet_1",
+      })
+    );
+  });
+
+  test("Transaction with a negative amount CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/transactions/tx_bad").set({
+        amount: -250,
+        category: "food-snacks",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Transaction with amount over the ₹10,00,000 cap CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/transactions/tx_bad").set({
+        amount: 1e8,
+        category: "food-snacks",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Transaction with an unknown category id CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/transactions/tx_bad").set({
+        amount: 250,
+        category: "not-a-real-category",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Transaction with a note over 280 characters CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/transactions/tx_bad").set({
+        amount: 250,
+        category: "food-snacks",
+        note: "x".repeat(281),
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Transaction with an undeclared extra field CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/transactions/tx_bad").set({
+        amount: 250,
+        category: "food-snacks",
+        timestamp: new Date().toISOString(),
+        is_admin: true, // not a real Transaction field
+      })
+    );
+  });
+
+  test("Transaction with a native Timestamp more than 24h in the future CANNOT be written", async () => {
+    const farFuture = Timestamp.fromMillis(Date.now() + 48 * 60 * 60 * 1000);
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/transactions/tx_bad").set({
+        amount: 250,
+        category: "food-snacks",
+        timestamp: farFuture,
+      })
+    );
+  });
+
+  test("Transaction with a native Timestamp within 24h of now CAN be written", async () => {
+    const soon = Timestamp.fromMillis(Date.now() + 12 * 60 * 60 * 1000);
+    await assertSucceeds(
+      aliceBetaDb().doc("users/user_alice/transactions/tx_ok_future").set({
+        amount: 250,
+        category: "food-snacks",
+        timestamp: soon,
+      })
+    );
+  });
+
+  test("Deleting a transaction still works (no isValidTransaction() shape check on delete)", async () => {
+    const db = aliceBetaDb();
+    const ref = db.doc("users/user_alice/transactions/tx_to_delete");
+    await assertSucceeds(
+      ref.set({ amount: 100, category: "food-snacks", timestamp: new Date().toISOString() })
+    );
+    await assertSucceeds(ref.delete());
+  });
+
+  test("Wallet with a name over 60 characters CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/wallets/w1").set({
+        name: "x".repeat(61),
+        balance: 0,
+        created_at: new Date().toISOString(),
+        archived: false,
+      })
+    );
+  });
+
+  test("Wallet balance CAN be negative (unlike a transaction amount)", async () => {
+    await assertSucceeds(
+      aliceBetaDb().doc("users/user_alice/wallets/w1").set({
+        name: "Cash",
+        balance: -500,
+        created_at: new Date().toISOString(),
+        archived: false,
+      })
+    );
+  });
+
+  test("Wallet balance beyond the magnitude cap CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/wallets/w1").set({
+        name: "Cash",
+        balance: -2_000_000,
+        created_at: new Date().toISOString(),
+        archived: false,
+      })
+    );
+  });
+
+  test("Income entry missing the required wallet_id CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/income/i1").set({
+        amount: 500,
+        timestamp: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Valid income entry CAN be written", async () => {
+    await assertSucceeds(
+      aliceBetaDb().doc("users/user_alice/income/i1").set({
+        amount: 500,
+        source: "allowance",
+        timestamp: new Date().toISOString(),
+        wallet_id: "wallet_1",
+      })
+    );
+  });
+
+  test("Instance with an unknown category id in `pinned` CANNOT be written", async () => {
+    await assertFails(
+      aliceBetaDb().doc("users/user_alice/instances/inst1").set({
+        name: "My split",
+        pinned: { "not-a-real-category": 500 },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("Valid instance CAN be written", async () => {
+    await assertSucceeds(
+      aliceBetaDb().doc("users/user_alice/instances/inst1").set({
+        name: "My split",
+        pinned: { "food-snacks": 1000, fitness: 500 },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+    );
   });
 });

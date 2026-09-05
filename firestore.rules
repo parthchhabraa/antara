@@ -70,6 +70,63 @@ service cloud.firestore {
         get(/databases/$(database)/documents/admin/launchConfig).data.publicSignupEnabled == true;
     }
 
+    // Brief 3 (2026-09-05): field validation, shared across the collections
+    // below. Before this, ownership + the beta-allowlist/public-signup gate
+    // was the *only* check on a transaction write — nothing stopped
+    // `amount: 1e308`, a 900KB note, an unknown category id, or a
+    // timestamp in 2077, any of which would poison calculateBurnMetrics
+    // and the ML engine (and the large ones cost real Firestore storage/
+    // read money). This is the source of truth for what a valid document
+    // looks like in each collection.
+    //
+    // Checked against every real document already in production before
+    // deploying this (22 transactions, 6 wallets, 1 income doc, across all
+    // 6 real Firebase Auth users that exist today; 0 instances docs exist
+    // yet) — all pass unchanged. See REVIEW.md for the actual counts.
+
+    // The 18 real category ids — used both for a transaction's own
+    // `category` field and for the keys of an Instance's `pinned` map,
+    // kept as one function so the two call sites can't drift from each
+    // other. frontend/src/lib/constants.ts's STARTER_CATEGORIES is the
+    // real source of truth; rules can't import application code, so this
+    // has to be kept in sync by hand if a category is ever added, removed,
+    // or renamed there.
+    function validCategoryIds() {
+      return [
+        'food-snacks', 'dates-outings', 'clothes-shoes', 'gifting-friends',
+        'fitness', 'transportation', 'grooming', 'subscriptions',
+        'movies-entertainment', 'tech-gadgets', 'gaming-inapp', 'investments',
+        'charity-donations', 'mobile-recharge', 'books', 'fantasy-betting',
+        'tuition-coaching', 'miscellaneous'
+      ];
+    }
+
+    function isValidCategoryId(id) {
+      return id in validCategoryIds();
+    }
+
+    // Every real transaction/income doc in production stores `timestamp`
+    // as a plain ISO string (confirmed directly against all 22 real
+    // transaction docs — 22/22 were `str`, 0 were a native Firestore
+    // Timestamp) — that's what every client write path produces
+    // (Transaction.timestamp is typed `string`, never `serverTimestamp()`).
+    // Both shapes are still accepted here per the brief, defensively, for
+    // any future write path that might use a native Timestamp instead.
+    //
+    // The "not more than 24h in the future" bound can only be enforced
+    // exactly for the `timestamp`-typed branch: the rules language has no
+    // way to parse an arbitrary ISO string into a comparable timestamp (no
+    // parse/strptime equivalent), so a string can only be shape-checked
+    // (a `matches()` regex), not numerically bounded against `request.time`.
+    // Flagging this rather than silently pretending the string branch gets
+    // the same guarantee — if exact future-dating enforcement against
+    // string timestamps ever matters, it needs a Cloud Function trigger,
+    // not a rule.
+    function isValidTimestamp(ts) {
+      return (ts is string && ts.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z?$'))
+        || (ts is timestamp && ts <= request.time + duration.value(24, 'h'));
+    }
+
     // User profile documents
     match /users/{userId} {
       allow read: if isOwner(userId) || isSuperAdmin();
@@ -77,16 +134,71 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isSuperAdmin();
       allow delete: if isSuperAdmin();
 
+      // Brief 3: real transaction shape. amount must be positive and capped
+      // (a teen logging a ten-lakh expense is a bug or an attack, not a use
+      // case — wallet *balances* are allowed to go negative below, this is
+      // the transaction amount itself, which never is); category must be
+      // one of the 18 real ids; note/subcategory/source/wallet_id are all
+      // optional but bounded/typed when present; no undeclared keys
+      // (hasOnly) — matches exactly the field set addLiveTransaction/
+      // updateLiveTransaction in lib/api.ts ever write (amount, category,
+      // subcategory, note, timestamp, source, wallet_id; `id` is the
+      // document's own Firestore id, never a stored field).
+      function isValidTransaction() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['amount', 'category', 'timestamp'])
+          && d.keys().hasOnly(['amount', 'category', 'subcategory', 'note', 'timestamp', 'source', 'wallet_id'])
+          && d.amount is number && d.amount > 0 && d.amount <= 1000000
+          && d.category is string && isValidCategoryId(d.category)
+          && isValidTimestamp(d.timestamp)
+          && (!('subcategory' in d) || (d.subcategory is string && d.subcategory.size() <= 100))
+          && (!('note' in d) || (d.note is string && d.note.size() <= 280))
+          && (!('source' in d) || d.source in ['upi', 'cash', 'card', 'manual'])
+          && (!('wallet_id' in d) || (d.wallet_id is string && d.wallet_id.size() > 0 && d.wallet_id.size() <= 200));
+      }
+
       // Transactions subcollection: a valid token + ownership is not enough on
       // its own - the caller must also be on the beta allowlist OR public
       // signup must be enabled (superadmin always bypasses, matching
       // isSuperAdmin() elsewhere in this file). Beta-allowlist gating code is
       // untouched by Step 12 — this only adds an additional, independently
       // toggled path in, exactly as the brief asked ("don't delete the
-      // beta-allowlist gating code").
+      // beta-allowlist gating code"). Brief 3 adds isValidTransaction() on
+      // top of the existing gate for a non-superadmin write — superadmin
+      // keeps its existing unconditional bypass (matches every other
+      // collection's superadmin-bypass posture in this file; a superadmin
+      // fixing a malformed doc by hand shouldn't be validated against the
+      // same shape a normal client is trusted to already produce).
+      // Brief 3: `allow write` used to cover create/update/delete together
+      // with the same condition — adding isValidTransaction() to that
+      // combined rule would break deleteLiveTransaction (lib/api.ts): a
+      // delete request has no request.resource.data at all, so evaluating
+      // isValidTransaction() against one errors out and denies the delete.
+      // Validation only makes sense for create/update; delete keeps the
+      // original ownership+gate check with no shape validation (there's no
+      // shape to validate — the document is going away).
       match /transactions/{txId} {
         allow read: if isOwner(userId) || isSuperAdmin();
-        allow write: if isSuperAdmin() || (isOwner(userId) && (isBetaAllowlisted() || isPublicSignupEnabled()));
+        allow create, update: if isSuperAdmin() ||
+          (isOwner(userId) && (isBetaAllowlisted() || isPublicSignupEnabled()) && isValidTransaction());
+        allow delete: if isSuperAdmin() || (isOwner(userId) && (isBetaAllowlisted() || isPublicSignupEnabled()));
+      }
+
+      // Brief 3: saveInstance (lib/api.ts) writes name/pinned/created_at/
+      // updated_at — pinned is a category_id -> amount map the user builds
+      // by hand, so its keys need the same 18-id check as a transaction's
+      // category, and its size is bounded the same way survey_responses'
+      // category_spend already is elsewhere in this file. No documents
+      // exist in this collection in production yet (checked directly), so
+      // this couldn't be checked against real data the way transactions/
+      // wallets/income were — only against saveInstance's own write shape.
+      function isValidInstance() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['name', 'pinned', 'created_at', 'updated_at'])
+          && d.keys().hasOnly(['name', 'pinned', 'created_at', 'updated_at'])
+          && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+          && d.pinned is map && d.pinned.size() <= 25 && d.pinned.keys().hasOnly(validCategoryIds())
+          && d.created_at is string && d.updated_at is string;
       }
 
       // "Instances" (named budget-allocation profiles, lib/api.ts's
@@ -94,8 +206,30 @@ service cloud.firestore {
       // itself, no separate allowlist/public-signup gate needed: reaching
       // this UI at all already means the caller has a real signed-in
       // profile, which already required clearing those gates elsewhere.
+      // Brief 3: create/update now also require isValidInstance(); delete
+      // (deleteInstance in lib/api.ts is a real hard delete here, unlike
+      // wallets/income below) stays shape-free, same reasoning as
+      // transactions' delete split above.
       match /instances/{instanceId} {
-        allow read, write: if isOwner(userId) || isSuperAdmin();
+        allow read: if isOwner(userId) || isSuperAdmin();
+        allow create, update: if (isOwner(userId) && isValidInstance()) || isSuperAdmin();
+        allow delete: if isOwner(userId) || isSuperAdmin();
+      }
+
+      // Brief 3: createWallet/renameWallet/archiveWallet (lib/api.ts) write
+      // name/balance/created_at/archived. Unlike a transaction *amount*,
+      // a wallet's real running balance is allowed to go negative (a wallet
+      // with more spent from it than was ever logged in, e.g. cash the
+      // teen already had before using Antara) — bounded in magnitude on
+      // both sides rather than floored at 0.
+      function isValidWallet() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['name', 'balance', 'created_at', 'archived'])
+          && d.keys().hasOnly(['name', 'balance', 'created_at', 'archived'])
+          && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+          && d.balance is number && d.balance >= -1000000 && d.balance <= 1000000
+          && d.created_at is string
+          && d.archived is bool;
       }
 
       // Wallets — real named balances (types/index.ts's Wallet). Same
@@ -106,9 +240,29 @@ service cloud.firestore {
       // updateLiveTransaction/logIncome's Firestore transactions in
       // lib/api.ts) all go through this same rule — there is no
       // Admin-SDK-only path for wallet balance changes, unlike
-      // /predictions above.
+      // /predictions above. Brief 3: create/update also require
+      // isValidWallet(); delete kept shape-free (no client path deletes a
+      // wallet today — archiveWallet is a soft-delete update — but split
+      // the same way as the other collections defensively, same reasoning
+      // as transactions' delete split above).
       match /wallets/{walletId} {
-        allow read, write: if isOwner(userId) || isSuperAdmin();
+        allow read: if isOwner(userId) || isSuperAdmin();
+        allow create, update: if (isOwner(userId) && isValidWallet()) || isSuperAdmin();
+        allow delete: if isOwner(userId) || isSuperAdmin();
+      }
+
+      // Brief 3: logIncome (lib/api.ts) writes amount/source/timestamp/
+      // wallet_id — wallet_id is required here, unlike a transaction's
+      // (see IncomeEntry in types/index.ts: "always required, unlike
+      // Transaction.wallet_id").
+      function isValidIncome() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['amount', 'timestamp', 'wallet_id'])
+          && d.keys().hasOnly(['amount', 'source', 'timestamp', 'wallet_id'])
+          && d.amount is number && d.amount > 0 && d.amount <= 1000000
+          && isValidTimestamp(d.timestamp)
+          && (!('source' in d) || (d.source is string && d.source.size() <= 100))
+          && d.wallet_id is string && d.wallet_id.size() > 0 && d.wallet_id.size() <= 200;
       }
 
       // Income (types/index.ts's IncomeEntry) — deliberately its own
@@ -117,9 +271,13 @@ service cloud.firestore {
       // signup gate. Same ownership-only shape as instances/wallets: an
       // account that can already reach this UI has already cleared those
       // gates elsewhere (ConsentGate/allowlist check happens once, at
-      // sign-in, not per-collection).
+      // sign-in, not per-collection). Brief 3: create/update also require
+      // isValidIncome(); delete kept shape-free (no client path deletes an
+      // income entry today, same defensive split as the other collections).
       match /income/{incomeId} {
-        allow read, write: if isOwner(userId) || isSuperAdmin();
+        allow read: if isOwner(userId) || isSuperAdmin();
+        allow create, update: if (isOwner(userId) && isValidIncome()) || isSuperAdmin();
+        allow delete: if isOwner(userId) || isSuperAdmin();
       }
 
       // Friends — a user's own friend list is their own to read, never

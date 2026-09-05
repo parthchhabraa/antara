@@ -1,5 +1,43 @@
 # Antara — session log
 
+## Brief 3 (launch-readiness pack): validate every field at the rules layer
+
+**Status: COMPLETED — deployed live and verified against real production, both with a simulated rejection/acceptance pass and with the actual pre-existing real documents fed through the real rules engine unchanged.**
+
+Before this, `users/{userId}/transactions/{txId}` (and wallets/income/instances) accepted any document shape that passed ownership + the beta/public-signup gate — nothing stopped `amount: 1e308`, a 900KB note, an unrecognized category id, or a timestamp in 2077, any of which would poison `calculateBurnMetrics` and the ML engine, and the large ones cost real money.
+
+Added real validation to `firestore.rules` for all four collections the brief named:
+
+- **`isValidTransaction()`**: `amount` a positive number `<= 1,000,000`; `category` one of the 18 real ids (`validCategoryIds()`, a new shared function — also reused by Instances' `pinned` map below so the two can't drift apart from each other; still has to be kept in sync by hand against `frontend/src/lib/constants.ts`'s `STARTER_CATEGORIES`, since rules can't import application code); `note` capped at 280 chars; `subcategory`/`source`/`wallet_id` typed and bounded when present; `hasOnly` against the exact field set `addLiveTransaction`/`updateLiveTransaction` ever write (`id` is the Firestore doc id, never a stored field).
+- **`isValidTimestamp()`**: accepts either a plain ISO string or a native Firestore `timestamp`, per the brief. Documented honestly why the "not more than 24h in the future" numeric bound can only be enforced exactly against the `timestamp`-typed branch — the rules language has no ISO-string-to-timestamp parser, so a string can only be shape-checked via `matches()`, not bounded against `request.time`. Real production data turned out to make this concrete rather than hypothetical: all 22 real transaction docs store `timestamp` as a plain string (checked directly, 22/22), so the exact future-dating bound doesn't actually apply to any real data today — flagged, not silently glossed over.
+- **`isValidWallet()`**: `name` 1–60 chars; `balance` a number bounded `±1,000,000` — explicitly allowed negative, per the brief ("wallet balances may be negative; transaction amounts may not").
+- **`isValidIncome()`**: same amount bound as transactions; `wallet_id` required (unlike a transaction's optional one, matching `IncomeEntry`'s own doc comment).
+- **`isValidInstance()`**: `name` 1–60 chars; `pinned` a map of ≤25 entries whose keys must all be real category ids (reuses `validCategoryIds()`).
+- **A bug caught before it shipped**: the original plan was one `isValidX()` check folded into each collection's existing combined `allow write`. That would have broken every real delete (`deleteLiveTransaction`, `deleteInstance`) — a delete request has no `request.resource.data` at all, so evaluating a shape-check against one errors out and denies the delete. Split every gated collection into `allow create, update: if ... && isValidX()` plus a separate shape-free `allow delete`, caught by re-reading the actual write paths in `lib/api.ts` before wiring the rule in, not by a failing test after the fact.
+
+### Existing-data compatibility — checked three separate ways, not just claimed
+
+1. **Enumerated every real document in production**: 6 real Firebase Auth users exist today (not just the superadmin account touched in Briefs 1–2); 22 transactions, 6 wallets, 1 income doc, 0 instances docs across all of them.
+2. **Dry-run in Python** against a straight reimplementation of the new validation logic: 22/22 transactions, 6/6 wallets, 1/1 income doc pass unchanged.
+3. **The check that actually matters — fed the real documents through the real rules engine, not a reimplementation of it**: pulled the exact 29 real documents, and in a temporary (not committed) test, wrote each one byte-for-byte into the local emulator under its own real uid with `isValidTransaction()`/`isValidWallet()`/`isValidIncome()` actually evaluating them. All 29 passed. This is strictly stronger than (2), which only proves my own restatement of the rule agrees with itself.
+
+### Tests
+
+`frontend/src/tests/firestore-rules.test.ts`: 16 new permanent tests covering the brief's explicit rejection list (oversized note, negative amount, unknown category, future timestamp via a native `Timestamp` value, extra undeclared field) plus the acceptance/rejection cases for wallets, income, and instances, and a delete-still-works case proving the create/update-vs-delete split actually works. Full suite: **28/28 pass** against the local emulator.
+
+### Deployed and verified live, not just committed
+
+- Deployed via the same Firebase Rules REST API path as Brief 2 (`firebase deploy` still can't run — same missing `serviceusage.services.get` permission on the service account). Fetched the live ruleset back afterward and diffed it byte-for-byte against the repo file: identical.
+- **Live spot check against real production** with one throwaway Firebase account (created and fully deleted this session): negative amount, unknown category, an undeclared extra field, and an oversized note each got a real `403 PERMISSION_DENIED` from the live Firestore REST API; a valid transaction got a real `200`. Exactly the brief's own rejection list, checked against the actual deployed rules, not the emulator.
+- No backend or frontend code changed this brief (rules + tests only), so no service restart was needed or performed.
+- Cleanup: the one successful throwaway transaction doc, its profile doc, and the throwaway Auth user all deleted; confirmed via a follow-up read that nothing was left behind.
+
+### Final state
+
+`main` — see commit hash recorded below once pushed.
+
+---
+
 ## Brief 2 (launch-readiness pack): close the beta-allowlist email leak
 
 **Status: COMPLETED — fixed, tested, deployed live (backend + firestore.rules + frontend), and verified end to end against real production with two throwaway accounts. Also surfaced an unrelated but urgent live-production finding — see "Found along the way" below.**
