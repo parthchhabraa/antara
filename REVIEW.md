@@ -55,7 +55,7 @@ Throwaway account and all its Firestore data deleted; Firebase Auth user count c
 
 ### Final state
 
-`main` at (pending push — see below).
+`main` at `a988a64` (pushed).
 
 ---
 
