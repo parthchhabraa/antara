@@ -50,7 +50,7 @@ Both the throwaway `git worktree` and its `next start -p 3099` process torn down
 
 ### Final state
 
-`main` — see commit hash recorded below once pushed.
+`main` at `bbbc729` (pushed).
 
 ---
 
