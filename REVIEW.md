@@ -35,7 +35,7 @@ This wasn't broken by this session and wasn't touched — restored to exactly `t
 
 ### Final state
 
-`main` — this session's commit not yet pushed at the time this entry was written; see the commit hash noted alongside it below. Deployed checkout on `draftsmanbrain` matches. Live `firestore.rules` confirmed byte-identical to the repo file. `admin/launchConfig.publicSignupEnabled` unchanged at `true` (flagged above, not altered as a fix).
+`main` at `3b083e5` (pushed). Deployed checkout on `draftsmanbrain` matches. Live `firestore.rules` confirmed byte-identical to the repo file. `admin/launchConfig.publicSignupEnabled` unchanged at `true` (flagged above, not altered as a fix).
 
 ---
 
