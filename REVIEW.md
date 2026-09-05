@@ -74,7 +74,7 @@ Both throwaway accounts (rate-limit check: `antara.e2e.brief4.ratelimit@...`; de
 
 ### Final state
 
-`main` — see commit hash recorded below once pushed.
+`main` at `4a15ca8` (pushed).
 
 ---
 
