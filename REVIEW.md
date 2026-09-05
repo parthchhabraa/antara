@@ -45,7 +45,7 @@ Throwaway account and all its data deleted; Firebase Auth user count confirmed b
 
 ### Final state
 
-`main` — see commit hash recorded below once pushed.
+`main` at `d51a7c3` (pushed).
 
 ---
 
