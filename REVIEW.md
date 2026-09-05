@@ -1,5 +1,54 @@
 # Antara — session log
 
+## Brief 7 (UI overhaul): rebuild the Today screen around one number
+
+**Status: COMPLETED — verified live in both demo mode and a real account at 375×812, the exact viewport the brief names, with the spendable number and the log button independently confirmed (via bounding-box checks, not eyeballing) to sit inside the viewport with zero scrolling.**
+
+### What changed
+
+`app/page.tsx`'s signed-in Today screen no longer opens with eight competing blocks. New order, top to bottom:
+
+1. **Hero** (fills roughly the top third): a small "SAFE TO SPEND TODAY" label, `metrics.safeDaily` at 64px in Plex Mono tabular figures, the pacing state in one word (`Under`/`Watch`/`Over`) in the matching Brief 6 signal color, then an inline "Log an expense" button. Nothing else between the number and the button.
+2. Week bars (unchanged, still the real date selector Phase 2 built).
+3. Below the fold, in the brief's own specified order: the run-out-date card (date + coach line + "show me the plan", unchanged internals), risk rows ("What's pushing the date"), the three stat tiles, then the wallets pill last.
+4. `BurnGauge` + its "You're running X/Safe is Y" caption + the cold-start disclosure, as one bundled unit, at the very end — see the design call below for why.
+5. **Budget and Instances links removed from this screen entirely** and rebuilt on the profile screen (`app/profile/page.tsx`, new `BudgetInstancesSection.tsx`) — same two sheets, same props, same behavior, just relocated per the brief.
+
+**No math changed anywhere.** `calculateBurnMetrics`, `filterToCurrentMonth`, `isColdStart`, and the cold-start disclosure's wording are byte-for-byte what they were. The only new logic is a 4-line pure function, `burnState()` in `lib/api.ts`, that buckets the *already-computed* `metrics.burnPct` into three zones (≤85 under, ≤115 watch, else over) for the hero's one-word label — a presentation bucketing of an existing number, not a new metric.
+
+### Two design calls made explicitly, not silently
+
+1. **The hero's number is `metrics.safeDaily`**, not a new field. It's already the app's own existing answer to "how much should I spend" (previously only shown inside the ring and one stat tile) — the brief said no math changes, so the honest move was surfacing an existing number more prominently, not inventing a "today's remaining allowance" metric that would have needed new logic.
+2. **`BurnGauge` moved below the fold rather than being adapted to hold the hero number.** The brief's own hard rule for the state indicator — "no sentence, no gauge, no percentage" — already rules out a ring at the top; the "survives only if the big number can live inside it" clause was a conditional escape hatch, not a mandate, and taking it would have meant redesigning what the ring visually encodes (percentage vs. rupees) in a screen-restructuring session that's supposed to be about presentation order, not reinventing an existing, carefully-tuned animation. It survives intact, just later — a deeper look at the same state the hero's one word already named.
+
+### A real, disclosed behavior change
+
+Budget/Instances editing now lives on the profile screen, which (pre-existing, not new) only renders for real signed-in accounts — `isDemoMode` shows "Profiles need a real signed-in account" and nothing else. **A demo/guest user can no longer tweak their (fake) budget or open Instances at all** — the demo Today screen still runs live burn-rate math against the fixed demo budget, it just isn't editable anymore. Flagged rather than discovered later: this is a real, if low-stakes, functionality loss for a non-real account, traded for a cleaner Today screen and a profile screen that's actually where account-level settings belong.
+
+### Verified live, both ways the brief asked for
+
+Real headless Chromium against the deployed `app.antara.money`, viewport 375×812 (the exact number the brief names):
+
+- **Demo mode**: hero label bounding box at y≈148, log button at y≈291–339 — both fully inside `[0, 812]` with zero scrolling, checked programmatically (`boundingBox()`), not just screenshotted. Pacing state showed "Over" in the signal-over color against demo data's real burnPct.
+- **Real account**: same check, same result, against a real throwaway account with real transactions/wallet data created for this verification (`antara.e2e.brief7@example.com` — created, used, fully deleted afterward, Firebase Auth user count confirmed back to 6). Used the same temporary `?__e2e_token=` sign-in hook prior sessions established for this (added to `AuthContext.tsx`, used, fully reverted — confirmed via `git diff` showing zero remaining changes).
+- **Day-selected view** (tapping a week bar): confirmed still works exactly as before — the hero stays showing *today's* number regardless of which past day is selected (correct: browsing history doesn't change what's safe to spend today), the day-detail block renders below it unchanged.
+- **Profile's new Budget/Instances section**: confirmed functional, not just present — tapped "Monthly budget" and confirmed the real `BudgetSheet` opens with the real ₹5,000 value and a working keypad.
+- Zero console errors across every check above.
+
+### Tests
+
+`tsc --noEmit` and `npm run build` clean throughout. 39/39 backend tests and the full Firestore-rules suite unaffected (frontend-presentation-only brief), re-run anyway.
+
+### Cleanup
+
+Throwaway account and all its data deleted; Firebase Auth user count confirmed back to 6. Temporary e2e hook reverted, confirmed via `git diff` on `AuthContext.tsx` showing no remaining changes.
+
+### Final state
+
+`main` — see commit hash recorded below once pushed.
+
+---
+
 ## Brief 6 (UI overhaul): design system foundation — tokens only, no restructuring
 
 **Status: COMPLETED, with an explicit scope call documented below — the foundation is real and every screen renders on it, but wiring the new signal colors into specific screens' state logic is deliberately left to Briefs 7-9, and the mono/tabular treatment was applied to the four screenshotted screens' prominent numbers rather than all 57 existing FORMAT_INR call sites app-wide. A real bug was found and fixed during verification, not just "looks fine."**

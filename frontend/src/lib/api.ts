@@ -248,6 +248,21 @@ export function calculateBurnMetrics(
   };
 }
 
+// Brief 7 (2026-09-05): the Today screen's one-word pacing state — a pure
+// presentation bucketing of `burnPct` (already computed above, no new
+// math), matching the three signal colors Brief 6 defined
+// (signal.under/watch/over). Deliberately not a new metric: burnPct
+// already answers "how does today's real pace compare to a safe day," this
+// just names three zones of it instead of only ever showing the raw
+// percentage inside the ring.
+export type BurnState = "under" | "watch" | "over";
+
+export function burnState(burnPct: number): BurnState {
+  if (burnPct <= 85) return "under";
+  if (burnPct <= 115) return "watch";
+  return "over";
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // Week-over-week category trend — purely local, works in demo mode and
 // before the backend prediction resolves (or if it fails). Used by

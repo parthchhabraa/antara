@@ -9,8 +9,6 @@ import { BurnGauge } from "@/components/BurnGauge";
 import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
 import { TransactionEditSheet } from "@/components/TransactionEditSheet";
-import { BudgetSheet } from "@/components/BudgetSheet";
-import { InstancesSheet } from "@/components/InstancesSheet";
 import { WalletsSheet } from "@/components/WalletsSheet";
 import { WhyPredictionSheet } from "@/components/WhyPredictionSheet";
 import { NewUserOnboardingSheet } from "@/components/NewUserOnboardingSheet";
@@ -33,6 +31,7 @@ import {
   syncProfileBadge,
   fetchBadges,
   checkAndAwardBadges,
+  burnState,
 } from "@/lib/api";
 import { Transaction, Wallet } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
@@ -46,17 +45,13 @@ export default function TodayPage() {
     refreshClaims,
     isNewUser,
     dismissNewUserBanner,
-    setMonthlyBudget,
     setCategoryCap,
-    applyInstance,
   } = useAuth();
   const [demoTxs, setDemoTxs] = useState<Transaction[]>(DEMO_TRANSACTIONS);
   const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-  const [isBudgetEditOpen, setIsBudgetEditOpen] = useState(false);
-  const [isInstancesOpen, setIsInstancesOpen] = useState(false);
   const [isWhyOpen, setIsWhyOpen] = useState(false);
   const [isWalletsOpen, setIsWalletsOpen] = useState(false);
   const [demoWallets, setDemoWallets] = useState<Wallet[]>(DEMO_WALLETS);
@@ -390,6 +385,22 @@ export default function TodayPage() {
   }
 
   // ── Today screen ─────────────────────────────────────────────────
+  // Brief 7 (2026-09-05): rebuilt around one question — "how much can I
+  // spend today?" — instead of the eight blocks (wallets, week bars, burn
+  // gauge, coach line, budget/instances links, run-out card, stat tiles,
+  // risk rows) that used to compete for the first look. No math changed
+  // anywhere below: `pacingState` is a pure presentation bucketing of the
+  // already-computed `metrics.burnPct` (see burnState in lib/api.ts), not
+  // a new metric. The hero's own number is `metrics.safeDaily` — already
+  // the app's existing answer to "how much should I spend," previously
+  // only shown inside the ring and a stat tile.
+  const pacingState = burnState(metrics.burnPct);
+  const pacingCopy: Record<typeof pacingState, { label: string; textClass: string }> = {
+    under: { label: "Under", textClass: "text-signal-under" },
+    watch: { label: "Watch", textClass: "text-signal-watch" },
+    over: { label: "Over", textClass: "text-signal-over" },
+  };
+
   return (
     <MobileFrame onOpenQuickLog={() => setIsLogOpen(true)}>
       <PageTransition className="space-y-1">
@@ -404,24 +415,31 @@ export default function TodayPage() {
           </span>
         </div>
 
-        {/* Wallets — real cash-on-hand, deliberately its own small card with
-            its own (emerald, not primary-violet) accent so it never reads as
-            part of the budget/burn-rate numbers below: that's a *plan*
-            against total spend, this is a real running balance. Tapping
-            opens the full Wallets sheet (create/rename/archive/add income). */}
-        <button
-          type="button"
-          onClick={() => setIsWalletsOpen(true)}
-          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/20 active:opacity-70 transition-opacity mb-1"
-        >
-          <span className="text-xs font-medium tracking-wide text-emerald-400/90">WALLETS</span>
-          <span className={`ml-auto text-sm font-mono font-medium tabular-nums ${walletsTotal < 0 ? "text-rose-300" : "text-emerald-100"}`}>
-            {FORMAT_INR(walletsTotal)}
-          </span>
-          <span className="text-xs text-gray-500">
-            {activeWallets.length} wallet{activeWallets.length === 1 ? "" : "s"}
-          </span>
-        </button>
+        {/* ── Hero: the one number, above everything else ──────────────
+            Fills roughly the top third on a real phone (verified at
+            375×812 — see REVIEW.md). Nothing sits between the number and
+            the log action except the one-word state — no gauge, no
+            sentence, no percentage, per the brief. The persistent FAB
+            (MobileFrame's own fixed bottom button) already makes logging
+            reachable from anywhere without scrolling; this inline button
+            is the same action, placed where the brief's own number → word
+            → verb sequence says it belongs. */}
+        <div className="flex flex-col items-center text-center py-7">
+          <div className="text-xs tracking-[0.14em] text-gray-500">SAFE TO SPEND TODAY</div>
+          <div className="mt-2 text-5xl font-mono font-bold tabular-nums text-white leading-none">
+            {FORMAT_INR(metrics.safeDaily)}
+          </div>
+          <div className={`mt-3 text-sm font-semibold ${pacingCopy[pacingState].textClass}`}>
+            {pacingCopy[pacingState].label}
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLogOpen(true)}
+            className="mt-5 h-12 px-8 rounded-full bg-primary-600 text-white font-bold text-sm active:scale-[0.97] transition-transform"
+          >
+            Log an expense
+          </button>
+        </div>
 
         {/* Week bars — Phase 2 continuation: a real date selector now, not
             decoration. The "selected" highlight (ring + primary label)
@@ -527,40 +545,11 @@ export default function TodayPage() {
           </>
         ) : (
           <>
-            {/* Burn gauge */}
-            <div className="flex flex-col items-center py-3.5">
-              <BurnGauge burnPct={metrics.burnPct} />
-            </div>
-            <div className="text-center text-xs text-gray-400 leading-relaxed -mt-1 mb-2">
-              You're running {FORMAT_INR(metrics.weekRate)} a day.
-              <br />
-              Safe is {FORMAT_INR(metrics.safeDaily)}.
-            </div>
-            {coldStart && (
-              <p className="text-center text-xs leading-relaxed text-amber-200/80 -mt-1 mb-2">
-                Still calibrating to your data — the more you log, the sharper this gets.
-              </p>
-            )}
-            {/* Step 13 §1 — the edit affordance the brief asked for: budget isn't
-                locked in at onboarding, it's always one tap away from here. */}
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <button
-                onClick={() => setIsBudgetEditOpen(true)}
-                className="text-xs text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
-              >
-                Budget {FORMAT_INR(monthlyBudget)}/mo · Edit
-              </button>
-              <span className="text-gray-700 text-xs">·</span>
-              <button
-                onClick={() => setIsInstancesOpen(true)}
-                className="text-xs text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
-              >
-                Instances
-              </button>
-            </div>
-
-            {/* Money runs out */}
-            <div className="rounded-lg border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
+            {/* Run-out date + coach line — Brief 7's explicit below-fold
+                order starts here, right after week bars. Instances/budget
+                edit are no longer reachable from this screen at all —
+                moved to the profile screen (see app/profile/page.tsx). */}
+            <div className="mt-3.5 rounded-lg border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
               <div className="text-xs font-medium tracking-[0.14em] text-primary-300 mb-2">MONEY RUNS OUT</div>
               <div className="flex items-baseline gap-2.5">
                 <span className="text-4xl font-medium tracking-tight text-white">{runOutDate}</span>
@@ -580,26 +569,6 @@ export default function TodayPage() {
                   Show me the plan
                 </button>
               )}
-            </div>
-
-            {/* Stat tiles */}
-            <div className="grid grid-cols-3 gap-2 mt-3.5">
-              <div className="p-3 rounded-lg bg-white/[0.06]">
-                <div className="text-xs text-gray-600 tracking-wide">LEFT</div>
-                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">
-                  <CountUpNumber value={metrics.left} format={FORMAT_INR} />
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-white/[0.06]">
-                <div className="text-xs text-gray-600 tracking-wide">PER DAY</div>
-                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">{FORMAT_INR(metrics.safeDaily)}</div>
-              </div>
-              <div className="p-3 rounded-lg bg-white/[0.06]">
-                <div className="text-xs text-gray-600 tracking-wide">DAYS</div>
-                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">
-                  <CountUpNumber value={metrics.daysLeft} />
-                </div>
-              </div>
             </div>
 
             {/* What's pushing the date */}
@@ -635,6 +604,70 @@ export default function TodayPage() {
                 </button>
               ))}
             </div>
+
+            {/* Stat tiles */}
+            <div className="grid grid-cols-3 gap-2 mt-5">
+              <div className="p-3 rounded-lg bg-white/[0.06]">
+                <div className="text-xs text-gray-600 tracking-wide">LEFT</div>
+                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">
+                  <CountUpNumber value={metrics.left} format={FORMAT_INR} />
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-white/[0.06]">
+                <div className="text-xs text-gray-600 tracking-wide">PER DAY</div>
+                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">{FORMAT_INR(metrics.safeDaily)}</div>
+              </div>
+              <div className="p-3 rounded-lg bg-white/[0.06]">
+                <div className="text-xs text-gray-600 tracking-wide">DAYS</div>
+                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">
+                  <CountUpNumber value={metrics.daysLeft} />
+                </div>
+              </div>
+            </div>
+
+            {/* Wallets — real cash-on-hand, deliberately its own small card
+                with its own (emerald, not primary-violet) accent so it
+                never reads as part of the budget/burn-rate numbers above:
+                that's a *plan* against total spend, this is a real
+                running balance. Tapping opens the full Wallets sheet
+                (create/rename/archive/add income). Last in the below-fold
+                order per the brief — real cash-on-hand is useful context,
+                not the thing this screen is trying to answer. */}
+            <button
+              type="button"
+              onClick={() => setIsWalletsOpen(true)}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 mt-5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/20 active:opacity-70 transition-opacity"
+            >
+              <span className="text-xs font-medium tracking-wide text-emerald-400/90">WALLETS</span>
+              <span className={`ml-auto text-sm font-mono font-medium tabular-nums ${walletsTotal < 0 ? "text-rose-300" : "text-emerald-100"}`}>
+                {FORMAT_INR(walletsTotal)}
+              </span>
+              <span className="text-xs text-gray-500">
+                {activeWallets.length} wallet{activeWallets.length === 1 ? "" : "s"}
+              </span>
+            </button>
+
+            {/* Burn gauge — not part of the brief's own below-fold
+                ordering (week bars/run-out/coach/risk/stats/wallets), so
+                it goes last: a deep-dive on the exact same pacing state
+                the hero's one word already named, for whoever wants the
+                fuller picture, not competing for the first look. The
+                "You're running.../Safe is..." caption and cold-start
+                disclosure keep their original wording, just relocated
+                here with the gauge they've always described. */}
+            <div className="flex flex-col items-center mt-6 py-3.5">
+              <BurnGauge burnPct={metrics.burnPct} />
+            </div>
+            <div className="text-center text-xs text-gray-400 leading-relaxed -mt-1 mb-2">
+              You're running {FORMAT_INR(metrics.weekRate)} a day.
+              <br />
+              Safe is {FORMAT_INR(metrics.safeDaily)}.
+            </div>
+            {coldStart && (
+              <p className="text-center text-xs leading-relaxed text-amber-200/80 -mt-1 mb-2">
+                Still calibrating to your data — the more you log, the sharper this gets.
+              </p>
+            )}
           </>
         )}
 
@@ -674,26 +707,6 @@ export default function TodayPage() {
           onClose={() => setEditingTx(null)}
           onSave={handleEditTx}
           onDelete={handleDeleteTx}
-        />
-        <BudgetSheet
-          isOpen={isBudgetEditOpen}
-          mode="edit"
-          currentAmount={monthlyBudget}
-          onClose={() => setIsBudgetEditOpen(false)}
-          onSave={async (amount) => {
-            await setMonthlyBudget(amount);
-            setIsBudgetEditOpen(false);
-          }}
-        />
-        <InstancesSheet
-          isOpen={isInstancesOpen}
-          onClose={() => setIsInstancesOpen(false)}
-          transactions={transactions}
-          monthlyBudget={monthlyBudget}
-          isDemoMode={isDemoMode}
-          user={user}
-          activeInstanceId={profile?.active_instance_id}
-          onApply={applyInstance}
         />
         <WhyPredictionSheet
           isOpen={isWhyOpen}

@@ -1,15 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { ArrowLeft, Users } from "lucide-react";
+import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
 import { PageTransition } from "@/components/PageTransition";
 import { ProfileView } from "@/components/ProfileView";
 import { FriendsSheet } from "@/components/FriendsSheet";
 import { AccountSettingsSection } from "@/components/AccountSettingsSection";
+import { BudgetInstancesSection } from "@/components/BudgetInstancesSection";
+import { DEMO_TRANSACTIONS } from "@/lib/constants";
+import { Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
 
 // Social feature — self-view profile route. Wraps the same ProfileView the
@@ -18,10 +23,29 @@ import { useAuth } from "@/lib/AuthContext";
 // (budget, caps) come from the real signed-in profile — never passed on
 // the friend route.
 export default function ProfilePage() {
-  const { user, profile, isDemoMode, isSuperAdmin, signOut } = useAuth();
+  const { user, profile, isDemoMode, isSuperAdmin, signOut, setMonthlyBudget, applyInstance } = useAuth();
   const router = useRouter();
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [liveTxs, setLiveTxs] = useState<Transaction[]>([]);
+
+  // Brief 7 (2026-09-05): Instances moved here from the Today screen needs
+  // the same transactions the ML allocate-budget preview always did — same
+  // subscription pattern app/page.tsx already uses. Demo mode reuses the
+  // same fixed DEMO_TRANSACTIONS Today shows, for the same reason it does
+  // there: consistent, non-empty preview data with no real account needed.
+  useEffect(() => {
+    if (isDemoMode || !user) return;
+    const txCol = collection(db, "users", user.uid, "transactions");
+    const q = query(txCol, orderBy("timestamp", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setLiveTxs(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<Transaction, "id">) })));
+    });
+    return () => unsubscribe();
+  }, [isDemoMode, user]);
+
+  const transactions = isDemoMode ? DEMO_TRANSACTIONS : liveTxs;
+  const monthlyBudget = profile?.monthly_budget || 5000;
 
   const showToast = (message: string) => {
     setToast(message);
@@ -79,6 +103,27 @@ export default function ProfilePage() {
         )}
         {isDemoMode && (
           <p className="py-16 text-center text-xs text-gray-500">Profiles need a real signed-in account.</p>
+        )}
+
+        {/* Brief 7 (2026-09-05): moved here from the Today screen — real
+            signed-in accounts only, same as everything else on this page
+            (a demo/guest account can no longer tweak its budget/instances
+            at all now that this lives on the real-accounts-only profile
+            screen; the demo Today screen still shows live burn-rate math
+            against the fixed demo budget, it just isn't editable). Shown
+            for superadmin too, unlike AccountSettingsSection below — a
+            real budget number is exactly as meaningful for that account
+            as any other. */}
+        {user && !isDemoMode && (
+          <BudgetInstancesSection
+            user={user}
+            isDemoMode={isDemoMode}
+            monthlyBudget={monthlyBudget}
+            transactions={transactions}
+            activeInstanceId={profile?.active_instance_id}
+            onSaveBudget={setMonthlyBudget}
+            onApplyInstance={applyInstance}
+          />
         )}
 
         {/* Brief 5 (2026-09-05): export/feedback/delete — self-only, real
