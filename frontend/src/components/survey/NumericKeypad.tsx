@@ -75,7 +75,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
           type="button"
           whileTap={{ scale: 0.94 }}
           onClick={() => onChange("0")}
-          className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition-colors ${
+          className={`flex-1 py-2 rounded-sm border text-xs font-semibold transition-colors ${
             value === "0"
               ? "bg-purple-500/20 border-purple-500/60 text-purple-300"
               : "bg-white/5 border-white/10 text-gray-400 hover:text-gray-200"
@@ -89,7 +89,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             type="button"
             whileTap={{ scale: 0.94 }}
             onClick={() => addQuick(amt)}
-            className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-purple-500/15 border border-white/10 hover:border-purple-500/40 text-xs font-semibold text-gray-300 hover:text-purple-300 transition-colors"
+            className="flex-1 py-2 rounded-sm bg-white/5 hover:bg-purple-500/15 border border-white/10 hover:border-purple-500/40 text-xs font-semibold text-gray-300 hover:text-purple-300 transition-colors"
           >
             +{amt >= 1000 ? `${amt / 1000}k` : amt}
           </motion.button>
@@ -105,9 +105,9 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             whileTap={{ scale: 0.9 }}
             transition={{ duration: 0.1 }}
             onClick={() => press(key)}
-            className={`h-12 rounded-2xl flex items-center justify-center transition-colors ${
+            className={`h-12 rounded-lg flex items-center justify-center transition-colors ${
               key === "clear"
-                ? "bg-white/5 border border-white/10 text-gray-500 text-[11px] font-bold uppercase tracking-wide"
+                ? "bg-white/5 border border-white/10 text-gray-500 text-xs font-bold uppercase tracking-wide"
                 : key === "back"
                 ? "bg-white/5 border border-white/10 text-gray-300"
                 : "bg-white/[0.04] border border-white/10 text-white text-lg font-bold hover:bg-purple-500/10 hover:border-purple-500/30"

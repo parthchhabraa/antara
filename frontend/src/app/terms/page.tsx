@@ -12,7 +12,7 @@ export default function TermsPage() {
         agreeing to the following, written in plain language rather than legal boilerplate.
       </p>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">What this app is (and isn't)</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">What this app is (and isn't)</h2>
       <ul className="list-disc pl-5 space-y-1.5">
         <li>Antara is a self-tracking tool. You type in what you spend; the app does math on it.</li>
         <li>
@@ -27,13 +27,13 @@ export default function TermsPage() {
         </li>
       </ul>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Beta status</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">Beta status</h2>
       <p>
         This is a real, working beta — not a finished product. Features may change, break, or be removed. Data loss
         is unlikely but not impossible at this stage; don't treat this as your only record of anything important.
       </p>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Who can use it</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">Who can use it</h2>
       <ul className="list-disc pl-5 space-y-1.5">
         <li>
           You need a Google account to sign in for real (or you can use Demo Mode with no account at all).
@@ -49,20 +49,20 @@ export default function TermsPage() {
         </li>
       </ul>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Your data</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">Your data</h2>
       <p>
         See the <a href="/privacy" className="text-primary-300 underline">Privacy Policy</a> for what we collect and
         how it's used. Short version: only what you log, used only to run the app for you, never sold.
       </p>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">No warranty</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">No warranty</h2>
       <p>
         Antara is provided "as is," as an early beta, with no warranty of any kind. We'll try to keep it working and
         fix real problems, but we can't promise uptime, accuracy, or that a given feature will keep working the same
         way as the app develops.
       </p>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Contact</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">Contact</h2>
       <p>
         Questions, problems, or a request to delete your data:{" "}
         <a href="mailto:parthchhabra6112@gmail.com" className="text-primary-300 underline">

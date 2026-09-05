@@ -12,7 +12,7 @@ export default function PrivacyPage() {
         language, what information we collect, why, and what we do (and don't do) with it.
       </p>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">What we collect</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">What we collect</h2>
       <ul className="list-disc pl-5 space-y-1.5">
         <li>
           <strong className="text-gray-100">From Google Sign-In:</strong> your email address, display name, and
@@ -31,7 +31,7 @@ export default function PrivacyPage() {
         </li>
       </ul>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">What we use it for</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">What we use it for</h2>
       <ul className="list-disc pl-5 space-y-1.5">
         <li>Showing you your own burn rate, run-out date, and spending breakdown — the core of the app.</li>
         <li>
@@ -42,14 +42,14 @@ export default function PrivacyPage() {
         <li>Streaks and milestones, which are just a count of days you've logged something.</li>
       </ul>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Where it's stored</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">Where it's stored</h2>
       <p>
         In Firebase/Firestore (Google Cloud infrastructure), under our own project — not a third-party analytics or
         data-broker platform. We don't run any third-party analytics or tracking scripts in this app (no Google
         Analytics, no ad pixels, nothing like that) as of this writing.
       </p>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">What we don't do</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">What we don't do</h2>
       <ul className="list-disc pl-5 space-y-1.5">
         <li>
           <strong className="text-gray-100">We do not sell your data to anyone.</strong> Not to advertisers, not to
@@ -60,7 +60,7 @@ export default function PrivacyPage() {
         <li>We don't use your data to train any model on other people — the ML feature only ever looks at your own logged transactions plus anonymous, separately-collected survey benchmarks.</li>
       </ul>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Your choices</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">Your choices</h2>
       <p>
         You can use Demo Mode without ever creating an account or sharing any real data — it's a fully local,
         made-up dataset. If you have a real account, your profile screen has real "Export my data" and "Delete my
@@ -74,7 +74,7 @@ export default function PrivacyPage() {
         a dedicated privacy team — that email reaches the person who actually operates the app.
       </p>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Teens &amp; minors</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">Teens &amp; minors</h2>
       <p>
         Antara is built for teenagers, and we know that means some users are minors. We ask at sign-in that you're
         using this with a parent or guardian's awareness (see the consent step during sign-in) — this app is not a
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
         consent beyond that honest self-attestation.
       </p>
 
-      <h2 className="text-[13px] font-bold text-white mt-5 mb-1">Changes to this policy</h2>
+      <h2 className="text-xs font-bold text-white mt-5 mb-1">Changes to this policy</h2>
       <p>This is an early beta and this policy may change as the app develops. Meaningful changes will update the date above.</p>
     </LegalPageLayout>
   );

@@ -64,7 +64,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                   {profile?.photoURL ? (
                     <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-[13px] font-semibold text-primary-200">
+                    <span className="text-xs font-semibold text-primary-200">
                       {(profile?.displayName || "A").charAt(0).toUpperCase()}
                     </span>
                   )}
@@ -83,7 +83,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 /* No real Firebase session yet: only entry point is Google Sign-In */
                 <button
                   onClick={signInWithGoogle}
-                  className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border font-bold transition-all bg-white text-gray-900 border-white/80 hover:bg-gray-100 shadow-sm"
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-bold transition-all bg-white text-gray-900 border-white/80 hover:bg-gray-100 shadow-sm"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 48 48">
                     <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
@@ -101,7 +101,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                   <button
                     onClick={() => setIsMenuOpen((v) => !v)}
                     title="Admin & data source"
-                    className="relative p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                    className="relative p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
                   >
                     <Shield className="w-4 h-4" />
                     <span
@@ -121,18 +121,18 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -6, scale: 0.97 }}
                           transition={{ duration: 0.15 }}
-                          className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-2xl bg-[#14161f] border border-white/10 shadow-2xl overflow-hidden"
+                          className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-lg bg-[#14161f] border border-white/10 shadow-2xl overflow-hidden"
                         >
                           <button
                             onClick={() => {
                               toggleDemoMode();
                               setIsMenuOpen(false);
                             }}
-                            className="w-full flex items-center justify-between px-3.5 py-3 text-[13px] text-gray-200 hover:bg-white/5 transition-colors"
+                            className="w-full flex items-center justify-between px-3.5 py-3 text-xs text-gray-200 hover:bg-white/5 transition-colors"
                           >
                             <span>Data source</span>
                             <span
-                              className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              className={`flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${
                                 isDemoMode ? "bg-primary-500/20 text-primary-300" : "bg-emerald-500/20 text-emerald-300"
                               }`}
                             >
@@ -143,7 +143,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                           <Link
                             href="/admin"
                             onClick={() => setIsMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-3.5 py-3 text-[13px] text-gray-200 hover:bg-white/5 border-t border-white/5 transition-colors"
+                            className="flex items-center gap-2.5 px-3.5 py-3 text-xs text-gray-200 hover:bg-white/5 border-t border-white/5 transition-colors"
                           >
                             <Shield className="w-3.5 h-3.5 text-amber-300" />
                             Admin dashboard
@@ -153,7 +153,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                               setIsMenuOpen(false);
                               signOut();
                             }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-3 text-[13px] text-rose-300 hover:bg-white/5 border-t border-white/5 transition-colors"
+                            className="w-full flex items-center gap-2.5 px-3.5 py-3 text-xs text-rose-300 hover:bg-white/5 border-t border-white/5 transition-colors"
                           >
                             <LogOut className="w-3.5 h-3.5" />
                             Sign out
@@ -170,7 +170,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 <button
                   onClick={signOut}
                   title="Sign out / Reset"
-                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                  className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -182,8 +182,8 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
               relationship WHOOP's own wordmark has to its icon row above it. */}
           <div className="pb-1.5 flex items-center justify-center gap-1.5">
             <AntaraMark size={16} />
-            <span className="font-bold tracking-tight text-white text-[12.5px]">Antara</span>
-            <span className="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-400 border border-primary-500/20">
+            <span className="font-bold tracking-tight text-white text-xs">Antara</span>
+            <span className="text-xs uppercase font-semibold px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-400 border border-primary-500/20">
               Beta
             </span>
           </div>
@@ -215,12 +215,12 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 }`}
               >
                 <Circle className="w-5 h-5" strokeWidth={1.6} />
-                <span className="text-[10px] tracking-wide">TODAY</span>
+                <span className="text-xs tracking-wide">TODAY</span>
                 {pathname === "/" && (
                   <motion.span
                     layoutId="nav-active-dot"
                     transition={springs.default}
-                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
+                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5"
                   />
                 )}
               </Link>
@@ -232,12 +232,12 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 }`}
               >
                 <Orbit className="w-5 h-5" strokeWidth={1.6} />
-                <span className="text-[10px] tracking-wide">PULL</span>
+                <span className="text-xs tracking-wide">PULL</span>
                 {pathname === "/graph" && (
                   <motion.span
                     layoutId="nav-active-dot"
                     transition={springs.default}
-                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
+                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5"
                   />
                 )}
               </Link>
@@ -249,12 +249,12 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 }`}
               >
                 <MessageCircle className="w-5 h-5" strokeWidth={1.6} />
-                <span className="text-[10px] tracking-wide">ASK</span>
+                <span className="text-xs tracking-wide">ASK</span>
                 {pathname === "/chat" && (
                   <motion.span
                     layoutId="nav-active-dot"
                     transition={springs.default}
-                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5 shadow-glow-primary"
+                    className="w-1.5 h-1.5 rounded-full bg-primary-500 absolute -bottom-1.5"
                   />
                 )}
               </Link>
@@ -262,7 +262,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
               {onOpenQuickLog && (
                 <button
                   onClick={onOpenQuickLog}
-                  className="absolute left-1/2 -translate-x-1/2 -top-[22px] h-[46px] px-5 rounded-full bg-primary-600 text-white text-sm font-bold shadow-glow-primary active:scale-95 transition-transform flex items-center gap-1.5"
+                  className="absolute left-1/2 -translate-x-1/2 -top-[22px] h-[46px] px-5 rounded-full bg-primary-600 text-white text-sm font-bold active:scale-95 transition-transform flex items-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" />
                   Log

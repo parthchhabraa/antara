@@ -52,12 +52,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
+        {/* Brief 6 (2026-09-05): the Google Fonts <link> that used to load
+            Inter from here is gone — IBM Plex Sans/Mono are self-hosted
+            under public/fonts/ and declared via @font-face in
+            globals.css. One less third-party request, one less party
+            (Google's font CDN) seeing every visitor's IP on page load. */}
         {UMAMI_WEBSITE_ID && (
           <Script
             src="https://stats.antara.money/script.js"

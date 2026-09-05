@@ -34,7 +34,7 @@ export const StepFooter: React.FC<StepFooterProps> = ({
         whileTap={primaryDisabled || loading ? undefined : { scale: 0.97 }}
         onClick={onPrimary}
         disabled={primaryDisabled || loading}
-        className="w-full py-3.5 rounded-2xl bg-purple-500/[0.07] border border-purple-400/40 text-purple-300 font-bold text-sm hover:bg-purple-500/[0.12] transition-colors disabled:opacity-35 disabled:pointer-events-none flex items-center justify-center gap-2"
+        className="w-full py-3.5 rounded-lg bg-purple-500/[0.07] border border-purple-400/40 text-purple-300 font-bold text-sm hover:bg-purple-500/[0.12] transition-colors disabled:opacity-35 disabled:pointer-events-none flex items-center justify-center gap-2"
       >
         {loading ? (
           <>

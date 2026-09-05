@@ -16,13 +16,13 @@ export default function AdminPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/"
-              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
               <h1 className="text-sm font-bold text-white">Superadmin Dashboard</h1>
-              <p className="text-[11px] text-gray-400">Beta allowlist and system controls</p>
+              <p className="text-xs text-gray-400">Beta allowlist and system controls</p>
             </div>
           </div>
         </div>

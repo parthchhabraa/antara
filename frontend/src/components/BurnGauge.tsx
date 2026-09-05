@@ -77,8 +77,8 @@ export const BurnGauge: React.FC<BurnGaugeProps> = ({ burnPct, size = 250, strok
         </defs>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[10px] font-medium tracking-[0.16em] text-primary-300">BURN RATE</span>
-        <span className="mt-1.5 text-[52px] font-medium leading-none tracking-tight text-white">
+        <span className="text-xs font-medium tracking-[0.16em] text-primary-300">BURN RATE</span>
+        <span className="mt-1.5 text-5xl font-mono font-medium leading-none tracking-tight text-white tabular-nums">
           <CountUpNumber value={burnPct} format={(n) => Math.round(n).toString()} spring={springs.snappy} />
           <span className="text-3xl">%</span>
         </span>

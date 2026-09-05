@@ -148,12 +148,12 @@ export const LearningCurveSheet: React.FC<LearningCurveSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
             <h5 className="text-lg font-medium text-white m-0">How well Antara knows you</h5>
-            <p className="text-[13px] text-gray-500 mt-0.5 m-0">
+            <p className="text-xs text-gray-500 mt-0.5 m-0">
               Your own real confidence curve — one point per day you've actually logged something, not a demo chart.
             </p>
 
@@ -173,23 +173,23 @@ export const LearningCurveSheet: React.FC<LearningCurveSheetProps> = ({
               </p>
             ) : (
               <>
-                <div className="mt-4 rounded-2xl border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#2E1065,#08090C)] p-3">
+                <div className="mt-4 rounded-lg border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#2E1065,#08090C)] p-3">
                   <CurveSvg points={points} />
                 </div>
 
                 {latest && (
                   <div className="mt-4 flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300">
+                      <div className="text-xs font-medium tracking-[0.14em] text-primary-300">
                         RIGHT NOW · {Math.round(latest.confidence * 100)}% CONFIDENT
                       </div>
-                      <div className="text-[13px] text-gray-400 mt-0.5">
+                      <div className="text-xs text-gray-400 mt-0.5">
                         {latest.active_days} day{latest.active_days === 1 ? "" : "s"} logged · {latest.tx_count}{" "}
                         transaction{latest.tx_count === 1 ? "" : "s"}
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border ${
+                      className={`shrink-0 text-xs font-bold uppercase tracking-wide px-2 py-1 rounded-full border ${
                         latest.model_mode === "TRAINED_EMBEDDING_V1"
                           ? "bg-primary-500/10 text-primary-300 border-primary-500/30"
                           : "bg-amber-500/10 text-amber-300 border-amber-500/30"
@@ -201,7 +201,7 @@ export const LearningCurveSheet: React.FC<LearningCurveSheetProps> = ({
                 )}
 
                 {latest && latest.model_mode !== "TRAINED_EMBEDDING_V1" && (
-                  <p className="text-[11.5px] leading-relaxed text-amber-200/80 mt-2 mb-0">
+                  <p className="text-xs leading-relaxed text-amber-200/80 mt-2 mb-0">
                     Still calibrating to your data — the more you log, the sharper this gets.
                   </p>
                 )}
@@ -210,7 +210,7 @@ export const LearningCurveSheet: React.FC<LearningCurveSheetProps> = ({
 
             <button
               onClick={onClose}
-              className="w-full h-11 mt-5 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
+              className="w-full h-11 mt-5 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
             >
               Got it
             </button>

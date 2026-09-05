@@ -61,13 +61,13 @@ export const LlmDailyCapControl: React.FC = () => {
   const dirty = cap !== null && draft !== String(cap);
 
   return (
-    <div className="p-4 rounded-2xl bg-[#0F111A] border border-white/5 space-y-3">
+    <div className="p-4 rounded-lg bg-[#0F111A] border border-white/5 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold text-gray-200 flex items-center gap-2">
           <MessageSquare className="w-4 h-4 text-primary-400" />
           <span>Daily Chat/Insights Limit</span>
         </h3>
-        <span className="text-[11px] text-gray-500">{cap === null ? "Loading…" : `currently ${cap}/day`}</span>
+        <span className="text-xs text-gray-500">{cap === null ? "Loading…" : `currently ${cap}/day`}</span>
       </div>
       <div className="flex items-center gap-2">
         <input
@@ -76,17 +76,17 @@ export const LlmDailyCapControl: React.FC = () => {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           disabled={cap === null || saving}
-          className="w-24 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-200 disabled:opacity-40"
+          className="w-24 px-3 py-1.5 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-200 disabled:opacity-40"
         />
         <button
           onClick={handleSave}
           disabled={!dirty || saving}
-          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-primary-600 text-white disabled:opacity-30"
+          className="px-3 py-1.5 rounded-sm text-xs font-bold bg-primary-600 text-white disabled:opacity-30"
         >
           {saving ? "Saving…" : "Save"}
         </button>
       </div>
-      <p className="text-[11px] text-gray-500 leading-relaxed">
+      <p className="text-xs text-gray-500 leading-relaxed">
         Per-account daily cap on Ask Antara messages and spend insights — the two routes that run the heavier 7B
         model on the shared GPU. Superadmin is exempt. Backed by{" "}
         <code className="text-gray-400">admin/launchConfig.llmDailyMessageCap</code>; the backend re-reads this at

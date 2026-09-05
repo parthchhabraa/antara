@@ -27,12 +27,12 @@ export const AntaraWordmark: React.FC<AntaraWordmarkProps> = ({ markSize = 40, c
     <AntaraMark size={markSize} />
     <div>
       <div
-        className="text-[26px] font-bold tracking-wide text-white leading-none"
+        className="text-2xl font-bold tracking-wide text-white leading-none"
         style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
       >
         ANTARA
       </div>
-      <div className="text-[10px] font-medium tracking-[0.35em] text-gray-400 mt-1">MONEY</div>
+      <div className="text-xs font-medium tracking-[0.35em] text-gray-400 mt-1">MONEY</div>
     </div>
   </div>
 );

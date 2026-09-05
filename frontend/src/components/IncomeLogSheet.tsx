@@ -78,16 +78,16 @@ export const IncomeLogSheet: React.FC<IncomeLogSheetProps> = ({ isOpen, onClose,
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
+            className="absolute left-0 right-0 bottom-0 rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3.5" />
 
             <h5 className="text-sm font-semibold text-white m-0">Add income</h5>
 
             <div className="flex items-baseline justify-center gap-1 py-3.5">
-              <span className="text-3xl font-medium text-emerald-600">₹</span>
+              <span className="text-3xl font-mono font-medium text-emerald-600">₹</span>
               <span
-                className="text-[54px] leading-none font-medium tracking-tight"
+                className="text-5xl font-mono leading-none font-medium tracking-tight tabular-nums"
                 style={{ color: amount ? "#e9e9ed" : "#59545c" }}
               >
                 {amountNum ? amountNum.toLocaleString("en-IN") : "0"}
@@ -99,7 +99,7 @@ export const IncomeLogSheet: React.FC<IncomeLogSheetProps> = ({ isOpen, onClose,
               value={source}
               onChange={(e) => setSource(e.target.value.slice(0, 80))}
               placeholder="Where's this from? (optional — e.g. 'allowance')"
-              className="w-full h-11 mb-2 px-3.5 rounded-xl bg-white/5 border border-white/10 text-[13px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+              className="w-full h-11 mb-2 px-3.5 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
             />
 
             <div className="flex gap-2 mb-2.5">
@@ -108,7 +108,7 @@ export const IncomeLogSheet: React.FC<IncomeLogSheetProps> = ({ isOpen, onClose,
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 max={new Date().toISOString().slice(0, 10)}
-                className="flex-1 h-11 px-3.5 rounded-xl bg-white/5 border border-white/10 text-[13px] text-gray-100 outline-none focus:border-primary-500/60"
+                className="flex-1 h-11 px-3.5 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 outline-none focus:border-primary-500/60"
               />
             </div>
 
@@ -121,7 +121,7 @@ export const IncomeLogSheet: React.FC<IncomeLogSheetProps> = ({ isOpen, onClose,
                       key={w.id}
                       type="button"
                       onClick={() => setWalletId(w.id)}
-                      className={`flex-none px-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap border transition-colors ${
+                      className={`flex-none px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
                         active
                           ? "bg-emerald-500/15 border-emerald-500/60 text-emerald-200"
                           : "bg-white/5 border-white/10 text-gray-400"
@@ -141,7 +141,7 @@ export const IncomeLogSheet: React.FC<IncomeLogSheetProps> = ({ isOpen, onClose,
                   type="button"
                   onClick={() => press(k)}
                   whileTap={{ scale: 0.93 }}
-                  className="h-[50px] rounded-2xl bg-white/5 text-white text-xl font-medium flex items-center justify-center"
+                  className="h-[50px] rounded-lg bg-white/5 text-white text-xl font-medium flex items-center justify-center"
                 >
                   {k === "del" ? <Delete className="w-5 h-5" /> : k}
                 </motion.button>
@@ -153,7 +153,7 @@ export const IncomeLogSheet: React.FC<IncomeLogSheetProps> = ({ isOpen, onClose,
               onClick={commit}
               disabled={!amountNum || !walletId}
               whileTap={{ scale: 0.98 }}
-              className="w-full h-12 mt-3.5 rounded-2xl bg-transparent border border-emerald-500/60 text-emerald-300 font-bold text-sm disabled:opacity-40 disabled:pointer-events-none"
+              className="w-full h-12 mt-3.5 rounded-lg bg-transparent border border-emerald-500/60 text-emerald-300 font-bold text-sm disabled:opacity-40 disabled:pointer-events-none"
             >
               {amountNum && selectedWallet
                 ? `Add ${FORMAT_INR(amountNum)} to ${selectedWallet.name}`

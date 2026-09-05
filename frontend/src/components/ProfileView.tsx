@@ -113,7 +113,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   if (isDemoMode || (!isSelf && !user)) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-        <p className="text-[13.5px] text-gray-400 max-w-[260px]">
+        <p className="text-sm text-gray-400 max-w-[260px]">
           {isDemoMode ? "Profiles need a real signed-in account." : "Sign in to view profiles."}
         </p>
       </div>
@@ -126,7 +126,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-[12.5px] text-gray-400 mb-3 active:opacity-60 transition-opacity"
+          className="flex items-center gap-1.5 text-xs text-gray-400 mb-3 active:opacity-60 transition-opacity"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back
@@ -148,32 +148,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             )}
             <div className="min-w-0">
               <div className="text-lg font-medium text-white truncate">{profileBadge?.displayName || "Antara user"}</div>
-              {memberSince && <div className="text-[12px] text-gray-500">Member since {memberSince}</div>}
+              {memberSince && <div className="text-xs text-gray-500">Member since {memberSince}</div>}
             </div>
           </div>
 
           {/* Streak */}
           {(profileBadge?.currentStreak ?? 0) > 0 && (
-            <div className="flex items-center gap-1.5 mt-4 text-[13px] text-orange-300 font-semibold">
+            <div className="flex items-center gap-1.5 mt-4 text-xs text-orange-300 font-semibold">
               <Flame className="w-4 h-4" fill="currentColor" strokeWidth={0} />
               {profileBadge?.currentStreak}-day streak
               {(profileBadge?.longestStreak ?? 0) > (profileBadge?.currentStreak ?? 0) && (
-                <span className="text-[11.5px] text-gray-500 font-normal">· best {profileBadge?.longestStreak}</span>
+                <span className="text-xs text-gray-500 font-normal">· best {profileBadge?.longestStreak}</span>
               )}
             </div>
           )}
 
           {/* Archetype */}
           {archetypeBadge && (
-            <div className="mt-4 p-4 rounded-2xl bg-primary-900/25 border border-primary-800/40">
-              <div className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.14em] text-primary-300">
+            <div className="mt-4 p-4 rounded-lg bg-primary-900/25 border border-primary-800/40">
+              <div className="flex items-center gap-1.5 text-xs font-medium tracking-[0.14em] text-primary-300">
                 <Sparkles className="w-3 h-3" />
                 ARCHETYPE
               </div>
-              <div className="text-[15px] font-medium text-white mt-1.5">{archetypeBadge.archetype_name}</div>
-              <p className="text-[12.5px] leading-relaxed text-gray-300 mt-1 mb-0">{archetypeBadge.archetype_description}</p>
+              <div className="text-sm font-medium text-white mt-1.5">{archetypeBadge.archetype_name}</div>
+              <p className="text-xs leading-relaxed text-gray-300 mt-1 mb-0">{archetypeBadge.archetype_description}</p>
               {archetypeBadge.is_cold_start && (
-                <p className="text-[11px] leading-relaxed text-amber-200/80 mt-1.5 mb-0">
+                <p className="text-xs leading-relaxed text-amber-200/80 mt-1.5 mb-0">
                   Still calibrating to their data — this is an early read.
                 </p>
               )}
@@ -181,7 +181,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           )}
 
           {/* Badges */}
-          <div className="text-[10px] font-medium tracking-[0.14em] text-gray-600 mt-6 mb-2">
+          <div className="text-xs font-medium tracking-[0.14em] text-gray-600 mt-6 mb-2">
             BADGES · {achievementCount}
           </div>
           {achievementCount === 0 ? (
@@ -191,14 +191,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               {streakBadges.map((b) => (
                 <span
                   key={b.id}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/25 text-[12px] text-orange-300 font-semibold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/25 text-xs text-orange-300 font-semibold"
                 >
                   <Flame className="w-3.5 h-3.5" fill="currentColor" strokeWidth={0} />
                   {b.threshold}-day streak
                 </span>
               ))}
               {graduatedBadge && (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[12px] text-emerald-300 font-semibold">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300 font-semibold">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   Graduated cold-start
                 </span>
@@ -208,7 +208,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 return (
                   <span
                     key={b.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-500/10 border border-primary-500/25 text-[12px] text-primary-200 font-semibold"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-500/10 border border-primary-500/25 text-xs text-primary-200 font-semibold"
                   >
                     <Target className="w-3.5 h-3.5" />
                     Cap keeper · {cat?.short || b.category_id}
@@ -221,7 +221,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {/* Friend-only: privacy-preserving category comparison */}
           {!isSelf && (
             <>
-              <div className="text-[10px] font-medium tracking-[0.14em] text-gray-600 mt-6 mb-2">
+              <div className="text-xs font-medium tracking-[0.14em] text-gray-600 mt-6 mb-2">
                 HOW YOUR SPENDING COMPARES
               </div>
               {comparisonError ? (
@@ -233,7 +233,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               ) : (
                 <>
                   {(comparison.requester_is_cold_start || comparison.friend_is_cold_start) && (
-                    <p className="text-[11.5px] leading-relaxed text-amber-200/80 mb-2">
+                    <p className="text-xs leading-relaxed text-amber-200/80 mb-2">
                       One or both of you are still calibrating — take this as an early read.
                     </p>
                   )}
@@ -243,7 +243,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       return (
                         <div key={c.category_id} className="flex items-center gap-2.5 py-2 border-b border-white/5 last:border-0">
                           <CategoryIcon category={cat} size={26} />
-                          <span className={`text-[13px] ${BUCKET_COLOR[c.bucket]}`}>
+                          <span className={`text-xs ${BUCKET_COLOR[c.bucket]}`}>
                             {BUCKET_LABEL[c.bucket]} <span className="text-gray-200">{c.category_name}</span>
                           </span>
                         </div>
@@ -258,12 +258,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {/* Self-only: the real numeric stuff — never rendered for a friend. */}
           {isSelf && (selfMonthlyBudget !== undefined || selfCategoryCaps) && (
             <>
-              <div className="text-[10px] font-medium tracking-[0.14em] text-gray-600 mt-6 mb-2">YOUR NUMBERS</div>
+              <div className="text-xs font-medium tracking-[0.14em] text-gray-600 mt-6 mb-2">YOUR NUMBERS</div>
               <div className="flex flex-col gap-1.5">
                 {selfMonthlyBudget !== undefined && (
                   <div className="flex items-center justify-between py-2 border-b border-white/5">
-                    <span className="text-[13px] text-gray-300">Monthly budget</span>
-                    <span className="text-[13px] text-white font-medium">{FORMAT_INR(selfMonthlyBudget)}</span>
+                    <span className="text-xs text-gray-300">Monthly budget</span>
+                    <span className="text-xs font-mono text-white font-medium tabular-nums">{FORMAT_INR(selfMonthlyBudget)}</span>
                   </div>
                 )}
                 {selfCategoryCaps &&
@@ -271,13 +271,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     const cat = STARTER_CATEGORIES.find((c) => c.id === catId);
                     return (
                       <div key={catId} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                        <span className="text-[13px] text-gray-300">{cat?.name || catId} cap</span>
-                        <span className="text-[13px] text-white font-medium">{FORMAT_INR(cap)}</span>
+                        <span className="text-xs text-gray-300">{cat?.name || catId} cap</span>
+                        <span className="text-xs font-mono text-white font-medium tabular-nums">{FORMAT_INR(cap)}</span>
                       </div>
                     );
                   })}
               </div>
-              <p className="text-[11px] text-gray-600 mt-2">Only you ever see this — friends only ever see the sections above.</p>
+              <p className="text-xs text-gray-600 mt-2">Only you ever see this — friends only ever see the sections above.</p>
             </>
           )}
         </>

@@ -35,7 +35,7 @@ export const CategoryDistributionChart: React.FC<CategoryDistributionChartProps>
           <button
             key={b}
             onClick={() => setBand(b)}
-            className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+            className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
               band === b
                 ? "bg-primary-500/20 border-primary-500 text-primary-200"
                 : "bg-white/5 border-white/10 text-gray-400"
@@ -59,13 +59,13 @@ export const CategoryDistributionChart: React.FC<CategoryDistributionChartProps>
             return (
               <div key={cat.id}>
                 <div className="flex items-baseline justify-between mb-1">
-                  <span className="text-[12px] text-gray-200 flex items-center gap-1.5">
+                  <span className="text-xs text-gray-200 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                     {cat.short}
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span
-                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                      className={`text-xs font-bold px-1.5 py-0.5 rounded ${
                         confident ? "bg-primary-500/15 text-primary-300" : "bg-amber-500/15 text-amber-300"
                       }`}
                     >
@@ -73,7 +73,7 @@ export const CategoryDistributionChart: React.FC<CategoryDistributionChartProps>
                       {s.outliersRemoved ? ` (−${s.outliersRemoved} outlier${s.outliersRemoved > 1 ? "s" : ""})` : ""} ·{" "}
                       {confident ? "confident" : "early estimate"}
                     </span>
-                    <span className="text-[11px] font-medium text-white">{FORMAT_INR(s.median ?? 0)}</span>
+                    <span className="text-xs font-medium text-white">{FORMAT_INR(s.median ?? 0)}</span>
                   </span>
                 </div>
                 <div className="relative h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
@@ -90,7 +90,7 @@ export const CategoryDistributionChart: React.FC<CategoryDistributionChartProps>
                   />
                 </div>
                 {s.insufficientForIQR && (
-                  <p className="text-[9px] text-gray-600 mt-0.5">Too few responses (n&lt;4) to show a spread — median only.</p>
+                  <p className="text-xs text-gray-600 mt-0.5">Too few responses (n&lt;4) to show a spread — median only.</p>
                 )}
               </div>
             );

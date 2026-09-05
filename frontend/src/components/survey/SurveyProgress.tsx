@@ -36,13 +36,13 @@ export const SurveyProgress: React.FC<SurveyProgressProps> = ({
         </motion.button>
         <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-purple-400 shadow-glow-purple"
+            className="h-full rounded-full bg-purple-400"
             animate={{ width: `${pct}%` }}
             transition={springs.default}
           />
         </div>
         {timeLeftLabel && (
-          <span className="text-[10px] font-semibold text-gray-500 tabular-nums whitespace-nowrap">
+          <span className="text-xs font-semibold text-gray-500 tabular-nums whitespace-nowrap">
             {timeLeftLabel}
           </span>
         )}

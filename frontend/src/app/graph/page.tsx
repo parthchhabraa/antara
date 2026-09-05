@@ -144,7 +144,7 @@ export default function PullPage() {
       <PageTransition>
         <div className="mb-1">
           <h3 className="text-lg font-medium text-white m-0 mb-1.5">Pull</h3>
-          <p className="text-[13px] leading-relaxed text-gray-500 m-0">
+          <p className="text-xs leading-relaxed text-gray-500 m-0">
             Needs settle left, wants drift right, dots grow with rupees. Tap one to see its month.
           </p>
         </div>
@@ -157,7 +157,7 @@ export default function PullPage() {
             violet step) into background (#08090C, also from the config), so
             this panel reads as violet-tinted near-black like everywhere
             else, not a different, undefined blue. */}
-        <div className="mt-3 rounded-2xl border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#2E1065,#08090C)] overflow-hidden">
+        <div className="mt-3 rounded-lg border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#2E1065,#08090C)] overflow-hidden">
           {/* Bug fix: dots previously only updated `selected` (the spotlight
               card below) — opening a category's cap editor took two taps
               (tap a dot, then tap the card), and the card only ever showed
@@ -176,7 +176,7 @@ export default function PullPage() {
           />
         </div>
 
-        <div className="flex gap-3.5 mt-3 text-[11px] text-gray-500">
+        <div className="flex gap-3.5 mt-3 text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-primary-400" />
             Want
@@ -199,7 +199,7 @@ export default function PullPage() {
             listed here, plain text, in a row — additive, the spotlight card
             and the dots both still work exactly as before. */}
         <div className="mt-4">
-          <div className="text-[11px] text-gray-600 mb-1.5">or pick a category directly</div>
+          <div className="text-xs text-gray-600 mb-1.5">or pick a category directly</div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5 no-scrollbar">
             {STARTER_CATEGORIES.map((c) => (
               <button
@@ -209,7 +209,7 @@ export default function PullPage() {
                   setSelectedId(c.id);
                   setDetailCategoryId(c.id);
                 }}
-                className="flex-none flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap border bg-white/5 border-white/10 text-gray-300 active:opacity-70 transition-opacity"
+                className="flex-none flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border bg-white/5 border-white/10 text-gray-300 active:opacity-70 transition-opacity"
               >
                 <CategoryIcon category={c} size={22} />
                 <span>{c.short}</span>
@@ -220,13 +220,13 @@ export default function PullPage() {
 
         <button
           onClick={() => setDetailCategoryId(selected.id)}
-          className="w-full text-left mt-4 p-4 rounded-2xl bg-white/[0.06] active:opacity-70 transition-opacity"
+          className="w-full text-left mt-4 p-4 rounded-lg bg-white/[0.06] active:opacity-70 transition-opacity"
         >
-          <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300">
+          <div className="text-xs font-medium tracking-[0.14em] text-primary-300">
             {selected.is_essential ? "NEED" : "WANT"}
           </div>
           <div className="text-lg font-medium text-white mt-1.5">{selected.name}</div>
-          <p className="text-[13px] leading-relaxed text-gray-400 mt-1.5 mb-0">
+          <p className="text-xs leading-relaxed text-gray-400 mt-1.5 mb-0">
             {selSpent
               ? `${FORMAT_INR(selSpent)} this month — ${
                   metrics.spent ? Math.round((selSpent / metrics.spent) * 100) : 0
@@ -240,11 +240,11 @@ export default function PullPage() {
                 editable in the sheet this button opens) now win when set. */}
             {selectedCap !== undefined ? (
               <>
-                <span className="text-[11px] px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-100">
+                <span className="text-xs px-2.5 py-1 rounded-sm bg-neutral-800 text-neutral-100">
                   {FORMAT_INR(selectedCap)} cap
                 </span>
                 <span
-                  className={`text-[11px] px-2.5 py-1 rounded-md ${
+                  className={`text-xs px-2.5 py-1 rounded-sm ${
                     selSpent > selectedCap ? "bg-rose-500/20 text-rose-300" : "bg-primary-800/50 text-primary-100"
                   }`}
                 >
@@ -252,36 +252,36 @@ export default function PullPage() {
                 </span>
               </>
             ) : (
-              <span className="text-[11px] px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-400">No cap set yet</span>
+              <span className="text-xs px-2.5 py-1 rounded-sm bg-neutral-800 text-neutral-400">No cap set yet</span>
             )}
           </div>
         </button>
 
         <div className="flex gap-3.5 mt-5">
           <div className="flex-1">
-            <div className="text-[10px] tracking-wide text-gray-600">NEEDS</div>
-            <div className="text-xl font-medium text-white mt-1">{FORMAT_INR(metrics.need)}</div>
-            <div className="text-[11px] text-gray-600">{metrics.needPct}% of spend</div>
+            <div className="text-xs tracking-wide text-gray-600">NEEDS</div>
+            <div className="text-xl font-mono font-medium text-white mt-1 tabular-nums">{FORMAT_INR(metrics.need)}</div>
+            <div className="text-xs text-gray-600">{metrics.needPct}% of spend</div>
           </div>
           <div className="w-px bg-white/10" />
           <div className="flex-1">
-            <div className="text-[10px] tracking-wide text-gray-600">WANTS</div>
-            <div className="text-xl font-medium text-primary-300 mt-1">{FORMAT_INR(metrics.want)}</div>
-            <div className="text-[11px] text-gray-600">{metrics.wantPct}% of spend</div>
+            <div className="text-xs tracking-wide text-gray-600">WANTS</div>
+            <div className="text-xl font-mono font-medium text-primary-300 mt-1 tabular-nums">{FORMAT_INR(metrics.want)}</div>
+            <div className="text-xs text-gray-600">{metrics.wantPct}% of spend</div>
           </div>
         </div>
 
         <div className="flex items-center justify-center gap-4 mt-4">
           <button
             onClick={() => setIsArchetypeOpen(true)}
-            className="text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+            className="text-xs text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
           >
             See your spending archetype
           </button>
-          <span className="text-gray-700 text-[11px]">·</span>
+          <span className="text-gray-700 text-xs">·</span>
           <button
             onClick={() => setIsLearningCurveOpen(true)}
-            className="text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+            className="text-xs text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
           >
             How well Antara knows you
           </button>
@@ -331,7 +331,7 @@ export default function PullPage() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-2xl bg-primary-900/95 shadow-2xl text-[13.5px] leading-relaxed text-white"
+            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-lg bg-primary-900/95 shadow-2xl text-sm leading-relaxed text-white"
           >
             {toast}
           </motion.div>

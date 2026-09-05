@@ -242,7 +242,7 @@ export default function SurveyPage() {
             type="button"
             whileTap={{ scale: 0.96 }}
             onClick={() => setCooldownActive(false)}
-            className="mt-6 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-gray-300 hover:bg-white/10 transition-colors"
+            className="mt-6 px-5 py-2.5 rounded-sm bg-white/5 border border-white/10 text-xs font-semibold text-gray-300 hover:bg-white/10 transition-colors"
           >
             Submit another response
           </motion.button>
@@ -267,14 +267,14 @@ export default function SurveyPage() {
             <InfoRow text="Anonymous & voluntary — no account, no login" />
           </div>
 
-          <label className="flex items-start gap-3 p-4 mt-5 rounded-2xl bg-white/[0.05] border border-white/10 cursor-pointer">
+          <label className="flex items-start gap-3 p-4 mt-5 rounded-lg bg-white/[0.05] border border-white/10 cursor-pointer">
             <input
               type="checkbox"
               checked={reviewConsented}
               onChange={(e) => setReviewConsented(e.target.checked)}
               className="mt-0.5 w-4 h-4 accent-primary-500 shrink-0"
             />
-            <span className="text-[12.5px] leading-relaxed text-gray-300">
+            <span className="text-xs leading-relaxed text-gray-300">
               I'm okay with sharing anonymous answers about my own spending, and I've read the{" "}
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-300 underline">
                 Privacy Policy
@@ -341,7 +341,7 @@ export default function SurveyPage() {
         <StepContainer
           icon={
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              className="w-10 h-10 rounded-sm flex items-center justify-center"
               style={{
                 backgroundColor: `${cat.color}1F`,
                 border: `1px solid ${cat.color}4D`,
@@ -376,9 +376,9 @@ export default function SurveyPage() {
             onChange={(e) => setOtherSpendNote(e.target.value.slice(0, 300))}
             rows={5}
             placeholder="e.g. Thrifted sneakers, cricket betting pools, birthday gifts for friends…"
-            className="w-full px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 focus:border-purple-500 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
+            className="w-full px-4 py-3.5 rounded-lg bg-white/[0.04] border border-white/10 focus:border-purple-500 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
           />
-          <p className="text-right text-[10px] text-gray-600 mt-1.5">{otherSpendNote.length}/300</p>
+          <p className="text-right text-xs text-gray-600 mt-1.5">{otherSpendNote.length}/300</p>
         </StepContainer>
         <StepFooter onPrimary={goNext} primaryLabel="Continue" />
       </div>
@@ -422,7 +422,7 @@ export default function SurveyPage() {
             onChange={(e) => setBetaEmail(e.target.value)}
             placeholder="you@example.com"
             autoComplete="email"
-            className="w-full px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 focus:border-purple-500 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+            className="w-full px-4 py-3.5 rounded-lg bg-white/[0.04] border border-white/10 focus:border-purple-500 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
           />
           {submitError && <p className="text-xs text-rose-400 mt-3">{submitError}</p>}
         </StepContainer>

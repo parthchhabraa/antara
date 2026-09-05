@@ -53,7 +53,7 @@ export const PublicSignupToggle: React.FC = () => {
   };
 
   return (
-    <div className="p-4 rounded-2xl bg-[#0F111A] border border-white/5 space-y-3">
+    <div className="p-4 rounded-lg bg-[#0F111A] border border-white/5 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold text-gray-200 flex items-center gap-2">
           <Globe className="w-4 h-4 text-primary-400" />
@@ -62,21 +62,21 @@ export const PublicSignupToggle: React.FC = () => {
         <button
           onClick={handleToggle}
           disabled={enabled === null || saving}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-40 ${
+          className={`px-3 py-1.5 rounded-sm text-xs font-bold transition-all disabled:opacity-40 ${
             enabled ? "bg-emerald-600 text-white" : "bg-white/10 text-gray-400"
           }`}
         >
           {enabled === null ? "Loading…" : enabled ? "ON — anyone can sign up" : "OFF — allowlist only"}
         </button>
       </div>
-      <p className="text-[11px] text-gray-500 leading-relaxed">
+      <p className="text-xs text-gray-500 leading-relaxed">
         When off (default), sign-in still requires the beta allowlist below — unchanged. When on, any Google
         account skips the allowlist entirely and goes straight to Live Mode. Backed by{" "}
         <code className="text-gray-400">admin/launchConfig</code>, enforced in both the sign-in flow and
         Firestore's own security rules — not just a client-side check.
       </p>
       {enabled && (
-        <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-300">
+        <div className="flex items-start gap-2 p-2.5 rounded-sm bg-amber-500/10 border border-amber-500/25 text-xs text-amber-300">
           <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>
             Public signup is live right now. Real strangers — who may be minors — can create accounts with real

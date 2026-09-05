@@ -352,7 +352,7 @@ export default function TodayPage() {
             <AntaraWordmark />
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
-            <h2 className="text-[34px] leading-[1.1] tracking-tight text-white m-0 mb-2.5">
+            <h2 className="text-3xl leading-[1.1] tracking-tight text-white m-0 mb-2.5">
               Know where your
               <br />
               month is heading.
@@ -362,17 +362,17 @@ export default function TodayPage() {
             </p>
             <button
               onClick={signInWithGoogle}
-              className="w-full h-[50px] rounded-2xl bg-transparent border border-primary-500/60 text-primary-300 font-bold text-[15px] active:scale-[0.97] transition-transform"
+              className="w-full h-[50px] rounded-lg bg-transparent border border-primary-500/60 text-primary-300 font-bold text-sm active:scale-[0.97] transition-transform"
             >
               Continue with Google
             </button>
             <button
               onClick={() => setHeroDismissed(true)}
-              className="w-full h-11 mt-1 text-[13px] text-gray-500 hover:text-gray-300 transition-colors"
+              className="w-full h-11 mt-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
             >
               Continue in Demo Mode
             </button>
-            <p className="text-center text-[11px] text-gray-600 mt-3">
+            <p className="text-center text-xs text-gray-600 mt-3">
               By continuing you agree to our{" "}
               <a href="/terms" className="text-gray-400 underline">
                 Terms
@@ -399,7 +399,7 @@ export default function TodayPage() {
               ? "Wednesday, 19 Aug"
               : today.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short" })}
           </span>
-          <span className="ml-auto text-[11px] text-gray-600">
+          <span className="ml-auto text-xs text-gray-600">
             DAY {metrics.today} / {metrics.daysInMonth}
           </span>
         </div>
@@ -412,13 +412,13 @@ export default function TodayPage() {
         <button
           type="button"
           onClick={() => setIsWalletsOpen(true)}
-          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-emerald-500/[0.06] border border-emerald-500/20 active:opacity-70 transition-opacity mb-1"
+          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/20 active:opacity-70 transition-opacity mb-1"
         >
-          <span className="text-[11px] font-medium tracking-wide text-emerald-400/90">WALLETS</span>
-          <span className={`ml-auto text-[15px] font-medium ${walletsTotal < 0 ? "text-rose-300" : "text-emerald-100"}`}>
+          <span className="text-xs font-medium tracking-wide text-emerald-400/90">WALLETS</span>
+          <span className={`ml-auto text-sm font-mono font-medium tabular-nums ${walletsTotal < 0 ? "text-rose-300" : "text-emerald-100"}`}>
             {FORMAT_INR(walletsTotal)}
           </span>
-          <span className="text-[11px] text-gray-500">
+          <span className="text-xs text-gray-500">
             {activeWallets.length} wallet{activeWallets.length === 1 ? "" : "s"}
           </span>
         </button>
@@ -452,7 +452,7 @@ export default function TodayPage() {
                     className={`w-full rounded ${b.heightPct > 60 ? "bg-primary-400" : "bg-gray-500/45"}`}
                   />
                 </div>
-                <span className={`text-[9px] flex items-center gap-1 ${isSelected ? "text-primary-300" : "text-gray-600"}`}>
+                <span className={`text-xs flex items-center gap-1 ${isSelected ? "text-primary-300" : "text-gray-600"}`}>
                   {b.day}
                   {b.isToday && !isSelected && <span className="w-1 h-1 rounded-full bg-gray-500" />}
                 </span>
@@ -470,12 +470,12 @@ export default function TodayPage() {
           <>
             <div className="flex items-center justify-between mt-3">
               <div>
-                <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300 mb-1">{selectedBarLabel.toUpperCase()}</div>
-                <div className="text-3xl font-medium tracking-tight text-white">{FORMAT_INR(daySpent)}</div>
+                <div className="text-xs font-medium tracking-[0.14em] text-primary-300 mb-1">{selectedBarLabel.toUpperCase()}</div>
+                <div className="text-3xl font-mono font-medium tracking-tight text-white tabular-nums">{FORMAT_INR(daySpent)}</div>
               </div>
               <button
                 onClick={() => setSelectedDateKey(null)}
-                className="h-9 px-3.5 rounded-full bg-white/5 hover:bg-white/10 text-[12.5px] font-medium text-gray-300 active:opacity-70 transition-opacity"
+                className="h-9 px-3.5 rounded-full bg-white/5 hover:bg-white/10 text-xs font-medium text-gray-300 active:opacity-70 transition-opacity"
               >
                 Back to today
               </button>
@@ -486,7 +486,7 @@ export default function TodayPage() {
                 {dayByCategory.map(({ category: c, amount }) => (
                   <div
                     key={c.id}
-                    className="flex-none px-3 py-1.5 rounded-full bg-white/[0.06] text-[11.5px] text-gray-300 whitespace-nowrap"
+                    className="flex-none px-3 py-1.5 rounded-full bg-white/[0.06] text-xs text-gray-300 whitespace-nowrap"
                   >
                     {c.short} · {FORMAT_INR(amount)}
                   </div>
@@ -512,13 +512,13 @@ export default function TodayPage() {
                             the user's own note is the headline when they gave one,
                             falling back to the generic category/subcategory tag only
                             when they didn't type anything. */}
-                        <div className="text-[13px] text-gray-100 truncate">{t.note || cat?.name || t.category}</div>
-                        <div className="text-[11px] text-gray-500 mt-0.5 truncate">
+                        <div className="text-xs text-gray-100 truncate">{t.note || cat?.name || t.category}</div>
+                        <div className="text-xs text-gray-500 mt-0.5 truncate">
                           {new Date(t.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                           {t.note && (t.subcategory || cat?.name) ? ` · ${t.subcategory || cat?.name}` : ""}
                         </div>
                       </div>
-                      <span className="text-sm font-medium text-white shrink-0">{FORMAT_INR(t.amount)}</span>
+                      <span className="text-sm font-mono font-medium text-white shrink-0 tabular-nums">{FORMAT_INR(t.amount)}</span>
                     </button>
                   );
                 })
@@ -531,13 +531,13 @@ export default function TodayPage() {
             <div className="flex flex-col items-center py-3.5">
               <BurnGauge burnPct={metrics.burnPct} />
             </div>
-            <div className="text-center text-[13px] text-gray-400 leading-relaxed -mt-1 mb-2">
+            <div className="text-center text-xs text-gray-400 leading-relaxed -mt-1 mb-2">
               You're running {FORMAT_INR(metrics.weekRate)} a day.
               <br />
               Safe is {FORMAT_INR(metrics.safeDaily)}.
             </div>
             {coldStart && (
-              <p className="text-center text-[11.5px] leading-relaxed text-amber-200/80 -mt-1 mb-2">
+              <p className="text-center text-xs leading-relaxed text-amber-200/80 -mt-1 mb-2">
                 Still calibrating to your data — the more you log, the sharper this gets.
               </p>
             )}
@@ -546,36 +546,36 @@ export default function TodayPage() {
             <div className="flex items-center justify-center gap-3 mb-4">
               <button
                 onClick={() => setIsBudgetEditOpen(true)}
-                className="text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+                className="text-xs text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
               >
                 Budget {FORMAT_INR(monthlyBudget)}/mo · Edit
               </button>
-              <span className="text-gray-700 text-[11px]">·</span>
+              <span className="text-gray-700 text-xs">·</span>
               <button
                 onClick={() => setIsInstancesOpen(true)}
-                className="text-[11.5px] text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
+                className="text-xs text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
               >
                 Instances
               </button>
             </div>
 
             {/* Money runs out */}
-            <div className="rounded-2xl border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
-              <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300 mb-2">MONEY RUNS OUT</div>
+            <div className="rounded-lg border border-primary-800/60 bg-gradient-to-br from-primary-950/50 to-[#171a2c]/60 p-4">
+              <div className="text-xs font-medium tracking-[0.14em] text-primary-300 mb-2">MONEY RUNS OUT</div>
               <div className="flex items-baseline gap-2.5">
                 <span className="text-4xl font-medium tracking-tight text-white">{runOutDate}</span>
                 <span className="text-xs text-gray-400">{earlyLabel}</span>
               </div>
               <button
                 onClick={() => setIsWhyOpen(true)}
-                className="block w-full text-left text-[13.5px] leading-relaxed text-gray-200 mt-3 underline decoration-dotted decoration-gray-500 underline-offset-4 active:opacity-70 transition-opacity"
+                className="block w-full text-left text-sm leading-relaxed text-gray-200 mt-3 underline decoration-dotted decoration-gray-500 underline-offset-4 active:opacity-70 transition-opacity"
               >
                 {coachLine}
               </button>
               {metrics.riskRows[0] && (
                 <button
                   onClick={() => setDetailCategoryId(metrics.riskRows[0].categoryId)}
-                  className="mt-3.5 h-10 px-4 rounded-xl bg-transparent border border-primary-500/60 text-primary-300 text-[13px] font-bold active:scale-[0.97] transition-transform"
+                  className="mt-3.5 h-10 px-4 rounded-sm bg-transparent border border-primary-500/60 text-primary-300 text-xs font-bold active:scale-[0.97] transition-transform"
                 >
                   Show me the plan
                 </button>
@@ -584,19 +584,19 @@ export default function TodayPage() {
 
             {/* Stat tiles */}
             <div className="grid grid-cols-3 gap-2 mt-3.5">
-              <div className="p-3 rounded-2xl bg-white/[0.06]">
-                <div className="text-[10px] text-gray-600 tracking-wide">LEFT</div>
-                <div className="text-[19px] font-medium text-white mt-1">
+              <div className="p-3 rounded-lg bg-white/[0.06]">
+                <div className="text-xs text-gray-600 tracking-wide">LEFT</div>
+                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">
                   <CountUpNumber value={metrics.left} format={FORMAT_INR} />
                 </div>
               </div>
-              <div className="p-3 rounded-2xl bg-white/[0.06]">
-                <div className="text-[10px] text-gray-600 tracking-wide">PER DAY</div>
-                <div className="text-[19px] font-medium text-white mt-1">{FORMAT_INR(metrics.safeDaily)}</div>
+              <div className="p-3 rounded-lg bg-white/[0.06]">
+                <div className="text-xs text-gray-600 tracking-wide">PER DAY</div>
+                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">{FORMAT_INR(metrics.safeDaily)}</div>
               </div>
-              <div className="p-3 rounded-2xl bg-white/[0.06]">
-                <div className="text-[10px] text-gray-600 tracking-wide">DAYS</div>
-                <div className="text-[19px] font-medium text-white mt-1">
+              <div className="p-3 rounded-lg bg-white/[0.06]">
+                <div className="text-xs text-gray-600 tracking-wide">DAYS</div>
+                <div className="text-base font-mono font-medium text-white mt-1 tabular-nums">
                   <CountUpNumber value={metrics.daysLeft} />
                 </div>
               </div>
@@ -605,7 +605,7 @@ export default function TodayPage() {
             {/* What's pushing the date */}
             <div className="flex items-baseline mt-6 mb-2.5">
               <h5 className="text-sm font-semibold text-white m-0">What's pushing the date</h5>
-              <span className="ml-auto text-[11px] text-gray-600">tap a row</span>
+              <span className="ml-auto text-xs text-gray-600">tap a row</span>
             </div>
             <div className="flex flex-col gap-0.5">
               {metrics.riskRows.length === 0 && (
@@ -618,7 +618,7 @@ export default function TodayPage() {
                   className="text-left bg-transparent border-0 py-2.5 flex flex-col gap-1.5 border-b border-white/5 last:border-0 active:opacity-60 transition-opacity"
                 >
                   <span className="flex items-baseline gap-2 w-full">
-                    <span className="text-[13.5px] text-gray-100">{r.name}</span>
+                    <span className="text-sm text-gray-100">{r.name}</span>
                     <span className="ml-auto text-xs text-gray-500">{FORMAT_INR(r.perDay)}/day</span>
                   </span>
                   <span className="block w-full h-[3px] rounded-full bg-white/10 relative overflow-hidden">
@@ -627,7 +627,7 @@ export default function TodayPage() {
                       style={{ width: `${Math.min(100, r.sharePct * 2.3)}%`, backgroundColor: r.isEssential ? "#75798c" : "#8B5CF6" }}
                     />
                   </span>
-                  <span className="text-[11px] text-gray-600">
+                  <span className="text-xs text-gray-600">
                     {r.isEssential
                       ? `Mostly fixed · ${FORMAT_INR(r.projectedMore)} more expected`
                       : `Yours to control · ${FORMAT_INR(r.projectedMore)} more if nothing changes`}
@@ -712,7 +712,7 @@ export default function TodayPage() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-2xl bg-primary-900/95 shadow-2xl text-[13.5px] leading-relaxed text-white"
+            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-lg bg-primary-900/95 shadow-2xl text-sm leading-relaxed text-white"
           >
             {toast}
           </motion.div>

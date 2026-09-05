@@ -85,12 +85,12 @@ export const ArchetypeSheet: React.FC<ArchetypeSheetProps> = ({ isOpen, onClose,
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
             <h5 className="text-lg font-medium text-white m-0">Your spending archetype</h5>
-            <p className="text-[13px] text-gray-500 mt-0.5 m-0">
+            <p className="text-xs text-gray-500 mt-0.5 m-0">
               How your logged spending compares to a few common patterns — not a label, just a pattern-match.
             </p>
 
@@ -108,40 +108,40 @@ export const ArchetypeSheet: React.FC<ArchetypeSheetProps> = ({ isOpen, onClose,
               <>
                 {result.is_cold_start && (
                   <>
-                    <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/30">
+                    <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide px-2 py-1 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/30">
                       Early read — not much logged yet
                     </div>
-                    <p className="text-[11.5px] leading-relaxed text-amber-200/80 mt-1.5 mb-0">
+                    <p className="text-xs leading-relaxed text-amber-200/80 mt-1.5 mb-0">
                       Still calibrating to your data — the more you log, the sharper this gets.
                     </p>
                   </>
                 )}
 
                 <div
-                  className="mt-4 p-4 rounded-2xl border"
+                  className="mt-4 p-4 rounded-lg border"
                   style={{ backgroundColor: `${top.color}1a`, borderColor: `${top.color}4d` }}
                 >
-                  <div className="text-[10px] font-medium tracking-[0.14em]" style={{ color: top.color }}>
+                  <div className="text-xs font-medium tracking-[0.14em]" style={{ color: top.color }}>
                     CLOSEST MATCH · {Math.round(top.similarity_pct)}%
                   </div>
                   <div className="text-lg font-medium text-white mt-1.5">{top.name}</div>
-                  <p className="text-[13.5px] leading-relaxed text-gray-200 mt-1.5 mb-0">{top.description}</p>
+                  <p className="text-sm leading-relaxed text-gray-200 mt-1.5 mb-0">{top.description}</p>
                 </div>
 
-                <div className="text-[10px] font-medium tracking-[0.14em] text-gray-600 mt-5 mb-2">ALL PATTERNS</div>
+                <div className="text-xs font-medium tracking-[0.14em] text-gray-600 mt-5 mb-2">ALL PATTERNS</div>
                 <div className="flex flex-col gap-2">
                   {ranked.map((arc) => (
-                    <div key={arc.id} className="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.05]">
+                    <div key={arc.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.05]">
                       <span
                         className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0"
                         style={{ backgroundColor: arc.color }}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-[13.5px] text-gray-100">{arc.name}</span>
-                          <span className="text-[11px] text-gray-500 shrink-0">{Math.round(arc.similarity_pct)}%</span>
+                          <span className="text-sm text-gray-100">{arc.name}</span>
+                          <span className="text-xs text-gray-500 shrink-0">{Math.round(arc.similarity_pct)}%</span>
                         </div>
-                        <p className="text-[12px] leading-relaxed text-gray-500 mt-0.5 mb-0">{arc.description}</p>
+                        <p className="text-xs leading-relaxed text-gray-500 mt-0.5 mb-0">{arc.description}</p>
                       </div>
                     </div>
                   ))}
@@ -151,7 +151,7 @@ export const ArchetypeSheet: React.FC<ArchetypeSheetProps> = ({ isOpen, onClose,
 
             <button
               onClick={onClose}
-              className="w-full h-11 mt-5 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
+              className="w-full h-11 mt-5 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
             >
               Got it
             </button>

@@ -63,7 +63,7 @@ export const FeedbackSheet: React.FC<FeedbackSheetProps> = ({ isOpen, onClose, u
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
+            className="absolute left-0 right-0 bottom-0 rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3.5" />
 
@@ -71,7 +71,7 @@ export const FeedbackSheet: React.FC<FeedbackSheetProps> = ({ isOpen, onClose, u
               <MessageSquareText className="w-4 h-4 text-primary-400" />
               <h5 className="text-sm font-semibold text-white m-0">Send feedback</h5>
             </div>
-            <p className="text-[12px] text-gray-500 mt-1.5">
+            <p className="text-xs text-gray-500 mt-1.5">
               Bug, confusing screen, or an idea — this goes straight to the person who built Antara, not a support
               queue.
             </p>
@@ -82,12 +82,12 @@ export const FeedbackSheet: React.FC<FeedbackSheetProps> = ({ isOpen, onClose, u
               placeholder="What's on your mind?"
               rows={5}
               autoFocus
-              className="w-full mt-3.5 px-3.5 py-3 rounded-xl bg-white/5 border border-white/10 text-[13px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60 resize-none"
+              className="w-full mt-3.5 px-3.5 py-3 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60 resize-none"
             />
-            <div className="text-right text-[10.5px] text-gray-600 mt-1">{message.length}/2000</div>
+            <div className="text-right text-xs text-gray-600 mt-1">{message.length}/2000</div>
 
             {error && (
-              <div className="mt-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-[12px] text-rose-200">
+              <div className="mt-2 p-3 rounded-sm bg-rose-500/10 border border-rose-500/25 text-xs text-rose-200">
                 {error}
               </div>
             )}
@@ -96,7 +96,7 @@ export const FeedbackSheet: React.FC<FeedbackSheetProps> = ({ isOpen, onClose, u
               type="button"
               onClick={handleSend}
               disabled={!message.trim() || sending}
-              className="w-full h-12 mt-4 rounded-2xl bg-primary-600 text-white font-bold text-sm disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98] transition-transform"
+              className="w-full h-12 mt-4 rounded-lg bg-primary-600 text-white font-bold text-sm disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98] transition-transform"
             >
               {sending ? "Sending…" : "Send"}
             </button>

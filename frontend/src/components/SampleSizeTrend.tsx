@@ -25,13 +25,13 @@ export const SampleSizeTrend: React.FC<SampleSizeTrendProps> = ({ history }) => 
         <span className="text-xs text-gray-500">responses as of {new Date(latest.computedAt).toLocaleString()}</span>
       </div>
       {history.length < 2 ? (
-        <p className="text-[11px] text-gray-600">Only one recompute so far — trend will show once there's more than one data point.</p>
+        <p className="text-xs text-gray-600">Only one recompute so far — trend will show once there's more than one data point.</p>
       ) : (
         <div className="flex items-end gap-1 h-16">
           {history.map((h, i) => (
             <div
               key={i}
-              className="flex-1 rounded-t bg-primary-500/60 min-w-[3px]"
+              className="flex-1 rounded-t-sm bg-primary-500/60 min-w-[3px]"
               style={{ height: `${Math.max(4, (h.sampleSize / maxN) * 100)}%` }}
               title={`${h.sampleSize} responses at ${new Date(h.computedAt).toLocaleString()}`}
             />

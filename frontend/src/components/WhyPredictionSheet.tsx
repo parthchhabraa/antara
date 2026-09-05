@@ -105,17 +105,17 @@ export const WhyPredictionSheet: React.FC<WhyPredictionSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h5 className="text-lg font-medium text-white m-0">Why this pace?</h5>
-                <p className="text-[13px] text-gray-500 mt-0.5 m-0">What's actually driving your burn rate.</p>
+                <p className="text-xs text-gray-500 mt-0.5 m-0">What's actually driving your burn rate.</p>
               </div>
               <span
-                className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border ${
+                className={`shrink-0 text-xs font-bold uppercase tracking-wide px-2 py-1 rounded-full border ${
                   modeTone === "personalized"
                     ? "bg-primary-500/10 text-primary-300 border-primary-500/30"
                     : modeTone === "early"
@@ -126,9 +126,9 @@ export const WhyPredictionSheet: React.FC<WhyPredictionSheetProps> = ({
                 {modeTone === "personalized" ? "Tuned to you" : modeTone === "early" ? "Still learning" : "Preview"}
               </span>
             </div>
-            <p className="text-[11px] text-gray-500 mt-2">{modeLabel}</p>
+            <p className="text-xs text-gray-500 mt-2">{modeLabel}</p>
             {modeTone === "early" && (
-              <p className="text-[11.5px] leading-relaxed text-amber-200/80 mt-1.5 mb-0">
+              <p className="text-xs leading-relaxed text-amber-200/80 mt-1.5 mb-0">
                 Still calibrating to your data — the more you log, the sharper this gets.
               </p>
             )}
@@ -141,38 +141,38 @@ export const WhyPredictionSheet: React.FC<WhyPredictionSheetProps> = ({
                   {top.map((r, i) => {
                     const cat = STARTER_CATEGORIES.find((c) => c.id === r.categoryId);
                     return (
-                      <div key={r.categoryId} className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.05]">
-                        <span className="text-[11px] font-bold text-gray-600 w-4 shrink-0">{i + 1}</span>
+                      <div key={r.categoryId} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.05]">
+                        <span className="text-xs font-bold text-gray-600 w-4 shrink-0">{i + 1}</span>
                         <CategoryIcon category={cat} size={34} />
                         <div className="flex-1 min-w-0">
-                          <div className="text-[13.5px] text-gray-100 truncate">{r.name}</div>
-                          <div className="text-[11px] text-gray-500">{Math.round(r.sharePct)}% of everything logged</div>
+                          <div className="text-sm text-gray-100 truncate">{r.name}</div>
+                          <div className="text-xs text-gray-500">{Math.round(r.sharePct)}% of everything logged</div>
                         </div>
-                        <span className="text-[13px] font-medium text-white shrink-0">{FORMAT_INR(r.perDay)}/day</span>
+                        <span className="text-xs font-medium text-white shrink-0">{FORMAT_INR(r.perDay)}/day</span>
                       </div>
                     );
                   })}
                 </div>
 
                 {topRow && trend && (
-                  <div className="mt-4 p-4 rounded-2xl bg-primary-900/25 border border-primary-800/40">
-                    <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300 mb-2">
+                  <div className="mt-4 p-4 rounded-lg bg-primary-900/25 border border-primary-800/40">
+                    <div className="text-xs font-medium tracking-[0.14em] text-primary-300 mb-2">
                       TOP DRIVER — {topRow.name.toUpperCase()}
                     </div>
                     {trend.hasComparison && trend.pctChangeVsPriorTwoWeeks !== null && trend.pctChangeVsPriorTwoWeeks > 5 ? (
-                      <p className="text-[13.5px] leading-relaxed text-gray-200 m-0">
+                      <p className="text-sm leading-relaxed text-gray-200 m-0">
                         You've spent {FORMAT_INR(trend.last7Spend)} on {topRow.name.toLowerCase()} this week —{" "}
                         <span className="text-white font-semibold">{trend.pctChangeVsPriorTwoWeeks}% more</span> than your{" "}
                         {FORMAT_INR(trend.priorTwoWeekAvg || 0)}/week average the two weeks before. Try capping it around{" "}
                         <span className="text-white font-semibold">{FORMAT_INR(trend.priorTwoWeekAvg || 0)}</span> a week to get back on pace.
                       </p>
                     ) : trend.hasComparison ? (
-                      <p className="text-[13.5px] leading-relaxed text-gray-200 m-0">
+                      <p className="text-sm leading-relaxed text-gray-200 m-0">
                         You've spent {FORMAT_INR(trend.last7Spend)} on {topRow.name.toLowerCase()} this week — about the same as your{" "}
                         {FORMAT_INR(trend.priorTwoWeekAvg || 0)}/week average lately. Nothing urgent here.
                       </p>
                     ) : (
-                      <p className="text-[13.5px] leading-relaxed text-gray-200 m-0">
+                      <p className="text-sm leading-relaxed text-gray-200 m-0">
                         Not enough history yet to compare to previous weeks — that needs a few more weeks of logging. Right now{" "}
                         {topRow.name.toLowerCase()} is {Math.round(topRow.sharePct)}% of everything you've logged
                         {topRow.perDay > 0 ? `, at about ${FORMAT_INR(topRow.perDay)}/day` : ""}. Keeping it near{" "}
@@ -186,7 +186,7 @@ export const WhyPredictionSheet: React.FC<WhyPredictionSheetProps> = ({
                 {predictionState === "ready" && prediction && prediction.smart_insights.length > 0 && (
                   <div className="mt-3 flex flex-col gap-1.5">
                     {prediction.smart_insights.slice(0, 2).map((line, i) => (
-                      <p key={i} className="text-[12.5px] leading-relaxed text-gray-400 m-0">
+                      <p key={i} className="text-xs leading-relaxed text-gray-400 m-0">
                         {line}
                       </p>
                     ))}
@@ -197,7 +197,7 @@ export const WhyPredictionSheet: React.FC<WhyPredictionSheetProps> = ({
 
             <button
               onClick={onClose}
-              className="w-full h-11 mt-5 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
+              className="w-full h-11 mt-5 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
             >
               Got it
             </button>

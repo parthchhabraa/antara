@@ -86,7 +86,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
@@ -105,7 +105,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
                   <div className="flex items-center gap-3">
                     <CategoryIcon category={category} size={40} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300">
+                      <div className="text-xs font-medium tracking-[0.14em] text-primary-300">
                         {category.is_essential ? "NEED" : "WANT"} · {entries.length} {entries.length === 1 ? "ENTRY" : "ENTRIES"}
                       </div>
                       <div className="text-lg font-medium text-white truncate">{category.name}</div>
@@ -138,7 +138,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
                               setCapInput(String(effectiveCap));
                               setIsEditingCap(true);
                             }}
-                            className="shrink-0 text-[11px] text-primary-300 underline decoration-dotted underline-offset-2"
+                            className="shrink-0 text-xs text-primary-300 underline decoration-dotted underline-offset-2"
                           >
                             Edit
                           </button>
@@ -155,7 +155,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
                             setCapInput("");
                             setIsEditingCap(true);
                           }}
-                          className="shrink-0 text-[11px] text-primary-300 underline decoration-dotted underline-offset-2"
+                          className="shrink-0 text-xs text-primary-300 underline decoration-dotted underline-offset-2"
                         >
                           Set a cap
                         </button>
@@ -165,7 +165,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
 
                   {isEditingCap && (
                     <div className="mt-2 flex items-center gap-1.5">
-                      <span className="text-[13px] text-gray-500 shrink-0">₹</span>
+                      <span className="text-xs text-gray-500 shrink-0">₹</span>
                       <input
                         type="number"
                         inputMode="numeric"
@@ -173,13 +173,13 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
                         value={capInput}
                         onChange={(e) => setCapInput(e.target.value)}
                         placeholder="e.g. 1500"
-                        className="w-full h-9 px-2.5 rounded-lg bg-white/5 border border-white/10 text-[13px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+                        className="w-full h-9 px-2.5 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
                       />
                       <button
                         type="button"
                         onClick={handleSaveCap}
                         disabled={savingCap || !Number(capInput)}
-                        className="shrink-0 h-9 px-3 rounded-lg bg-primary-600 text-white text-[12px] font-semibold disabled:opacity-40"
+                        className="shrink-0 h-9 px-3 rounded-sm bg-primary-600 text-white text-xs font-semibold disabled:opacity-40"
                       >
                         Save
                       </button>
@@ -188,7 +188,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
                           type="button"
                           onClick={handleClearCap}
                           disabled={savingCap}
-                          className="shrink-0 h-9 px-2.5 rounded-lg bg-white/5 text-rose-300 text-[12px] font-semibold disabled:opacity-40"
+                          className="shrink-0 h-9 px-2.5 rounded-sm bg-white/5 text-rose-300 text-xs font-semibold disabled:opacity-40"
                         >
                           Clear
                         </button>
@@ -196,14 +196,14 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsEditingCap(false)}
-                        className="shrink-0 h-9 px-2 text-[12px] text-gray-500"
+                        className="shrink-0 h-9 px-2 text-xs text-gray-500"
                       >
                         Cancel
                       </button>
                     </div>
                   )}
 
-                  <div className="mt-4 p-3.5 rounded-2xl bg-primary-900/30 text-[13px] leading-relaxed text-gray-200">
+                  <div className="mt-4 p-3.5 rounded-lg bg-primary-900/30 text-xs leading-relaxed text-gray-200">
                     {!hasCap
                       ? "No cap on this one yet — set one above to start tracking against it."
                       : overCap
@@ -212,7 +212,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
                   </div>
 
                   {entries.length > 0 && onSelectEntry && (
-                    <div className="mt-3 text-[11px] text-gray-600">tap an entry to edit or delete</div>
+                    <div className="mt-3 text-xs text-gray-600">tap an entry to edit or delete</div>
                   )}
                   <div className="mt-2 flex flex-col">
                     {entries.length === 0 ? (
@@ -233,8 +233,8 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
                                 showed up in the subtitle. The user's own words are now
                                 the headline whenever they gave one; the generic tag
                                 moves to the subtitle instead of disappearing. */}
-                            <div className="text-[13px] text-gray-100 truncate">{e.note || e.subcategory || category.name}</div>
-                            <div className="text-[11px] text-gray-500 mt-0.5 truncate">
+                            <div className="text-xs text-gray-100 truncate">{e.note || e.subcategory || category.name}</div>
+                            <div className="text-xs text-gray-500 mt-0.5 truncate">
                               {new Date(e.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                               {e.note && e.subcategory ? ` · ${e.subcategory}` : ""}
                             </div>
@@ -250,7 +250,7 @@ export const CategoryDetailSheet: React.FC<CategoryDetailSheetProps> = ({
 
             <button
               onClick={onClose}
-              className="w-full h-11 mt-4 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
+              className="w-full h-11 mt-4 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
             >
               Close
             </button>

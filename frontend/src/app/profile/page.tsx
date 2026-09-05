@@ -46,7 +46,7 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2">
             <Link
               href="/"
-              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
@@ -56,7 +56,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => setIsFriendsOpen(true)}
-              className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full bg-primary-500/10 text-primary-300 border border-primary-500/25 hover:bg-primary-500/20 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-primary-500/10 text-primary-300 border border-primary-500/25 hover:bg-primary-500/20 transition-colors"
             >
               <Users className="w-3.5 h-3.5" />
               Friends
@@ -103,7 +103,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-2xl bg-primary-900/95 shadow-2xl text-[13.5px] leading-relaxed text-white"
+            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-lg bg-primary-900/95 shadow-2xl text-sm leading-relaxed text-white"
           >
             {toast}
           </motion.div>

@@ -1,5 +1,59 @@
 # Antara — session log
 
+## Brief 6 (UI overhaul): design system foundation — tokens only, no restructuring
+
+**Status: COMPLETED, with an explicit scope call documented below — the foundation is real and every screen renders on it, but wiring the new signal colors into specific screens' state logic is deliberately left to Briefs 7-9, and the mono/tabular treatment was applied to the four screenshotted screens' prominent numbers rather than all 57 existing FORMAT_INR call sites app-wide. A real bug was found and fixed during verification, not just "looks fine."**
+
+### Type scale — exactly six steps
+
+`tailwind.config.ts`'s `fontSize` now REPLACES (not extends) Tailwind's default scale: 13/15/18/24/40/64px, reachable via `text-xs/sm/base(=lg)/xl(=2xl)/3xl(=4xl)/5xl`. This one change alone remapped every pre-existing named-scale usage (`text-xs` through `text-4xl`) across the entire app automatically. Every arbitrary `text-[Npx]` value (13 distinct pixel values — 9 through 54px — across 46 files) was bulk-migrated via `sed` to the nearest of the six steps.
+
+**A real bug, found and fixed during verification, not assumed away**: three of the arbitrary-value mappings used a class name whose value in the *actual* config didn't match what I'd intended when planning the sed commands (`26px`→`text-lg`, `34px`→`text-xl`, `52/54px`→`text-2xl` — but the config I'd actually written has `lg=18`, `xl=24`, `2xl=24`, not 24/40/64 as I'd been assuming while writing the sed). This visibly broke the BurnGauge's headline "224%" number — screenshotted before realizing it, the number rendered at 24px while its own "%" sign sat at 40px, badly misaligned. Found this by actually looking at the live "after" screenshot rather than trusting a clean build+typecheck, traced it with `git diff` against the pre-migration commit (which named exactly the 7 affected lines across 6 files: `page.tsx`'s hero headline, `AntaraWordmark.tsx`, `BurnGauge.tsx`, and four keypad-display components), fixed each to the class that actually produces the intended pixel value, rebuilt, redeployed, and re-screenshotted to confirm. `tsc`/`next build` were clean throughout this whole detour — neither would ever have caught it, since every class name involved was syntactically valid Tailwind, just not the one I meant.
+
+### Typeface — self-hosted IBM Plex Sans + Mono
+
+Self-hosted under `frontend/public/fonts/` (four weights of Sans — 400/500/600/700 — three of Mono — 400/500/600 — latin subset only, 148KB total, checked directly against the files on disk), declared via `@font-face` in `globals.css` with `font-display: swap`. The Google Fonts `<link>` (Inter) in `layout.tsx` is gone entirely — confirmed the built output no longer requests `fonts.googleapis.com`/`fonts.gstatic.com` (the only remaining string matches are Next.js's own generic font-optimization runtime code, inert, not an active request from this app). Sourced the actual `.woff2` files via a temporary `npm install @fontsource/ibm-plex-{sans,mono} --no-save`, copied the files out, then uninstalled — no lasting npm dependency, confirmed `package.json`/`package-lock.json` untouched.
+
+`font-mono tabular-nums` applied to the prominent money/counter displays on the four screenshotted screens and their core-loop sheets: `BurnGauge`'s headline number, Today's LEFT/PER DAY/DAYS stat tiles, the wallets-pill total, the day-detail headline spend, the transaction list's amounts, Pull's NEEDS/WANTS tiles, Profile's budget/cap rows, and the four keypad running-total displays (QuickLog/IncomeLog/TransactionEdit/BudgetSheet — found and fixed the same mis-mapped-size bug in three of these while doing this pass, see above). **Not applied to all 57 existing `FORMAT_INR` call sites app-wide** — the ones left alone are money figures embedded inline in prose sentences (coach lines like "Logged ₹X..."), where switching fonts mid-sentence reads as broken typography, not a design choice; standalone numeric displays got the treatment, prose didn't. Flagged rather than silently claiming full coverage.
+
+### Color — signal tokens defined, not yet wired into any screen's state logic
+
+`tailwind.config.ts` adds `signal.under` / `signal.watch` / `signal.over` (plus a `-soft` background tint for each) — saturated and flat, one ramp, never reused for brand. `primary.*` (violet) is now documented as brand/interactive/selected ONLY.
+
+**Deliberately not applied to any specific UI element this brief.** Every existing candidate — BurnGauge's ring (which has its own prior, deliberate "stays violet even over 100%" decision documented in its own comments), the needs/wants split, wallet-negative-balance coloring — is entangled with a design decision that belongs to whichever brief actually rebuilds that screen, not a blind find-and-replace here. Brief 6's own scope ("no screen redesigns yet... restructuring comes in briefs 7-9") is the reason, not an oversight — flagged explicitly in `frontend/src/lib/design.ts` rather than either forcing a premature recolor or silently doing nothing.
+
+### Radius — two steps, plus the `full` shape keyword
+
+`borderRadius` replaced: `rounded-sm` (12px, was md/lg/xl) and `rounded-lg` (20px, was 2xl/3xl) — bulk-migrated via `sed` across the whole app. `rounded-full` (pills/avatars/dots) untouched — a shape, not a step. Caught two directional variants the bulk rename missed (different literal tokens, not substrings of the ones I renamed): `rounded-t` (bare, on `SampleSizeTrend`'s chart bars — would have silently zeroed to my new `DEFAULT: 0px` since bare `rounded` was never migrated) and `rounded-br-md` (a chat bubble's "tail" corner in `app/chat/page.tsx` — `md` no longer exists as a key at all, so this would have silently stopped generating any rule and the tail would have flattened to the bubble's own `rounded-lg`). Both fixed to `-sm`/`-t-sm` explicitly rather than left to fail silently.
+
+### Elevation — glow shadows deleted, not re-tuned
+
+`shadow-glow-primary`/`glow-cyan`/`glow-pink` removed from `tailwind.config.ts` entirely; the 5 files using `glow-primary` (`ConsentGate`, `BudgetSheet`, `SuperadminPanel`, `MobileFrame` ×4, `NewUserOnboardingSheet`) had the class stripped. **Found a sixth, pre-existing bug along the way**: `components/survey/SurveyProgress.tsx` used `shadow-glow-purple`, a class that was never defined in the *original* config either — it's been silently doing nothing since before this brief touched anything. Removed for consistency, not "fixed" (there was nothing to preserve).
+
+### Motion — untouched
+
+`lib/motion.ts` not touched, per the brief.
+
+### House rules
+
+Documented in `frontend/src/lib/design.ts`'s header comment (the actual enforcement lives in `tailwind.config.ts`/`globals.css`; `design.ts` itself is documentation-as-code, not a runtime import). Noticed one pre-existing violation while screenshotting (a sparkle icon on the Ask screen's demo-mode gate) — not touched in this tokens-only brief, flagged for whichever brief next rebuilds that screen.
+
+### Verified, not assumed
+
+`tsc --noEmit` and `npm run build` clean throughout (including after the bug fix). 39/39 backend tests, full Firestore-rules suite, both unaffected by a frontend-only brief, re-run anyway. Deployed live (`antara-frontend.service` rebuilt and restarted); a real headless Chromium confirmed live at `app.antara.money`: the self-hosted font actually serves (200 on `/fonts/ibm-plex-sans-latin-400-normal.woff2`), zero console errors across Today/Pull/Ask/Profile, and — the actual point of the exercise — the before/after screenshots below caught a real regression a clean build never would have.
+
+**Before/after screenshots** (Today, Pull, Ask, Profile — all four, at 375×812, demo mode): captured by building the pre-Brief-6 commit (`03702ef`) in an isolated `git worktree` on a throwaway local port, never touching the live site, then screenshotting the real deployed site for "after." Not included as files in this repo (the "before" set contains no real data risk, but keeping the pattern consistent with not committing screenshots at all); described here instead — Today's burn-rate ring is the clearest single before/after: same 224% value, same violet ring, now in tabular Plex Mono at 64px (previously an arbitrary 52px in Inter) with its "%" sign correctly proportioned beneath it, not beside it at a mismatched size.
+
+### Cleanup
+
+Both the throwaway `git worktree` and its `next start -p 3099` process torn down after screenshotting; confirmed via `git worktree list`. No new npm dependency left behind (`@fontsource/*` uninstalled after sourcing font files).
+
+### Final state
+
+`main` — see commit hash recorded below once pushed.
+
+---
+
 ## Brief 5 (launch-readiness pack): account deletion, data export, feedback, and analytics
 
 **Status: COMPLETED — all four parts built, deployed live, and verified against real production, including a real two-account friend-deletion test and a live analytics event round-trip.**

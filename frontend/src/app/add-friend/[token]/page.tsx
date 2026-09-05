@@ -57,12 +57,12 @@ export default function AddFriendDeepLinkPage() {
           {!user || isDemoMode ? (
             <>
               <h1 className="text-lg font-medium text-white mb-1.5">Sign in to add this friend</h1>
-              <p className="text-[13px] text-gray-500 max-w-[260px] mb-5">
+              <p className="text-xs text-gray-500 max-w-[260px] mb-5">
                 You need a real Antara account to add friends — sign in and this link will finish the job.
               </p>
               <button
                 onClick={signInWithGoogle}
-                className="flex items-center gap-2 h-11 px-5 rounded-2xl bg-white text-gray-900 font-bold text-sm active:scale-[0.98] transition-transform"
+                className="flex items-center gap-2 h-11 px-5 rounded-lg bg-white text-gray-900 font-bold text-sm active:scale-[0.98] transition-transform"
               >
                 <svg className="w-4 h-4" viewBox="0 0 48 48">
                   <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
@@ -76,17 +76,17 @@ export default function AddFriendDeepLinkPage() {
           ) : state === "adding" || state === "idle" ? (
             <>
               <h1 className="text-lg font-medium text-white mb-1.5">Adding your friend…</h1>
-              <p className="text-[13px] text-gray-500">One sec.</p>
+              <p className="text-xs text-gray-500">One sec.</p>
             </>
           ) : state === "done" ? (
             <>
               <h1 className="text-lg font-medium text-white mb-1.5">You&apos;re now friends{friendName ? ` with ${friendName}` : ""}</h1>
-              <p className="text-[13px] text-gray-500 max-w-[260px] mb-5">
+              <p className="text-xs text-gray-500 max-w-[260px] mb-5">
                 They can see your archetype, streak, and badges — never any real amount.
               </p>
               <button
                 onClick={() => router.replace("/profile")}
-                className="h-11 px-6 rounded-2xl bg-primary-600 text-white font-bold text-sm active:scale-[0.98] transition-transform"
+                className="h-11 px-6 rounded-lg bg-primary-600 text-white font-bold text-sm active:scale-[0.98] transition-transform"
               >
                 Go to your profile
               </button>
@@ -94,10 +94,10 @@ export default function AddFriendDeepLinkPage() {
           ) : (
             <>
               <h1 className="text-lg font-medium text-white mb-1.5">Couldn&apos;t add that friend</h1>
-              <p className="text-[13px] text-gray-500 max-w-[260px] mb-5">{errorMsg}</p>
+              <p className="text-xs text-gray-500 max-w-[260px] mb-5">{errorMsg}</p>
               <button
                 onClick={() => router.replace("/profile")}
-                className="h-11 px-6 rounded-2xl bg-white/5 text-gray-200 font-semibold text-sm active:scale-[0.98] transition-transform"
+                className="h-11 px-6 rounded-lg bg-white/5 text-gray-200 font-semibold text-sm active:scale-[0.98] transition-transform"
               >
                 Back to profile
               </button>

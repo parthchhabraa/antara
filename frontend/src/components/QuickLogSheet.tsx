@@ -179,27 +179,27 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
+            className="absolute left-0 right-0 bottom-0 rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3.5" />
 
             <div className="flex items-baseline gap-2.5">
               <h5 className="text-sm font-semibold text-white m-0">What did you spend?</h5>
-              <span className="ml-auto text-[11px] text-gray-500" suppressHydrationWarning>
+              <span className="ml-auto text-xs text-gray-500" suppressHydrationWarning>
                 {todayLabel}
               </span>
             </div>
 
             <div className="flex items-baseline justify-center gap-1 py-3.5">
-              <span className="text-3xl font-medium text-gray-600">₹</span>
+              <span className="text-3xl font-mono font-medium text-gray-600">₹</span>
               <span
-                className="text-[54px] leading-none font-medium tracking-tight"
+                className="text-5xl font-mono leading-none font-medium tracking-tight tabular-nums"
                 style={{ color: amount ? "#e9e9ed" : "#59545c" }}
               >
                 {amountNum ? amountNum.toLocaleString("en-IN") : "0"}
               </span>
             </div>
-            <div className="text-center text-[11.5px] text-gray-500 mb-3">
+            <div className="text-center text-xs text-gray-500 mb-3">
               {amount && safeDaily
                 ? `That is ${(amountNum / safeDaily).toFixed(1)}× a safe day`
                 : "Tap the amount, pick where it went"}
@@ -214,7 +214,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
                     type="button"
                     onClick={() => setPick(c.id)}
                     whileTap={{ scale: 0.94 }}
-                    className={`flex-none flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap border transition-colors ${
+                    className={`flex-none flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
                       active
                         ? "bg-primary-500/20 border-primary-500 text-primary-200"
                         : "bg-white/5 border-white/10 text-gray-400"
@@ -232,7 +232,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
               value={note}
               onChange={(e) => setNote(e.target.value.slice(0, 120))}
               placeholder="What was it? (optional — e.g. 'McDonald's with Aryan')"
-              className="w-full h-11 mb-2 px-3.5 rounded-xl bg-white/5 border border-white/10 text-[13px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+              className="w-full h-11 mb-2 px-3.5 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
             />
 
             {suggestedCategory && !suggestionDismissed && (
@@ -242,10 +242,10 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
                 animate={{ opacity: 1, y: 0 }}
                 onClick={applySuggestion}
                 whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center gap-2 mb-2.5 pl-2.5 pr-2 py-2 rounded-xl bg-primary-500/10 border border-primary-500/30 text-left"
+                className="w-full flex items-center gap-2 mb-2.5 pl-2.5 pr-2 py-2 rounded-sm bg-primary-500/10 border border-primary-500/30 text-left"
               >
                 <Sparkles className="w-3.5 h-3.5 text-primary-300 shrink-0" />
-                <span className="flex-1 min-w-0 text-[12px] text-primary-200">
+                <span className="flex-1 min-w-0 text-xs text-primary-200">
                   Sounds like <span className="font-semibold">{suggestedCategory.name}</span> — tap to switch
                 </span>
                 <span
@@ -254,7 +254,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
                     e.stopPropagation();
                     setSuggestionDismissed(true);
                   }}
-                  className="shrink-0 p-1 rounded-md text-primary-400/70 hover:text-primary-200 active:opacity-60"
+                  className="shrink-0 p-1 rounded-sm text-primary-400/70 hover:text-primary-200 active:opacity-60"
                 >
                   <X className="w-3.5 h-3.5" />
                 </span>
@@ -266,7 +266,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
                 adds zero friction for anyone who hasn't touched Wallets. */}
             {wallets.length > 1 && (
               <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5 -mx-5 px-5 no-scrollbar">
-                <span className="shrink-0 text-[10.5px] text-gray-600">From</span>
+                <span className="shrink-0 text-xs text-gray-600">From</span>
                 {wallets.map((w) => {
                   const active = walletId === w.id;
                   return (
@@ -274,7 +274,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
                       key={w.id}
                       type="button"
                       onClick={() => setWalletId(w.id)}
-                      className={`flex-none px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap border transition-colors ${
+                      className={`flex-none px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
                         active ? "bg-white/10 border-white/25 text-gray-200" : "bg-transparent border-white/10 text-gray-500"
                       }`}
                     >
@@ -292,7 +292,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
                   type="button"
                   onClick={() => press(k)}
                   whileTap={{ scale: 0.93 }}
-                  className="h-[50px] rounded-2xl bg-white/5 text-white text-xl font-medium flex items-center justify-center"
+                  className="h-[50px] rounded-lg bg-white/5 text-white text-xl font-medium flex items-center justify-center"
                   style={{ transition: "background-color .15s ease" }}
                 >
                   {k === "del" ? <Delete className="w-5 h-5" /> : k}
@@ -305,7 +305,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({ isOpen, onClose, o
               onClick={commit}
               disabled={!amountNum}
               whileTap={{ scale: 0.98 }}
-              className="w-full h-12 mt-3.5 rounded-2xl bg-transparent border border-primary-500/60 text-primary-300 font-bold text-sm disabled:opacity-40 disabled:pointer-events-none"
+              className="w-full h-12 mt-3.5 rounded-lg bg-transparent border border-primary-500/60 text-primary-300 font-bold text-sm disabled:opacity-40 disabled:pointer-events-none"
             >
               {amountNum ? `Log ₹${amountNum.toLocaleString("en-IN")} · ${category.short}` : "Enter an amount"}
             </motion.button>

@@ -94,12 +94,12 @@ export const FriendsSheet: React.FC<FriendsSheetProps> = ({ isOpen, onClose, use
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={springs.default}
-              className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+              className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
             >
               <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
               <h5 className="text-lg font-medium text-white m-0">Friends</h5>
-              <p className="text-[13px] text-gray-500 mt-0.5 mb-4">
+              <p className="text-xs text-gray-500 mt-0.5 mb-4">
                 Archetype, streaks, and badges only — never a real amount.
               </p>
 
@@ -114,23 +114,23 @@ export const FriendsSheet: React.FC<FriendsSheetProps> = ({ isOpen, onClose, use
                   ) : (
                     <div className="flex flex-col gap-2">
                       {friends.map((f) => (
-                        <div key={f.uid} className="flex items-center gap-3 p-3.5 rounded-2xl bg-white/[0.05]">
+                        <div key={f.uid} className="flex items-center gap-3 p-3.5 rounded-lg bg-white/[0.05]">
                           <button
                             type="button"
                             onClick={() => openFriendProfile(f.uid)}
                             className="flex-1 min-w-0 flex items-center gap-3 text-left"
                           >
-                            <div className="w-9 h-9 rounded-full bg-primary-500/15 border border-primary-500/25 flex items-center justify-center shrink-0 text-[13px] font-semibold text-primary-200">
+                            <div className="w-9 h-9 rounded-full bg-primary-500/15 border border-primary-500/25 flex items-center justify-center shrink-0 text-xs font-semibold text-primary-200">
                               {(f.displayName || "?").charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-[13.5px] text-gray-100 truncate">{f.displayName || "Antara friend"}</span>
+                            <span className="text-sm text-gray-100 truncate">{f.displayName || "Antara friend"}</span>
                             <ChevronRight className="w-4 h-4 text-gray-600 shrink-0 ml-auto" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleUnfriend(f.uid)}
                             disabled={busyUid === f.uid}
-                            className="shrink-0 w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors disabled:opacity-40"
+                            className="shrink-0 w-8 h-8 rounded-sm bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors disabled:opacity-40"
                             aria-label="Remove friend"
                           >
                             <UserMinus className="w-3.5 h-3.5" />
@@ -143,7 +143,7 @@ export const FriendsSheet: React.FC<FriendsSheetProps> = ({ isOpen, onClose, use
                   <button
                     type="button"
                     onClick={() => setIsAddOpen(true)}
-                    className="w-full h-11 mt-4 rounded-2xl bg-primary-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+                    className="w-full h-11 mt-4 rounded-lg bg-primary-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
                   >
                     <UserPlus className="w-4 h-4" />
                     Add a friend
@@ -153,7 +153,7 @@ export const FriendsSheet: React.FC<FriendsSheetProps> = ({ isOpen, onClose, use
 
               <button
                 onClick={onClose}
-                className="w-full h-11 mt-2 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
+                className="w-full h-11 mt-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
               >
                 Close
               </button>

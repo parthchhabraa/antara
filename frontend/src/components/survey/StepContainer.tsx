@@ -36,12 +36,12 @@ export const StepContainer: React.FC<StepContainerProps> = ({
         </motion.div>
       )}
       {eyebrow && (
-        <span className="text-[11px] font-bold uppercase tracking-wider text-purple-300 mb-1.5 block">
+        <span className="text-xs font-bold uppercase tracking-wider text-purple-300 mb-1.5 block">
           {eyebrow}
         </span>
       )}
       <h1 className="text-xl font-black tracking-tight text-white leading-snug">{title}</h1>
-      {subtitle && <p className="text-[13px] text-gray-400 mt-1.5 leading-relaxed">{subtitle}</p>}
+      {subtitle && <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{subtitle}</p>}
 
       <div className="mt-5">{children}</div>
     </div>

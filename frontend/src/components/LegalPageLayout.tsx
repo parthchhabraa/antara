@@ -22,16 +22,16 @@ export const LegalPageLayout: React.FC<LegalPageLayoutProps> = ({ title, updated
       <div className="flex items-center gap-2 mb-4">
         <Link
           href="/"
-          className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div>
           <h1 className="text-sm font-bold text-white">{title}</h1>
-          <p className="text-[11px] text-gray-500">Last updated {updatedDate}</p>
+          <p className="text-xs text-gray-500">Last updated {updatedDate}</p>
         </div>
       </div>
-      <div className="prose-legal text-[13.5px] leading-relaxed text-gray-300 space-y-4 pb-8">{children}</div>
+      <div className="prose-legal text-sm leading-relaxed text-gray-300 space-y-4 pb-8">{children}</div>
     </PageTransition>
   </MobileFrame>
 );

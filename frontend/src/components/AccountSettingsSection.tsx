@@ -49,13 +49,13 @@ export const AccountSettingsSection: React.FC<AccountSettingsSectionProps> = ({
 
   return (
     <>
-      <div className="text-[10px] font-medium tracking-[0.14em] text-gray-600 mt-6 mb-2">ACCOUNT</div>
+      <div className="text-xs font-medium tracking-[0.14em] text-gray-600 mt-6 mb-2">ACCOUNT</div>
       <div className="flex flex-col gap-2">
         <button
           type="button"
           onClick={handleExport}
           disabled={exporting}
-          className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-white/[0.04] text-[13px] text-gray-200 disabled:opacity-50"
+          className="flex items-center gap-2.5 px-3.5 py-3 rounded-sm bg-white/[0.04] text-xs text-gray-200 disabled:opacity-50"
         >
           <Download className="w-4 h-4 text-gray-400" />
           {exporting ? "Preparing your export…" : "Export my data"}
@@ -64,7 +64,7 @@ export const AccountSettingsSection: React.FC<AccountSettingsSectionProps> = ({
         <button
           type="button"
           onClick={() => setIsFeedbackOpen(true)}
-          className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-white/[0.04] text-[13px] text-gray-200"
+          className="flex items-center gap-2.5 px-3.5 py-3 rounded-sm bg-white/[0.04] text-xs text-gray-200"
         >
           <MessageSquareText className="w-4 h-4 text-gray-400" />
           Send feedback
@@ -73,7 +73,7 @@ export const AccountSettingsSection: React.FC<AccountSettingsSectionProps> = ({
         <button
           type="button"
           onClick={() => setIsDeleteOpen(true)}
-          className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-rose-500/[0.06] border border-rose-500/15 text-[13px] text-rose-300"
+          className="flex items-center gap-2.5 px-3.5 py-3 rounded-sm bg-rose-500/[0.06] border border-rose-500/15 text-xs text-rose-300"
         >
           <Trash2 className="w-4 h-4" />
           Delete my account

@@ -132,12 +132,12 @@ export const PopulationDotGraphCanvas: React.FC<PopulationDotGraphCanvasProps> =
 
   return (
     <div className="space-y-2">
-      <div ref={containerRef} className="relative w-full h-[280px] rounded-2xl border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#1b1e30,#121423)] overflow-hidden">
+      <div ref={containerRef} className="relative w-full h-[280px] rounded-lg border border-white/10 bg-[radial-gradient(120%_90%_at_50%_0%,#1b1e30,#121423)] overflow-hidden">
         <canvas ref={canvasRef} onClick={handleClick} className="block w-full h-full cursor-pointer touch-none" />
       </div>
-      <p className="text-[10px] text-gray-600 leading-relaxed">{graph.note}</p>
+      <p className="text-xs text-gray-600 leading-relaxed">{graph.note}</p>
       {selected && selected.type === "survey_respondent" && (
-        <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 text-[11px] text-gray-300">
+        <div className="p-2.5 rounded-sm bg-black/40 border border-white/5 text-xs text-gray-300">
           <div className="font-semibold text-white">{selected.label}</div>
           <div className="text-gray-500 mt-0.5">
             Best match: {selected.metadata.bestMatchArchetype} ({selected.metadata.similarityPct}% similarity) · total
@@ -145,7 +145,7 @@ export const PopulationDotGraphCanvas: React.FC<PopulationDotGraphCanvasProps> =
           </div>
         </div>
       )}
-      <div className="text-[10px] text-gray-600">
+      <div className="text-xs text-gray-600">
         {graph.respondentsPlotted} of {graph.sampleSize} responses plotted (responses with ₹0 total logged aren't placeable).
       </div>
     </div>

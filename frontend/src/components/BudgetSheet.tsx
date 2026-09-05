@@ -71,7 +71,7 @@ export const BudgetSheet: React.FC<BudgetSheetProps> = ({ isOpen, mode, currentA
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-5 pb-8"
+            className="absolute left-0 right-0 bottom-0 rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-5 pb-8"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
@@ -81,7 +81,7 @@ export const BudgetSheet: React.FC<BudgetSheetProps> = ({ isOpen, mode, currentA
                   <AntaraMark size={36} />
                 </div>
                 <h5 className="text-lg font-medium text-white m-0">What's your monthly amount?</h5>
-                <p className="text-[13px] leading-relaxed text-gray-400 mt-2 mb-0 max-w-[280px]">
+                <p className="text-xs leading-relaxed text-gray-400 mt-2 mb-0 max-w-[280px]">
                   Your pocket money, allowance, or however much you typically have to spend in a month. This sets
                   your "safe pace" — you can change it anytime later.
                 </p>
@@ -91,7 +91,7 @@ export const BudgetSheet: React.FC<BudgetSheetProps> = ({ isOpen, mode, currentA
                 <Wallet className="w-4 h-4 text-primary-400" />
                 <h5 className="text-sm font-semibold text-white m-0">Edit monthly budget</h5>
                 {onClose && (
-                  <button onClick={onClose} className="ml-auto text-[12px] text-gray-500 hover:text-gray-300">
+                  <button onClick={onClose} className="ml-auto text-xs text-gray-500 hover:text-gray-300">
                     Cancel
                   </button>
                 )}
@@ -99,9 +99,9 @@ export const BudgetSheet: React.FC<BudgetSheetProps> = ({ isOpen, mode, currentA
             )}
 
             <div className="flex items-baseline justify-center gap-1 py-4">
-              <span className="text-3xl font-medium text-gray-600">₹</span>
+              <span className="text-3xl font-mono font-medium text-gray-600">₹</span>
               <span
-                className="text-[54px] leading-none font-medium tracking-tight"
+                className="text-5xl font-mono leading-none font-medium tracking-tight tabular-nums"
                 style={{ color: amount ? "#e9e9ed" : "#59545c" }}
               >
                 {amountNum ? amountNum.toLocaleString("en-IN") : "0"}
@@ -116,7 +116,7 @@ export const BudgetSheet: React.FC<BudgetSheetProps> = ({ isOpen, mode, currentA
                   type="button"
                   onClick={() => press(k)}
                   whileTap={{ scale: 0.93 }}
-                  className="h-[50px] rounded-2xl bg-white/5 text-white text-xl font-medium flex items-center justify-center"
+                  className="h-[50px] rounded-lg bg-white/5 text-white text-xl font-medium flex items-center justify-center"
                 >
                   {k === "del" ? <Delete className="w-5 h-5" /> : k}
                 </motion.button>
@@ -128,7 +128,7 @@ export const BudgetSheet: React.FC<BudgetSheetProps> = ({ isOpen, mode, currentA
               onClick={handleSave}
               disabled={!amountNum || saving}
               whileTap={{ scale: 0.98 }}
-              className="w-full h-12 mt-3.5 rounded-2xl bg-primary-600 text-white font-bold text-sm shadow-glow-primary disabled:opacity-40 disabled:pointer-events-none transition-opacity"
+              className="w-full h-12 mt-3.5 rounded-lg bg-primary-600 text-white font-bold text-sm disabled:opacity-40 disabled:pointer-events-none transition-opacity"
             >
               {saving ? "Saving…" : mode === "onboarding" ? "That's my number" : "Save"}
             </motion.button>

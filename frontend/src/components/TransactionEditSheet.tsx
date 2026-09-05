@@ -120,21 +120,21 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
+            className="absolute left-0 right-0 bottom-0 rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl px-5 pt-3.5 pb-8"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3.5" />
 
             <div className="flex items-baseline gap-2.5">
               <h5 className="text-sm font-semibold text-white m-0">Edit entry</h5>
-              <span className="ml-auto text-[11px] text-gray-500">
+              <span className="ml-auto text-xs text-gray-500">
                 {new Date(transaction.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" })}
               </span>
             </div>
 
             <div className="flex items-baseline justify-center gap-1 py-3.5">
-              <span className="text-3xl font-medium text-gray-600">₹</span>
+              <span className="text-3xl font-mono font-medium text-gray-600">₹</span>
               <span
-                className="text-[54px] leading-none font-medium tracking-tight"
+                className="text-5xl font-mono leading-none font-medium tracking-tight tabular-nums"
                 style={{ color: amount ? "#e9e9ed" : "#59545c" }}
               >
                 {amountNum ? amountNum.toLocaleString("en-IN") : "0"}
@@ -150,7 +150,7 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
                     type="button"
                     onClick={() => setPick(c.id)}
                     whileTap={{ scale: 0.94 }}
-                    className={`flex-none flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap border transition-colors ${
+                    className={`flex-none flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
                       active
                         ? "bg-primary-500/20 border-primary-500 text-primary-200"
                         : "bg-white/5 border-white/10 text-gray-400"
@@ -168,7 +168,7 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
               value={note}
               onChange={(e) => setNote(e.target.value.slice(0, 120))}
               placeholder="Add a note (optional)"
-              className="w-full h-11 mb-3 px-3.5 rounded-xl bg-white/5 border border-white/10 text-[13px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+              className="w-full h-11 mb-3 px-3.5 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
             />
 
             <div className="grid grid-cols-3 gap-2">
@@ -178,7 +178,7 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
                   type="button"
                   onClick={() => press(k)}
                   whileTap={{ scale: 0.93 }}
-                  className="h-[46px] rounded-2xl bg-white/5 text-white text-lg font-medium flex items-center justify-center"
+                  className="h-[46px] rounded-lg bg-white/5 text-white text-lg font-medium flex items-center justify-center"
                 >
                   {k === "del" ? <Delete className="w-4 h-4" /> : k}
                 </motion.button>
@@ -190,7 +190,7 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
               onClick={handleSave}
               disabled={!amountNum || !dirty || saving || deleting}
               whileTap={{ scale: 0.98 }}
-              className="w-full h-12 mt-3.5 rounded-2xl bg-transparent border border-primary-500/60 text-primary-300 font-bold text-sm disabled:opacity-40 disabled:pointer-events-none"
+              className="w-full h-12 mt-3.5 rounded-lg bg-transparent border border-primary-500/60 text-primary-300 font-bold text-sm disabled:opacity-40 disabled:pointer-events-none"
             >
               {saving ? "Saving…" : "Save changes"}
             </motion.button>
@@ -200,7 +200,7 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
               onClick={handleDeleteTap}
               disabled={saving || deleting}
               whileTap={{ scale: 0.98 }}
-              className={`w-full h-12 mt-2 rounded-2xl font-bold text-sm transition-colors disabled:opacity-40 disabled:pointer-events-none ${
+              className={`w-full h-12 mt-2 rounded-lg font-bold text-sm transition-colors disabled:opacity-40 disabled:pointer-events-none ${
                 confirmingDelete
                   ? "bg-rose-600 text-white"
                   : "bg-transparent border border-rose-500/40 text-rose-400"

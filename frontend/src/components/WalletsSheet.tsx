@@ -116,28 +116,28 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+            className="absolute left-0 right-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
             <h5 className="text-lg font-medium text-white m-0">Wallets</h5>
-            <p className="text-[13px] text-gray-500 mt-0.5 mb-1">
+            <p className="text-xs text-gray-500 mt-0.5 mb-1">
               Real balances — separate from your budget plan above.
             </p>
             <div className="text-3xl font-medium tracking-tight text-white mt-2 mb-4">
               {FORMAT_INR(total)}
-              <span className="text-[12px] font-normal text-gray-500 ml-2">across {active.length} wallet{active.length === 1 ? "" : "s"}</span>
+              <span className="text-xs font-normal text-gray-500 ml-2">across {active.length} wallet{active.length === 1 ? "" : "s"}</span>
             </div>
 
             {!canWrite && (
-              <p className="mb-3 text-[12px] text-gray-500 bg-white/[0.04] rounded-xl px-3.5 py-2.5">
+              <p className="mb-3 text-xs text-gray-500 bg-white/[0.04] rounded-sm px-3.5 py-2.5">
                 {isDemoMode ? "Demo wallets — sign in with a real account to create, rename, or archive your own." : "Sign in to manage real wallets."}
               </p>
             )}
 
             <div className="flex flex-col gap-2">
               {active.map((w) => (
-                <div key={w.id} className="p-3.5 rounded-2xl bg-white/[0.05]">
+                <div key={w.id} className="p-3.5 rounded-lg bg-white/[0.05]">
                   {editingId === w.id ? (
                     <div className="flex items-center gap-1.5">
                       <input
@@ -145,20 +145,20 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                         autoFocus
                         value={editName}
                         onChange={(e) => setEditName(e.target.value.slice(0, 30))}
-                        className="flex-1 h-9 px-2.5 rounded-lg bg-white/5 border border-white/10 text-[13px] text-gray-100 outline-none focus:border-primary-500/60"
+                        className="flex-1 h-9 px-2.5 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 outline-none focus:border-primary-500/60"
                       />
                       <button
                         type="button"
                         onClick={() => handleRename(w.id)}
                         disabled={!editName.trim() || busy}
-                        className="shrink-0 h-9 px-3 rounded-lg bg-primary-600 text-white text-[12px] font-semibold disabled:opacity-40"
+                        className="shrink-0 h-9 px-3 rounded-sm bg-primary-600 text-white text-xs font-semibold disabled:opacity-40"
                       >
                         Save
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditingId(null)}
-                        className="shrink-0 h-9 px-2 text-[12px] text-gray-500"
+                        className="shrink-0 h-9 px-2 text-xs text-gray-500"
                       >
                         Cancel
                       </button>
@@ -169,16 +169,16 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                         <WalletIcon className="w-4 h-4 text-primary-300" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13.5px] text-gray-100 truncate">
+                        <div className="text-sm text-gray-100 truncate">
                           {w.name}
                           {defaultWalletId === w.id && (
-                            <span className="ml-1.5 text-[9.5px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/10 text-gray-400">
+                            <span className="ml-1.5 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/10 text-gray-400">
                               Default
                             </span>
                           )}
                         </div>
                       </div>
-                      <span className={`text-[15px] font-medium shrink-0 ${w.balance < 0 ? "text-rose-300" : "text-white"}`}>
+                      <span className={`text-sm font-medium shrink-0 ${w.balance < 0 ? "text-rose-300" : "text-white"}`}>
                         {FORMAT_INR(w.balance)}
                       </span>
                       {canWrite && (
@@ -189,7 +189,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                               setEditingId(w.id);
                               setEditName(w.name);
                             }}
-                            className="w-7 h-7 rounded-md bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-colors"
+                            className="w-7 h-7 rounded-sm bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-colors"
                             aria-label={`Rename ${w.name}`}
                           >
                             <Pencil className="w-3 h-3" />
@@ -198,7 +198,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                             <button
                               type="button"
                               onClick={() => handleArchive(w.id)}
-                              className="w-7 h-7 rounded-md bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors"
+                              className="w-7 h-7 rounded-sm bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors"
                               aria-label={`Archive ${w.name}`}
                             >
                               <Archive className="w-3 h-3" />
@@ -209,7 +209,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                     </div>
                   )}
                   {w.balance < 0 && (
-                    <p className="text-[11px] text-rose-300/80 mt-1.5 mb-0">Negative — this wallet owes more than it has.</p>
+                    <p className="text-xs text-rose-300/80 mt-1.5 mb-0">Negative — this wallet owes more than it has.</p>
                   )}
                 </div>
               ))}
@@ -225,17 +225,17 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                       value={newName}
                       onChange={(e) => setNewName(e.target.value.slice(0, 30))}
                       placeholder="e.g. Cash"
-                      className="flex-1 h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-[13px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+                      className="flex-1 h-10 px-3 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
                     />
                     <button
                       type="button"
                       onClick={handleCreate}
                       disabled={!newName.trim() || busy}
-                      className="shrink-0 h-10 px-3.5 rounded-xl bg-primary-600 text-white text-[12.5px] font-semibold disabled:opacity-40"
+                      className="shrink-0 h-10 px-3.5 rounded-sm bg-primary-600 text-white text-xs font-semibold disabled:opacity-40"
                     >
                       Create
                     </button>
-                    <button type="button" onClick={() => setCreating(false)} className="shrink-0 h-10 px-2 text-[12.5px] text-gray-500">
+                    <button type="button" onClick={() => setCreating(false)} className="shrink-0 h-10 px-2 text-xs text-gray-500">
                       Cancel
                     </button>
                   </div>
@@ -243,7 +243,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                   <button
                     type="button"
                     onClick={() => setCreating(true)}
-                    className="w-full h-11 mt-3 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full h-11 mt-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     New wallet
@@ -253,7 +253,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsIncomeOpen(true)}
-                  className="w-full h-12 mt-2 rounded-2xl bg-transparent border border-emerald-500/60 text-emerald-300 font-bold text-sm active:scale-[0.98] transition-transform"
+                  className="w-full h-12 mt-2 rounded-lg bg-transparent border border-emerald-500/60 text-emerald-300 font-bold text-sm active:scale-[0.98] transition-transform"
                 >
                   + Add income
                 </button>
@@ -262,12 +262,12 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
 
             {archived.length > 0 && (
               <>
-                <div className="text-[10px] font-medium tracking-[0.14em] text-gray-600 mt-5 mb-2">ARCHIVED</div>
+                <div className="text-xs font-medium tracking-[0.14em] text-gray-600 mt-5 mb-2">ARCHIVED</div>
                 <div className="flex flex-col gap-1.5">
                   {archived.map((w) => (
                     <div key={w.id} className="flex items-center gap-3 px-1 py-1.5 opacity-60">
-                      <span className="text-[12.5px] text-gray-400 flex-1 truncate">{w.name}</span>
-                      <span className="text-[12.5px] text-gray-500">{FORMAT_INR(w.balance)}</span>
+                      <span className="text-xs text-gray-400 flex-1 truncate">{w.name}</span>
+                      <span className="text-xs text-gray-500">{FORMAT_INR(w.balance)}</span>
                     </div>
                   ))}
                 </div>
@@ -276,7 +276,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
 
             <button
               onClick={onClose}
-              className="w-full h-11 mt-5 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
+              className="w-full h-11 mt-5 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
             >
               Close
             </button>

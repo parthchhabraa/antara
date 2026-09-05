@@ -13,7 +13,7 @@ interface WhatsNewSheetProps {
 }
 
 // Same bottom-sheet shape as CategoryDetailSheet/TransactionEditSheet
-// (bg-[#1b1e2e], rounded-t-3xl, spring slide-up) — a new pattern wasn't
+// (bg-[#1b1e2e], rounded-t-lg, spring slide-up) — a new pattern wasn't
 // invented for this. Shown by WhatsNewGate exactly once per real version
 // bump, never on a brand-new device's very first open (see that file).
 export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ isOpen, onClose, entry }) => {
@@ -44,7 +44,7 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ isOpen, onClose, e
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+            className="absolute left-0 right-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
@@ -53,20 +53,20 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ isOpen, onClose, e
                 <Sparkles className="w-5 h-5 text-primary-300" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-medium tracking-[0.14em] text-primary-300">WHAT'S NEW</div>
+                <div className="text-xs font-medium tracking-[0.14em] text-primary-300">WHAT'S NEW</div>
                 <div className="text-lg font-medium text-white truncate">
                   Antara {entry.version}
                 </div>
               </div>
-              <span className="text-[11px] text-gray-500 shrink-0">{entry.date}</span>
+              <span className="text-xs text-gray-500 shrink-0">{entry.date}</span>
             </div>
 
             <div className="mt-4 flex flex-col gap-2.5">
               {entry.highlights.map((h, i) => (
-                <div key={i} className="flex gap-2.5 items-start p-3 rounded-2xl bg-white/[0.04]">
+                <div key={i} className="flex gap-2.5 items-start p-3 rounded-lg bg-white/[0.04]">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary-400 mt-1.5 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] leading-relaxed text-gray-200 m-0">{h.text}</p>
+                    <p className="text-xs leading-relaxed text-gray-200 m-0">{h.text}</p>
                     {h.image && (
                       // Real rendered screenshot of the actual feature — a
                       // broken path here is worse than no image, so this is
@@ -75,14 +75,14 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ isOpen, onClose, e
                       <img
                         src={h.image}
                         alt=""
-                        className="w-full mt-2.5 rounded-xl border border-white/10 block"
+                        className="w-full mt-2.5 rounded-sm border border-white/10 block"
                       />
                     )}
                     {h.action && (
                       <button
                         type="button"
                         onClick={() => handleAction(h.action!.href)}
-                        className="mt-2.5 h-9 px-3.5 rounded-full bg-primary-600 text-white text-[12.5px] font-bold active:scale-[0.97] transition-transform"
+                        className="mt-2.5 h-9 px-3.5 rounded-full bg-primary-600 text-white text-xs font-bold active:scale-[0.97] transition-transform"
                       >
                         {h.action.label}
                       </button>
@@ -94,7 +94,7 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ isOpen, onClose, e
 
             <button
               onClick={onClose}
-              className="w-full h-12 mt-5 rounded-2xl bg-primary-600 text-white font-bold text-sm active:scale-[0.98] transition-transform"
+              className="w-full h-12 mt-5 rounded-lg bg-primary-600 text-white font-bold text-sm active:scale-[0.98] transition-transform"
             >
               Got it
             </button>

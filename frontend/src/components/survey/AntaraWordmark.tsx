@@ -20,6 +20,6 @@ export const AntaraWordmark: React.FC<{ delay?: number }> = ({ delay = 0.5 }) =>
     >
       ANTARA
     </div>
-    <div className="text-[10px] font-medium tracking-[0.4em] text-gray-400 mt-0.5">MONEY</div>
+    <div className="text-xs font-medium tracking-[0.4em] text-gray-400 mt-0.5">MONEY</div>
   </motion.div>
 );

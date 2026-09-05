@@ -28,7 +28,7 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
             type="button"
             whileTap={{ scale: 0.98 }}
             onClick={() => onSelect(opt.value)}
-            className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border text-left transition-colors ${
+            className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-lg border text-left transition-colors ${
               isSelected
                 ? "bg-purple-500/15 border-purple-500/60"
                 : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06]"
@@ -38,7 +38,7 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
               <p className={`text-sm font-semibold ${isSelected ? "text-white" : "text-gray-200"}`}>
                 {opt.label}
               </p>
-              {opt.hint && <p className="text-[11px] text-gray-500 mt-0.5">{opt.hint}</p>}
+              {opt.hint && <p className="text-xs text-gray-500 mt-0.5">{opt.hint}</p>}
             </div>
             <div
               className={`w-5 h-5 shrink-0 rounded-full border flex items-center justify-center ${

@@ -183,7 +183,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+            className="absolute left-0 right-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
@@ -197,7 +197,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
             ) : view === "list" ? (
               <>
                 <h5 className="text-lg font-medium text-white m-0">Budget instances</h5>
-                <p className="text-[13px] text-gray-500 mt-0.5 mb-4">
+                <p className="text-xs text-gray-500 mt-0.5 mb-4">
                   Pin exact amounts to the categories that matter, and Antara fills in the rest from your real
                   spending. Save a few — "Exam month," "Normal month" — and switch between them.
                 </p>
@@ -211,7 +211,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                     {instances.map((inst) => (
                       <div
                         key={inst.id}
-                        className="flex items-center gap-3 p-3.5 rounded-2xl bg-white/[0.05]"
+                        className="flex items-center gap-3 p-3.5 rounded-lg bg-white/[0.05]"
                       >
                         <button
                           type="button"
@@ -219,21 +219,21 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                           className="flex-1 min-w-0 text-left"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-[13.5px] text-gray-100 truncate">{inst.name}</span>
+                            <span className="text-sm text-gray-100 truncate">{inst.name}</span>
                             {activeInstanceId === inst.id && (
-                              <span className="shrink-0 text-[9.5px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary-500/15 text-primary-300 border border-primary-500/30">
+                              <span className="shrink-0 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary-500/15 text-primary-300 border border-primary-500/30">
                                 Active
                               </span>
                             )}
                           </div>
-                          <p className="text-[11.5px] text-gray-500 mt-0.5 mb-0">
+                          <p className="text-xs text-gray-500 mt-0.5 mb-0">
                             {Object.keys(inst.pinned).length} categor{Object.keys(inst.pinned).length === 1 ? "y" : "ies"} pinned
                           </p>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(inst.id)}
-                          className="shrink-0 w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors"
+                          className="shrink-0 w-8 h-8 rounded-sm bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors"
                           aria-label={`Delete ${inst.name}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -246,13 +246,13 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                 <button
                   type="button"
                   onClick={openNew}
-                  className="w-full h-11 mt-4 rounded-2xl bg-primary-600 text-white font-bold text-sm active:scale-[0.98] transition-transform"
+                  className="w-full h-11 mt-4 rounded-lg bg-primary-600 text-white font-bold text-sm active:scale-[0.98] transition-transform"
                 >
                   + New instance
                 </button>
                 <button
                   onClick={onClose}
-                  className="w-full h-11 mt-2 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
+                  className="w-full h-11 mt-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
                 >
                   Close
                 </button>
@@ -263,7 +263,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                   <button
                     type="button"
                     onClick={() => setView("list")}
-                    className="w-8 h-8 -ml-1.5 rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                    className="w-8 h-8 -ml-1.5 rounded-sm flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                     aria-label="Back"
                   >
                     <ChevronLeft className="w-4.5 h-4.5" />
@@ -276,10 +276,10 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value.slice(0, 40))}
                   placeholder="e.g. Exam month"
-                  className="w-full h-11 mt-3 px-3.5 rounded-xl bg-white/5 border border-white/10 text-[13.5px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+                  className="w-full h-11 mt-3 px-3.5 rounded-sm bg-white/5 border border-white/10 text-sm text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
                 />
 
-                <div className="mt-2 text-[11px] text-gray-600">
+                <div className="mt-2 text-xs text-gray-600">
                   Budget {FORMAT_INR(monthlyBudget)}/mo · {FORMAT_INR(pinnedTotal)} pinned ·{" "}
                   {FORMAT_INR(Math.max(0, monthlyBudget - pinnedTotal))} left for Antara to split
                 </div>
@@ -289,19 +289,19 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                     const isPinned = pinned[c.id] !== undefined;
                     const suggested = preview?.allocations.find((a) => a.category_id === c.id);
                     return (
-                      <div key={c.id} className="rounded-xl bg-white/[0.04] px-3 py-2.5">
+                      <div key={c.id} className="rounded-sm bg-white/[0.04] px-3 py-2.5">
                         <div className="flex items-center gap-2.5">
                           <CategoryIcon category={c} size={22} />
-                          <span className="flex-1 min-w-0 text-[13px] text-gray-200 truncate">{c.short}</span>
+                          <span className="flex-1 min-w-0 text-xs text-gray-200 truncate">{c.short}</span>
                           {isPinned ? (
                             <>
-                              <span className="text-[12.5px] font-medium text-primary-300 shrink-0">
+                              <span className="text-xs font-medium text-primary-300 shrink-0">
                                 {FORMAT_INR(pinned[c.id])}
                               </span>
                               <button
                                 type="button"
                                 onClick={() => togglePin(c.id)}
-                                className="shrink-0 text-[11px] text-gray-500 underline decoration-dotted underline-offset-2"
+                                className="shrink-0 text-xs text-gray-500 underline decoration-dotted underline-offset-2"
                               >
                                 Unpin
                               </button>
@@ -310,7 +310,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                             <>
                               {previewState === "ready" && suggested && (
                                 <span
-                                  className={`text-[11.5px] shrink-0 ${
+                                  className={`text-xs shrink-0 ${
                                     suggested.is_early_estimate ? "text-amber-300/80" : "text-gray-400"
                                   }`}
                                 >
@@ -321,7 +321,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                               <button
                                 type="button"
                                 onClick={() => togglePin(c.id)}
-                                className="shrink-0 flex items-center gap-1 text-[11px] text-primary-300"
+                                className="shrink-0 flex items-center gap-1 text-xs text-primary-300"
                               >
                                 <Pin className="w-3 h-3" />
                                 Pin
@@ -331,7 +331,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                         </div>
                         {pinningId === c.id && (
                           <div className="flex items-center gap-1.5 mt-2">
-                            <span className="text-[13px] text-gray-500 shrink-0">₹</span>
+                            <span className="text-xs text-gray-500 shrink-0">₹</span>
                             <input
                               type="number"
                               inputMode="numeric"
@@ -339,20 +339,20 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                               value={pinInput}
                               onChange={(e) => setPinInput(e.target.value)}
                               placeholder="e.g. 2000"
-                              className="w-full h-8 px-2.5 rounded-lg bg-white/5 border border-white/10 text-[12.5px] text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
+                              className="w-full h-8 px-2.5 rounded-sm bg-white/5 border border-white/10 text-xs text-gray-100 placeholder:text-gray-600 outline-none focus:border-primary-500/60"
                             />
                             <button
                               type="button"
                               onClick={confirmPin}
                               disabled={!Number(pinInput)}
-                              className="shrink-0 h-8 px-2.5 rounded-lg bg-primary-600 text-white text-[11.5px] font-semibold disabled:opacity-40"
+                              className="shrink-0 h-8 px-2.5 rounded-sm bg-primary-600 text-white text-xs font-semibold disabled:opacity-40"
                             >
                               Set
                             </button>
                             <button
                               type="button"
                               onClick={() => setPinningId(null)}
-                              className="shrink-0 h-8 px-1.5 text-[11.5px] text-gray-500"
+                              className="shrink-0 h-8 px-1.5 text-xs text-gray-500"
                             >
                               Cancel
                             </button>
@@ -364,7 +364,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                 </div>
 
                 {preview?.over_allocated && (
-                  <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-[12px] text-rose-200">
+                  <div className="mt-3 p-3 rounded-sm bg-rose-500/10 border border-rose-500/25 text-xs text-rose-200">
                     Pinned amounts already add up to more than the budget — nothing's left for Antara to split
                     across the rest.
                   </div>
@@ -385,7 +385,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                   type="button"
                   onClick={handleSaveAndApply}
                   disabled={!name.trim() || saving || previewState !== "ready"}
-                  className="w-full h-12 mt-4 rounded-2xl bg-primary-600 text-white font-bold text-sm disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98] transition-transform"
+                  className="w-full h-12 mt-4 rounded-lg bg-primary-600 text-white font-bold text-sm disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98] transition-transform"
                 >
                   {saving ? "Saving…" : "Save & apply"}
                 </button>

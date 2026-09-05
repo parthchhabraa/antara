@@ -189,17 +189,17 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={springs.default}
-            className="absolute left-0 right-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-3xl bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
+            className="absolute left-0 right-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-lg bg-[#1b1e2e] border-t border-white/10 shadow-2xl p-5 pb-9"
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
             <h5 className="text-lg font-medium text-white m-0 mb-3">Add a friend</h5>
 
-            <div className="flex gap-1.5 p-1 rounded-2xl bg-white/[0.04] mb-4">
+            <div className="flex gap-1.5 p-1 rounded-lg bg-white/[0.04] mb-4">
               <button
                 type="button"
                 onClick={() => setMode("my-code")}
-                className={`flex-1 h-10 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                className={`flex-1 h-10 rounded-sm text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                   mode === "my-code" ? "bg-primary-600 text-white" : "text-gray-400"
                 }`}
               >
@@ -209,7 +209,7 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
               <button
                 type="button"
                 onClick={() => setMode("scan")}
-                className={`flex-1 h-10 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                className={`flex-1 h-10 rounded-sm text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                   mode === "scan" ? "bg-primary-600 text-white" : "text-gray-400"
                 }`}
               >
@@ -223,18 +223,18 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
             ) : mode === "my-code" ? (
               <div className="flex flex-col items-center py-2">
                 {qrDataUrl ? (
-                  <img src={qrDataUrl} alt="Your Antara friend code" className="w-56 h-56 rounded-2xl bg-[#0f1117]" />
+                  <img src={qrDataUrl} alt="Your Antara friend code" className="w-56 h-56 rounded-lg bg-[#0f1117]" />
                 ) : (
-                  <div className="w-56 h-56 rounded-2xl bg-white/5 animate-pulse" />
+                  <div className="w-56 h-56 rounded-lg bg-white/5 animate-pulse" />
                 )}
-                <p className="text-[12.5px] text-gray-500 text-center mt-4 max-w-[240px]">
+                <p className="text-xs text-gray-500 text-center mt-4 max-w-[240px]">
                   Have a friend open Scan and point their camera at this — friending completes the moment they scan
                   it, no separate accept step needed.
                 </p>
               </div>
             ) : (
               <div className="flex flex-col items-center py-2">
-                <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-black">
+                <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black">
                   <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
                   <canvas ref={canvasRef} className="hidden" />
                   {adding && (
@@ -242,17 +242,17 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
                       <Check className="w-8 h-8 text-emerald-400" />
                     </div>
                   )}
-                  <div className="absolute inset-6 border-2 border-primary-400/50 rounded-2xl pointer-events-none" />
+                  <div className="absolute inset-6 border-2 border-primary-400/50 rounded-lg pointer-events-none" />
                 </div>
-                {scanError && <p className="text-[12px] text-rose-300 text-center mt-3">{scanError}</p>}
-                <p className="text-[12px] text-gray-500 text-center mt-3">Point your camera at your friend&apos;s code.</p>
+                {scanError && <p className="text-xs text-rose-300 text-center mt-3">{scanError}</p>}
+                <p className="text-xs text-gray-500 text-center mt-3">Point your camera at your friend&apos;s code.</p>
 
                 {nfcSupported && (
                   <button
                     type="button"
                     onClick={startNfc}
                     disabled={nfcListening}
-                    className="mt-3 flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white/5 border border-white/10 text-[12px] text-gray-300 disabled:opacity-60"
+                    className="mt-3 flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-300 disabled:opacity-60"
                   >
                     <Nfc className="w-3.5 h-3.5 text-primary-300" />
                     {nfcListening ? "Listening for NFC…" : "Or tap to add via NFC"}
@@ -263,7 +263,7 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
 
             <button
               onClick={onClose}
-              className="w-full h-11 mt-5 rounded-2xl bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
+              className="w-full h-11 mt-5 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 transition-colors"
             >
               Close
             </button>

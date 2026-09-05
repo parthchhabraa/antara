@@ -148,7 +148,7 @@ export default function ChatPage() {
         <div className="flex items-center pb-3 shrink-0">
           <div className="flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full bg-white/[0.06] border border-white/10">
             <AntaraMark size={16} />
-            <span className="text-[11.5px] font-medium text-gray-300">Antara · v{CURRENT_APP_VERSION}</span>
+            <span className="text-xs font-medium text-gray-300">Antara · v{CURRENT_APP_VERSION}</span>
           </div>
         </div>
 
@@ -157,7 +157,7 @@ export default function ChatPage() {
             <div className="w-12 h-12 rounded-full bg-primary-500/10 border border-primary-500/25 flex items-center justify-center">
               <Sparkles className="w-6 h-6 text-primary-300" />
             </div>
-            <p className="text-[13.5px] leading-relaxed text-gray-400 max-w-[260px]">
+            <p className="text-sm leading-relaxed text-gray-400 max-w-[260px]">
               {isDemoMode
                 ? "Chat needs a real signed-in account — there's no real spending history to answer from in Demo Mode."
                 : "Sign in to ask Antara about your own spending."}
@@ -183,7 +183,7 @@ export default function ChatPage() {
                       animate={{ opacity: 1, y: 0 }}
                       className="flex justify-end"
                     >
-                      <div className="max-w-[82%] px-3.5 py-2.5 text-[13.5px] leading-relaxed rounded-2xl rounded-br-md bg-primary-600 text-white">
+                      <div className="max-w-[82%] px-3.5 py-2.5 text-sm leading-relaxed rounded-lg rounded-br-sm bg-primary-600 text-white">
                         {m.text}
                       </div>
                     </motion.div>
@@ -192,7 +192,7 @@ export default function ChatPage() {
                     // transparent background, not a boxed bubble — closer to
                     // a conversational answer than a walled-off chat bubble.
                     <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="pr-2">
-                      <p className={`text-[14px] leading-relaxed m-0 ${m.isError ? "text-rose-300" : "text-gray-100"}`}>
+                      <p className={`text-sm leading-relaxed m-0 ${m.isError ? "text-rose-300" : "text-gray-100"}`}>
                         {m.text}
                       </p>
                       {m.id !== "greeting" && (
@@ -200,7 +200,7 @@ export default function ChatPage() {
                           <button
                             type="button"
                             onClick={() => copyMessage(m)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors"
+                            className="w-7 h-7 rounded-sm flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors"
                             aria-label="Copy response"
                           >
                             {copiedId === m.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -208,7 +208,7 @@ export default function ChatPage() {
                           <button
                             type="button"
                             onClick={() => toggleFeedback(m.id, "up")}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                            className={`w-7 h-7 rounded-sm flex items-center justify-center transition-colors ${
                               feedback[m.id] === "up" ? "text-primary-300 bg-primary-500/10" : "text-gray-500 hover:text-gray-200 hover:bg-white/5"
                             }`}
                             aria-label="Good response"
@@ -218,7 +218,7 @@ export default function ChatPage() {
                           <button
                             type="button"
                             onClick={() => toggleFeedback(m.id, "down")}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                            className={`w-7 h-7 rounded-sm flex items-center justify-center transition-colors ${
                               feedback[m.id] === "down" ? "text-rose-300 bg-rose-500/10" : "text-gray-500 hover:text-gray-200 hover:bg-white/5"
                             }`}
                             aria-label="Bad response"
@@ -238,7 +238,7 @@ export default function ChatPage() {
                               key={s}
                               type="button"
                               onClick={() => send(s)}
-                              className="flex-none px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap border border-white/10 bg-white/[0.04] text-gray-300 active:opacity-70 transition-opacity"
+                              className="flex-none px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border border-white/10 bg-white/[0.04] text-gray-300 active:opacity-70 transition-opacity"
                             >
                               {s}
                             </button>
@@ -263,7 +263,7 @@ export default function ChatPage() {
               </AnimatePresence>
             </div>
 
-            {/* Input bar — one composer container (rounded-2xl, not a full
+            {/* Input bar — one composer container (rounded-lg, not a full
                 pill) with every control grouped inside it, Claude-style —
                 not separate floating circular buttons either side of a
                 pill field, which read closer to an Instagram DM composer
@@ -271,11 +271,11 @@ export default function ChatPage() {
                 visual parity only (no feature/real speech-to-text behind
                 them this pass), same theme tokens throughout. */}
             <div className="shrink-0 pb-4 pt-2 border-t border-white/5">
-              <div className="flex items-center gap-1 pl-1.5 pr-1.5 py-1.5 rounded-2xl bg-white/5 border border-white/10 focus-within:border-primary-500/60 transition-colors">
+              <div className="flex items-center gap-1 pl-1.5 pr-1.5 py-1.5 rounded-lg bg-white/5 border border-white/10 focus-within:border-primary-500/60 transition-colors">
                 <button
                   type="button"
                   title="Coming soon"
-                  className="w-8 h-8 shrink-0 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                  className="w-8 h-8 shrink-0 rounded-sm flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
                   aria-label="Add (coming soon)"
                 >
                   <Plus className="w-4 h-4" />
@@ -292,12 +292,12 @@ export default function ChatPage() {
                   }}
                   placeholder="Ask Antara anything"
                   disabled={sending}
-                  className="flex-1 min-w-0 bg-transparent text-[13.5px] text-gray-100 placeholder:text-gray-600 outline-none disabled:opacity-60 py-1.5"
+                  className="flex-1 min-w-0 bg-transparent text-sm text-gray-100 placeholder:text-gray-600 outline-none disabled:opacity-60 py-1.5"
                 />
                 <button
                   type="button"
                   title="Coming soon"
-                  className="w-8 h-8 shrink-0 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                  className="w-8 h-8 shrink-0 rounded-sm flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
                   aria-label="Voice input (coming soon)"
                 >
                   <Mic className="w-4 h-4" />
@@ -305,7 +305,7 @@ export default function ChatPage() {
                 <button
                   onClick={() => send()}
                   disabled={!input.trim() || sending}
-                  className="w-8 h-8 shrink-0 rounded-xl bg-primary-600 text-white flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30 disabled:pointer-events-none"
+                  className="w-8 h-8 shrink-0 rounded-sm bg-primary-600 text-white flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30 disabled:pointer-events-none"
                   aria-label="Send"
                 >
                   <Send className="w-3.5 h-3.5" />
