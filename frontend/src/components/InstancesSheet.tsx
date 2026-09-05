@@ -370,6 +370,17 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                   </div>
                 )}
 
+                {/* Brief 4 (2026-09-05): previewState === "error" previously
+                    left the Save button silently disabled forever with no
+                    explanation — confirmed live with antara-ml.service
+                    stopped. Same calm, bounded wording ArchetypeSheet/
+                    LearningCurveSheet already use for the same failure. */}
+                {previewState === "error" && (
+                  <p className="mt-3 text-center text-xs text-gray-500">
+                    Couldn't load a suggested split right now — try again in a moment.
+                  </p>
+                )}
+
                 <button
                   type="button"
                   onClick={handleSaveAndApply}

@@ -1,5 +1,83 @@
 # Antara — session log
 
+## Brief 4 (launch-readiness pack): rate limiting, an LLM queue, and a defined degraded mode
+
+**Status: COMPLETED — all three layers built, deployed live, and verified against real production; degraded mode walked end-to-end with antara-ml.service actually stopped (not "should work"), using a real headless browser against a real throwaway account, and one real bug found and fixed along the way.**
+
+### Layer 1 — per-uid rate limiting (`backend/app/rate_limit.py`, new)
+
+- `enforce_general_rate_limit`: 60 requests/minute per uid, on every authenticated route except superadmin-only ones (deliberately exempt, matching the bypass posture every other access check in this app already has for a superadmin — see the comment above `/api/v1/admin/status` in `main.py`).
+- `enforce_llm_daily_limit`: an additional, much tighter cap — default 30/day — applied on top of the general limit for `/api/v1/ml/chat` and `/api/v1/ml/insights` specifically (the two routes that hit the 7B model on the shared GPU). Configurable via `admin/launchConfig.llmDailyMessageCap`, cached for up to 60s so a superadmin's change reaches real traffic within a minute with no redeploy — built a real UI for this (`LlmDailyCapControl.tsx`, next to the existing `PublicSignupToggle` in the superadmin panel), not just a Firestore-console-only knob.
+- Both return a real `429` with `{"detail": "<human sentence>"}` — e.g. *"You've hit today's chat limit (30 messages). It resets tomorrow."*
+
+**In-process, single-worker design, stated explicitly rather than assumed**: `antara-ml.service` runs one uvicorn process with no `--workers` (confirmed against the actual systemd unit, not just CLAUDE.md's own description of it), so a plain in-memory dict guarded by one lock is correct and avoids a Firestore read/write on every authenticated request.
+
+**Frontend consequence, not optional**: a 429's `detail` sentence is useless if nothing shows it. Audited every fetch call site in `lib/api.ts` (9 of them) — all previously discarded the response body on failure (`` `Chat request failed: ${res.status}` ``). Added a shared `parseErrorDetail()` used by all 9.
+
+### Layer 2 — a real concurrency guard, not just a semaphore (`backend/app/ml/ollama_client.py`)
+
+The brief asked for "a global semaphore around Ollama... requests that can't get a lock within ~2s fail fast as busy." Investigating this surfaced something worse than the brief assumed: `generate()`/`chat()` are synchronous `requests` calls, invoked directly from `async def` FastAPI route handlers with no `await` — a blocking call like that freezes the **entire single-process event loop**, not just other LLM calls. Today, a slow chat generation doesn't just serialize other Ollama calls — it freezes `/health` and every other route on the service too, for however long the model takes.
+
+Fixed properly, not just semaphore-wrapped: `generate_async`/`chat_async` (new) `await` an `asyncio.Semaphore(1)` acquire with a 2s timeout, then run the actual blocking call via `asyncio.to_thread` — so the event loop stays responsive to *every other request* while one generation is in flight, and a second LLM caller that can't get the slot within 2s fails fast with a new `OllamaBusyError` instead of queueing. `llm_features.py`'s three functions (`categorize_transaction`, `build_insight`, `answer_chat`) are now `async def` and call the guarded versions; `main.py`'s three LLM routes now `await` them.
+
+Degrade-in-band, matching this codebase's existing idiom rather than inventing a new one: a busy slot degrades exactly like an unreachable model already did (a calm in-app sentence in a `200` response — e.g. chat's *"The chat assistant is handling another message right now — try again in a few seconds"* — never a raw HTTP error the LLM screens would have to newly learn to handle).
+
+**Verified, not just unit-tested**: a new `tests/test_rate_limit.py` (10 tests) includes one that actually proves the timing claim — starts a slow (1.5s) mocked generation, confirms a second concurrent call is rejected as busy within ~0.3s (not after waiting for the first to finish), and confirms the first call still completes normally. Full backend suite: **33/33 pass** (was 20 before this brief pack started; +3 sync-claims tests from Brief 2, +10 here; the pre-existing `tests/test_llm_features.py` needed updating too, since its 11 direct calls to the now-`async def` functions were silently returning unawaited coroutines rather than results — caught by running the suite, not assumed compatible).
+
+### Layer 3 — Cloudflare edge rate limiting on `api.antara.money` (documented, not set — I don't have dashboard access from this session)
+
+Exact steps for whoever has Cloudflare dashboard access to the `antara.money` zone:
+
+1. Log into the Cloudflare dashboard, select the **antara.money** zone.
+2. Go to **Security → WAF → Rate limiting rules** (Cloudflare has reshuffled this menu a few times; if it's not under WAF, it's under a top-level **Security → Rate Limiting Rules** entry — the feature is the same either way, on Free and paid plans).
+3. **Rule 1 — general edge backstop.** Create rule:
+   - Rule name: `api general backstop`
+   - When incoming requests match: `Hostname equals api.antara.money`
+   - Rate: **120 requests per 1 minute**, counted **per IP**
+   - Action: **Block**, for **1 minute**
+   - This is deliberately looser than the app's own 60/min-per-uid limit — it exists to stop a single IP from opening many different accounts/tokens against the API at once, not to duplicate the per-uid logic already enforced in Python.
+4. **Rule 2 — the LLM routes specifically.** Create a second rule:
+   - Rule name: `api llm routes`
+   - When incoming requests match: `Hostname equals api.antara.money` AND `URI Path contains /api/v1/ml/chat` — add a second matching expression (Cloudflare rules support OR groups) for `URI Path contains /api/v1/ml/insights`
+   - Rate: **10 requests per 1 minute**, per IP
+   - Action: **Block**, for **5 minutes**
+   - This is the edge-level backstop for the two GPU-bound routes — tighter than the general rule, looser than the app's own 30/day cap (it exists to stop a burst, not to duplicate the daily quota).
+5. Optional, free, and worth turning on regardless: **Security → Settings → Security Level** at "Medium" or higher, and **Bot Fight Mode** on — both help before a request ever reaches either rate-limiting rule above.
+
+Not done this session — needs a human with dashboard access, or a Cloudflare API token, neither of which this session has.
+
+### Degraded mode — walked for real, with the service actually stopped
+
+Killed `antara-ml.service` for real (confirmed: `api.antara.money/health` returned `502` from Cloudflare, not a slow response — the origin was genuinely down) and drove a real headless Chromium (Playwright, installed fresh into an isolated scratch project — not added to this repo's `package.json`) against the **live production domain**, signed into a real throwaway account seeded with real transactions/wallet data, using the same `?__e2e_token=` temporary sign-in hook prior sessions used for this exact purpose (added to `AuthContext.tsx`, used, then fully reverted — confirmed via `git diff frontend/src/lib/AuthContext.tsx` showing zero remaining changes, not just remembered).
+
+**Screens actually tested, with the backend actually down:**
+
+- **Today**: fully renders — burn rate, run-out date, category breakdown, week strip — entirely from client-side computation over already-fetched transactions. No API call happens on load at all.
+- **Pull**: same — need/want split, category dots, all client-computed. Renders fully.
+- **Ask**: sending a message correctly showed a calm message once the bug below was fixed.
+- **Profile**: renders fully (Firestore-only on this screen).
+- **Quick-log** (via the FAB): full keypad/category grid/wallet UI renders; the note→category suggestion call fails silently by design (confirmed via code — `QuickLogSheet`'s `.catch()` only `console.warn`s, never blocks or surfaces an error, matching Brief 8's eventual intent already).
+- **"Show me the plan" (WhyPredictionSheet)**: falls back to the same full local computation rather than an error state — arguably the best-designed degrade in the app already.
+- **Instances**: the list/create screen itself renders fine (pure Firestore); found and fixed a real gap here (below).
+- **Archetype sheet** and **Learning-curve sheet** (from Pull): both already showed "Couldn't load this right now — try again in a moment." — correctly designed before this session touched anything.
+
+**Two real bugs found this way, both fixed and re-verified live with the service still down:**
+
+1. **Chat leaked a raw browser error to the screen.** Sending a message with the backend down displayed the literal text **"Failed to fetch"** in the transcript — confirmed live, screenshotted. Root cause: `fetch()` itself throws (a `TypeError`, before any `Response` exists) when the origin is genuinely unreachable — Cloudflare's own bare error page carries no `Access-Control-Allow-Origin` header (that header is normally added by this app's own `CORSMiddleware`, which never runs because the request never reaches the Python process), so the browser reports it as a CORS failure with that exact generic message. `parseErrorDetail` (this brief's own new helper) never gets a chance to run in this case, since there's no `Response` to parse. Fixed with a new `safeFetch()` wrapper around all 9 fetch call sites in `lib/api.ts` (including the two shared helpers, `socialFetch`/`adminFetch`) that catches a network-level throw and converts it to a calm, caller-supplied message *before* it can ever reach a UI catch block — this also closes the same latent risk in `add-friend`, `AddFriendSheet`, and `ProfileView`'s friend-comparison error, which all render a caught error's `.message` directly and go through `socialFetch`.
+2. **Instances' Save button silently died with no explanation.** With the allocate-budget preview fetch failing, `previewState` correctly flipped to `"error"` — but nothing in the UI ever checked for that state; the Save button just stayed disabled forever with zero indication why. Fixed with the same calm wording `ArchetypeSheet`/`LearningCurveSheet` already use ("Couldn't load a suggested split right now — try again in a moment."). Verified live: pinned a category with the backend down, confirmed the message now appears exactly where the button used to just sit dead.
+
+Screenshots of all of the above (before the two fixes and after) were taken during this session; not included in the repo (they contain a real, if throwaway, account's data) — described in detail above instead.
+
+### Cleanup
+
+Both throwaway accounts (rate-limit check: `antara.e2e.brief4.ratelimit@...`; degraded-mode check: `antara.e2e.brief4.degraded@...`) and every document either wrote — deleted, confirmed via a follow-up read. `admin/launchConfig.llmDailyMessageCap`, set to `1` for one live cap-verification call, removed afterward (`FieldValue.delete()`, confirmed by reading the doc back — it now has only the pre-existing `publicSignupEnabled` field, byte-for-byte what Brief 2's entry above already documented). The temporary `?__e2e_token=` hook fully reverted from `AuthContext.tsx` (confirmed via `git diff`, zero remaining changes). The scratch Playwright install lived entirely outside this repo (`/tmp/.../scratchpad/pw-check`), never touched `frontend/package.json`.
+
+### Final state
+
+`main` — see commit hash recorded below once pushed.
+
+---
+
 ## Brief 3 (launch-readiness pack): validate every field at the rules layer
 
 **Status: COMPLETED — deployed live and verified against real production, both with a simulated rejection/acceptance pass and with the actual pre-existing real documents fed through the real rules engine unchanged.**

@@ -91,12 +91,22 @@ export default function ChatPage() {
       const result = await fetchChatAnswer(user, text);
       setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: "antara", text: result.answer }]);
     } catch (e) {
+      // Brief 4 (2026-09-05): fetchChatAnswer's error now carries the
+      // backend's own human sentence (a real 429 for the daily cap, a
+      // calm "handling another message" for a busy model) via
+      // parseErrorDetail in lib/api.ts — surface that instead of a single
+      // generic line that would otherwise say "unreachable" even when the
+      // real reason is "you've hit today's limit."
+      const message =
+        e instanceof Error && e.message
+          ? e.message
+          : "Couldn't reach the chat assistant just now — try again in a moment.";
       setMessages((prev) => [
         ...prev,
         {
           id: `a-${Date.now()}`,
           role: "antara",
-          text: "Couldn't reach the chat assistant just now — try again in a moment.",
+          text: message,
           isError: true,
         },
       ]);

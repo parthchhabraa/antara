@@ -33,7 +33,7 @@ _CATEGORY_LIST_FOR_PROMPT = "\n".join(
 )
 
 
-def categorize_transaction(description: str, amount: Optional[float] = None) -> Dict[str, Any]:
+async def categorize_transaction(description: str, amount: Optional[float] = None) -> Dict[str, Any]:
     """Free-text transaction description -> best-fit category id + confidence.
 
     Returns a dict shaped like:
@@ -99,13 +99,23 @@ def categorize_transaction(description: str, amount: Optional[float] = None) -> 
     )
 
     try:
-        raw = ollama_client.generate(
+        raw = await ollama_client.generate_async(
             model=ollama_client.CATEGORIZE_MODEL,
             prompt=prompt,
             system=system,
             format_json=True,
             temperature=0.1,
         )
+    except ollama_client.OllamaBusyError as e:
+        logger.warning("categorize_transaction: Ollama busy: %s", e)
+        return {
+            "category_id": None,
+            "category_name": None,
+            "confidence": 0.0,
+            "needs_review": True,
+            "raw_model_output": "",
+            "error": "model_busy",
+        }
     except ollama_client.OllamaError as e:
         logger.warning("categorize_transaction: Ollama unavailable: %s", e)
         return {
@@ -186,7 +196,7 @@ def _category_totals(txs: List[Dict[str, Any]], since: datetime) -> Dict[str, fl
     return totals
 
 
-def build_insight(db, uid: str) -> Dict[str, Any]:
+async def build_insight(db, uid: str) -> Dict[str, Any]:
     """Computes this-week vs. prior-3-week-average category spend in plain
     Python, picks the single biggest mover, and — only if there's a real
     mover to report — asks the chat model to phrase it as one short,
@@ -238,11 +248,17 @@ def build_insight(db, uid: str) -> Dict[str, Any]:
         f"That's a {computed['pct_change']}% change. Write the sentence."
     )
     try:
-        sentence = ollama_client.generate(
-            model=ollama_client.CHAT_MODEL, prompt=prompt, system=system, temperature=0.3
+        sentence = (
+            await ollama_client.generate_async(
+                model=ollama_client.CHAT_MODEL, prompt=prompt, system=system, temperature=0.3
+            )
         ).strip()
     except ollama_client.OllamaError as e:
-        logger.warning("build_insight: Ollama unavailable, falling back to templated sentence: %s", e)
+        # Covers both a busy slot (OllamaBusyError) and a genuinely
+        # unreachable model — either way, this templated sentence built
+        # from the exact same computed numbers is a perfectly honest
+        # degrade, so there's no need to distinguish the two causes here.
+        logger.warning("build_insight: Ollama unavailable/busy, falling back to templated sentence: %s", e)
         direction = "more" if computed["pct_change"] > 0 else "less"
         sentence = (
             f"You've spent {abs(computed['pct_change'])}% {direction} on {cat_name} this week "
@@ -266,7 +282,7 @@ def _fetch_monthly_budget(db, uid: str) -> float:
         return 5000.0
 
 
-def answer_chat(db, uid: str, message: str) -> Dict[str, Any]:
+async def answer_chat(db, uid: str, message: str) -> Dict[str, Any]:
     """Answers a user's natural-language question — not just about their raw
     spend data, but about the ML system's own reasoning (why a run-out date
     landed where it did, why a category is still an "early estimate", how
@@ -354,7 +370,14 @@ def answer_chat(db, uid: str, message: str) -> Dict[str, Any]:
     ]
 
     try:
-        answer = ollama_client.chat(model=ollama_client.CHAT_MODEL, messages=messages).strip()
+        answer = (await ollama_client.chat_async(model=ollama_client.CHAT_MODEL, messages=messages)).strip()
+    except ollama_client.OllamaBusyError as e:
+        logger.warning("answer_chat: Ollama busy: %s", e)
+        return {
+            "answer": "The chat assistant is handling another message right now — try again in a few seconds.",
+            "grounded_on_transaction_count": len(txs),
+            "error": "model_busy",
+        }
     except ollama_client.OllamaError as e:
         logger.warning("answer_chat: Ollama unavailable: %s", e)
         return {

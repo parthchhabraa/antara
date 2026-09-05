@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { BetaAllowlistEntry } from "@/types";
 import { DataConfigPanel } from "./DataConfigPanel";
 import { PublicSignupToggle } from "./PublicSignupToggle";
+import { LlmDailyCapControl } from "./LlmDailyCapControl";
 
 const ALLOWLIST_DOC_REF = doc(db, "admin", "betaAllowlist");
 const ROOT_SUPERADMIN_EMAIL = "parthchhabra6112@gmail.com";
@@ -187,6 +188,12 @@ export const SuperadminPanel: React.FC = () => {
           an alternative gate to, so the relationship between the two is
           visually obvious. */}
       <PublicSignupToggle />
+
+      {/* Brief 4 (2026-09-05): the LLM daily-cap control this brief's
+          rate-limiting layer reads from — sits next to the public-signup
+          toggle since both are launchConfig fields controlling who can do
+          what once they're in Live Mode. */}
+      <LlmDailyCapControl />
 
       {/* Beta Allowlist Manager */}
       <div className="p-4 rounded-2xl bg-[#0F111A] border border-white/5 space-y-3">

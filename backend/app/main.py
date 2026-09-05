@@ -23,9 +23,10 @@ from app.ml.engine import MLEngine
 from app.ml import survey_etl, llm_features, ollama_client
 from app import social
 from app.firebase_admin import (
-    initialize_firebase_admin, verify_firebase_token,
+    initialize_firebase_admin,
     require_superadmin, get_firestore_client, set_beta_claim
 )
+from app.rate_limit import enforce_general_rate_limit, enforce_llm_daily_limit
 
 app = FastAPI(
     title="Antara ML Spend Prediction & Personalization API",
@@ -113,7 +114,7 @@ async def health_check():
 # isBetaAllowlisted() then checks request.auth.token.beta directly, which is
 # both unreadable-by-the-client and free (no per-write Firestore get()).
 @app.post("/api/v1/auth/sync-claims", tags=["Auth"])
-async def sync_claims(current_user: dict = Depends(verify_firebase_token)):
+async def sync_claims(current_user: dict = Depends(enforce_general_rate_limit)):
     """
     Called by AuthContext on every sign-in / page load for a real,
     non-superadmin account. Resolves the caller's own beta-allowlist
@@ -154,7 +155,7 @@ async def sync_claims(current_user: dict = Depends(verify_firebase_token)):
 @app.post("/api/v1/predict/spend", response_model=SpendPredictResponse, tags=["ML Prediction"])
 async def predict_spending(
     req: SpendPredictRequest,
-    current_user: dict = Depends(verify_firebase_token)
+    current_user: dict = Depends(enforce_general_rate_limit)
 ):
     """
     Computes forecasted categorical spend, burn rate, risk levels, and smart teen insights.
@@ -189,7 +190,7 @@ async def predict_spending(
 @app.post("/api/v1/ml/dot-graph", response_model=DotGraphResponse, tags=["Personalization"])
 async def get_dot_graph(
     req: SpendPredictRequest,
-    current_user: dict = Depends(verify_firebase_token)
+    current_user: dict = Depends(enforce_general_rate_limit)
 ):
     """
     Computes learned spend embedding space and generates Obsidian-style force-directed
@@ -209,7 +210,7 @@ async def get_dot_graph(
 @app.post("/api/v1/ml/learning-curve", response_model=LearningCurveResponse, tags=["Personalization"])
 async def get_learning_curve(
     req: SpendPredictRequest,
-    current_user: dict = Depends(verify_firebase_token)
+    current_user: dict = Depends(enforce_general_rate_limit)
 ):
     """
     A real, per-user confidence-over-time curve for the Pull screen — not an
@@ -227,7 +228,7 @@ async def get_learning_curve(
 @app.post("/api/v1/ml/allocate-budget", response_model=AllocateBudgetResponse, tags=["Personalization"])
 async def allocate_budget(
     req: AllocateBudgetRequest,
-    current_user: dict = Depends(verify_firebase_token)
+    current_user: dict = Depends(enforce_general_rate_limit)
 ):
     """
     "Instances" — the user pins exact amounts to whichever categories they
@@ -266,7 +267,7 @@ def _require_self_or_superadmin(current_user: dict, user_id: str) -> None:
 # whole point of doing this server-side in the first place.
 
 @app.post("/api/v1/social/friend-token", tags=["Social"])
-async def get_friend_token(current_user: dict = Depends(verify_firebase_token)):
+async def get_friend_token(current_user: dict = Depends(enforce_general_rate_limit)):
     """Returns the caller's own stable friend_token, generating one on
     first call. Used to render their "Add me" QR code."""
     db = get_firestore_client()
@@ -276,7 +277,7 @@ async def get_friend_token(current_user: dict = Depends(verify_firebase_token)):
     return {"friend_token": token}
 
 @app.post("/api/v1/social/add-friend", response_model=AddFriendResponse, tags=["Social"])
-async def add_friend(req: AddFriendRequest, current_user: dict = Depends(verify_firebase_token)):
+async def add_friend(req: AddFriendRequest, current_user: dict = Depends(enforce_general_rate_limit)):
     """Completes a friendship from a scanned QR/NFC token — see
     app/social.py's add_friend_by_token for the mutual, atomic write."""
     db = get_firestore_client()
@@ -289,7 +290,7 @@ async def add_friend(req: AddFriendRequest, current_user: dict = Depends(verify_
     return AddFriendResponse(**result)
 
 @app.post("/api/v1/social/unfriend", tags=["Social"])
-async def unfriend(req: UnfriendRequest, current_user: dict = Depends(verify_firebase_token)):
+async def unfriend(req: UnfriendRequest, current_user: dict = Depends(enforce_general_rate_limit)):
     """Removes a friendship, both directions, atomically."""
     db = get_firestore_client()
     if db is None:
@@ -298,7 +299,7 @@ async def unfriend(req: UnfriendRequest, current_user: dict = Depends(verify_fir
     return {"status": "removed"}
 
 @app.post("/api/v1/social/compare-categories", response_model=CompareCategoriesResponse, tags=["Social"])
-async def compare_categories(req: CompareCategoriesRequest, current_user: dict = Depends(verify_firebase_token)):
+async def compare_categories(req: CompareCategoriesRequest, current_user: dict = Depends(enforce_general_rate_limit)):
     """Privacy-preserving category comparison against a real friend — see
     app/social.py's compare_category_shares for the full bucketing logic
     and the hard "no rupee figure ever leaves this function" rule. Requires
@@ -315,6 +316,15 @@ async def compare_categories(req: CompareCategoriesRequest, current_user: dict =
     return CompareCategoriesResponse(**result)
 
 
+# Brief 4 (2026-09-05): every route below this point (require_superadmin)
+# is deliberately exempt from enforce_general_rate_limit/
+# enforce_llm_daily_limit — matches the bypass posture every other access
+# check in this app already has for a superadmin (firestore.rules'
+# isSuperAdmin() bypasses on every collection; require_superadmin itself is
+# already a much narrower gate than "any authenticated uid"), and several
+# of these are real admin workflows that can legitimately burst well above
+# a normal user's per-minute cap (e.g. re-running the survey ETL a few
+# times while tuning admin/dataConfig).
 @app.get("/api/v1/admin/status", tags=["Superadmin"])
 async def get_admin_status(admin_user: dict = Depends(require_superadmin)):
     """
@@ -350,15 +360,19 @@ async def get_admin_status(admin_user: dict = Depends(require_superadmin)):
 @app.post("/api/v1/ml/categorize", response_model=CategorizeResponse, tags=["LLM"])
 async def categorize_transaction(
     req: CategorizeRequest,
-    current_user: dict = Depends(verify_firebase_token)
+    current_user: dict = Depends(enforce_general_rate_limit)
 ):
     """
     Free-text transaction description -> best-fit category id + confidence,
     via the local qwen2.5:1.5b model. Staged honesty: a low-confidence or
     unparseable result comes back with category_id=null, needs_review=true
     — never forced into a category the model wasn't actually sure about.
+
+    Brief 4: only the general per-uid rate limit applies here, not the LLM
+    daily cap below — this route never touches Firestore and runs the
+    small 1.5b model, not the 7B one the daily cap exists to protect.
     """
-    result = llm_features.categorize_transaction(req.description, req.amount)
+    result = await llm_features.categorize_transaction(req.description, req.amount)
     return CategorizeResponse(
         category_id=result["category_id"],
         category_name=result["category_name"],
@@ -369,7 +383,8 @@ async def categorize_transaction(
 @app.post("/api/v1/ml/insights", response_model=InsightResponse, tags=["LLM"])
 async def get_spend_insight(
     req: InsightRequest,
-    current_user: dict = Depends(verify_firebase_token)
+    current_user: dict = Depends(enforce_general_rate_limit),
+    _llm_quota: dict = Depends(enforce_llm_daily_limit),
 ):
     """
     Short, human-readable nudge about the caller's own recent category-level
@@ -378,18 +393,22 @@ async def get_spend_insight(
     sentence is computed here in Python from real Firestore data first —
     the model is only ever asked to phrase numbers it was handed, never to
     produce or adjust them (see llm_features.build_insight).
+
+    Brief 4: one of the two routes with the tighter LLM daily cap on top of
+    the general rate limit — this hits the 7B model on the one shared GPU.
     """
     _require_self_or_superadmin(current_user, req.user_id)
     db = get_firestore_client()
     if db is None:
         raise HTTPException(status_code=503, detail="Firestore unavailable — cannot compute insight")
-    result = llm_features.build_insight(db, req.user_id)
+    result = await llm_features.build_insight(db, req.user_id)
     return InsightResponse(user_id=req.user_id, insight=result["insight"])
 
 @app.post("/api/v1/ml/chat", response_model=ChatResponse, tags=["LLM"])
 async def chat_with_assistant(
     req: ChatRequest,
-    current_user: dict = Depends(verify_firebase_token)
+    current_user: dict = Depends(enforce_general_rate_limit),
+    _llm_quota: dict = Depends(enforce_llm_daily_limit),
 ):
     """
     Natural-language Q&A about the caller's own spending. Fetches their real
@@ -397,12 +416,14 @@ async def chat_with_assistant(
     summary as context (see llm_features.answer_chat) — the model answers
     from that summary, never from nothing and never from raw unrestricted
     Firestore access.
+
+    Brief 4: the other of the two routes with the tighter LLM daily cap.
     """
     _require_self_or_superadmin(current_user, req.user_id)
     db = get_firestore_client()
     if db is None:
         raise HTTPException(status_code=503, detail="Firestore unavailable — cannot fetch spending data")
-    result = llm_features.answer_chat(db, req.user_id, req.message)
+    result = await llm_features.answer_chat(db, req.user_id, req.message)
     return ChatResponse(
         user_id=req.user_id,
         answer=result["answer"],

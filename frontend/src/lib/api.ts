@@ -17,6 +17,49 @@ import { db } from "./firebase";
 // resolves from wherever you're running the dev server.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
+// Brief 4 (2026-09-05): shared by every authenticated fetch helper below.
+// On a non-OK response, prefers the backend's own {"detail": "..."} human
+// sentence (what FastAPI's HTTPException(status_code=..., detail="...")
+// produces — including a real 429 for a rate limit or a daily LLM cap)
+// over a bare status code, so a caller sees "You've hit today's chat
+// limit (30 messages). It resets tomorrow." instead of "Chat request
+// failed: 429". Falls back to the status code only when the error body
+// genuinely isn't JSON (e.g. a raw 502 from something in front of the API).
+async function parseErrorDetail(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (body?.detail && typeof body.detail === "string") return body.detail;
+  } catch {
+    // Non-JSON error body — fall through to the plain status code.
+  }
+  return `Request failed: ${res.status}`;
+}
+
+// Brief 4 (2026-09-05): wraps every fetch() call to api.antara.money below.
+// parseErrorDetail above only ever runs once a real Response comes back —
+// but when the backend is genuinely unreachable (the service is down, a
+// DNS failure, or Cloudflare answering with a bare error page that carries
+// no CORS headers because the request never reached the FastAPI process to
+// get its own CORSMiddleware-added ones), fetch() itself throws before any
+// Response exists at all, with a raw browser message like "Failed to
+// fetch" — confirmed live, with antara-ml.service stopped: that literal
+// string is what a caller's .catch(e) sees as e.message. Several call
+// sites in this app (the chat screen, add-friend, ProfileView's friend
+// comparison) render a caught error's .message directly, so that raw
+// string would otherwise land on screen verbatim. This turns any such
+// network-level failure into the same calm, human message every other
+// failure mode here already produces — the caller supplies the message
+// since "the chat assistant isn't reachable" and "couldn't load your
+// friend comparison" need different wording, not a generic one-size line.
+async function safeFetch(input: string, init: RequestInit, unreachableMessage: string): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (e) {
+    console.warn(`Network-level fetch failure for ${input}:`, e);
+    throw new Error(unreachableMessage);
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // Burn-rate / "safe day" pacing metrics for the Today screen.
 // ────────────────────────────────────────────────────────────────────────
@@ -532,7 +575,7 @@ export async function fetchSpendPrediction(
   monthlyBudget: number
 ): Promise<SpendPrediction> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}/api/v1/predict/spend`, {
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/predict/spend`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -551,9 +594,9 @@ export async function fetchSpendPrediction(
       monthly_budget: monthlyBudget,
       period_days: 30,
     }),
-  });
+  }, "Couldn't reach the prediction service.");
   if (!res.ok) {
-    throw new Error(`Prediction request failed: ${res.status}`);
+    throw new Error(await parseErrorDetail(res));
   }
   return res.json();
 }
@@ -584,7 +627,7 @@ export interface DotGraphResult {
  */
 export async function fetchDotGraph(user: FirebaseUser, transactions: Transaction[]): Promise<DotGraphResult> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}/api/v1/ml/dot-graph`, {
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/ml/dot-graph`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -601,9 +644,9 @@ export async function fetchDotGraph(user: FirebaseUser, transactions: Transactio
         source: t.source,
       })),
     }),
-  });
+  }, "Couldn't reach the dot-graph service.");
   if (!res.ok) {
-    throw new Error(`Dot-graph request failed: ${res.status}`);
+    throw new Error(await parseErrorDetail(res));
   }
   return res.json();
 }
@@ -631,7 +674,7 @@ export interface LearningCurveResult {
  */
 export async function fetchLearningCurve(user: FirebaseUser, transactions: Transaction[]): Promise<LearningCurveResult> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}/api/v1/ml/learning-curve`, {
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/ml/learning-curve`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -648,9 +691,9 @@ export async function fetchLearningCurve(user: FirebaseUser, transactions: Trans
         source: t.source,
       })),
     }),
-  });
+  }, "Couldn't reach the learning-curve service.");
   if (!res.ok) {
-    throw new Error(`Learning-curve request failed: ${res.status}`);
+    throw new Error(await parseErrorDetail(res));
   }
   return res.json();
 }
@@ -671,16 +714,16 @@ export interface ChatAnswer {
 
 export async function fetchChatAnswer(user: FirebaseUser, message: string): Promise<ChatAnswer> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}/api/v1/ml/chat`, {
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/ml/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ user_id: user.uid, message }),
-  });
+  }, "The chat assistant isn't reachable right now — try again in a moment.");
   if (!res.ok) {
-    throw new Error(`Chat request failed: ${res.status}`);
+    throw new Error(await parseErrorDetail(res));
   }
   return res.json();
 }
@@ -708,16 +751,16 @@ export async function fetchCategorizeSuggestion(
   amount?: number
 ): Promise<CategorizeSuggestion> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}/api/v1/ml/categorize`, {
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/ml/categorize`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ description, amount }),
-  });
+  }, "Couldn't reach the categorize service.");
   if (!res.ok) {
-    throw new Error(`Categorize request failed: ${res.status}`);
+    throw new Error(await parseErrorDetail(res));
   }
   return res.json();
 }
@@ -901,12 +944,12 @@ export async function saveLastSeenChangelogVersion(uid: string, version: string)
 
 export async function syncBetaClaim(user: FirebaseUser): Promise<void> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}/api/v1/auth/sync-claims`, {
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/auth/sync-claims`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
-  });
+  }, "Couldn't reach the auth service.");
   if (!res.ok) {
-    throw new Error(`sync-claims failed: ${res.status}`);
+    throw new Error(await parseErrorDetail(res));
   }
 }
 
@@ -985,7 +1028,7 @@ export async function fetchBudgetAllocation(
   pinned: Record<string, number>
 ): Promise<AllocateBudgetResult> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}/api/v1/ml/allocate-budget`, {
+  const res = await safeFetch(`${API_BASE_URL}/api/v1/ml/allocate-budget`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1004,9 +1047,9 @@ export async function fetchBudgetAllocation(
         source: t.source,
       })),
     }),
-  });
+  }, "Couldn't reach the budget-allocation service.");
   if (!res.ok) {
-    throw new Error(`Allocate-budget request failed: ${res.status}`);
+    throw new Error(await parseErrorDetail(res));
   }
   return res.json();
 }
@@ -1108,16 +1151,16 @@ export interface TrainingInsights {
 
 async function adminFetch<T>(path: string, user: FirebaseUser, options: RequestInit = {}): Promise<T> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await safeFetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       ...(options.headers || {}),
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-  });
+  }, `Couldn't reach the admin service (${path}).`);
   if (!res.ok) {
-    throw new Error(`Admin request to ${path} failed: ${res.status}`);
+    throw new Error(await parseErrorDetail(res));
   }
   return res.json();
 }
@@ -1151,20 +1194,13 @@ export const fetchTrainingInsights = (user: FirebaseUser) =>
 
 async function socialFetch<T>(path: string, user: FirebaseUser, body?: unknown): Promise<T> {
   const token = await user.getIdToken();
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await safeFetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: body ? JSON.stringify(body) : undefined,
-  });
+  }, "Couldn't reach the server right now — try again in a moment.");
   if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const j = await res.json();
-      if (j?.detail) detail = j.detail;
-    } catch (e) {
-      // Non-JSON error body — the plain status code above is still useful.
-    }
-    throw new Error(detail);
+    throw new Error(await parseErrorDetail(res));
   }
   return res.json();
 }

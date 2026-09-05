@@ -24,6 +24,7 @@ of not trying to hold both models in VRAM at once. See OLLAMA_KEEP_ALIVE
 below if that default is ever overridden at the Ollama-server level — this
 client passes it through rather than hardcoding a duration.
 """
+import asyncio
 import logging
 import os
 import time
@@ -56,6 +57,56 @@ class OllamaError(Exception):
     it. Callers are expected to catch this and degrade honestly (staged
     honesty applies to model *availability* too — a failed local call
     should never silently fall back to inventing an answer)."""
+
+
+class OllamaBusyError(OllamaError):
+    """Raised by generate_async/chat_async specifically when the
+    concurrency limit below was already held and a new call couldn't get
+    in within OLLAMA_ACQUIRE_TIMEOUT_SECONDS. A subclass of OllamaError so
+    every existing `except OllamaError` call site already degrades
+    gracefully for this case too; callers that want to distinguish "busy
+    right now" from "genuinely unreachable" (for logging/telemetry, not
+    for what the user sees — both should read as a calm, honest message)
+    can catch this first."""
+
+
+# Brief 4 (2026-09-05): real concurrency against this box's single GTX 1660
+# Super is about 1 regardless — generate()/chat() below are synchronous
+# `requests` calls, and calling a blocking function directly from an async
+# FastAPI route handler blocks the *entire* event loop for the call's full
+# duration, not just the LLM work. That means today, a single slow chat
+# generation doesn't just serialize other LLM calls — it freezes every
+# other route on this service, including /health, for however long the
+# model takes. generate_async/chat_async fix this two ways: the semaphore
+# acquire is awaited (so a second caller waiting for a slot doesn't block
+# the loop while waiting), and the actual blocking call runs in a thread
+# via asyncio.to_thread (so the loop stays responsive to other requests
+# even while one generation is in flight). Callers that can't acquire a
+# slot within OLLAMA_ACQUIRE_TIMEOUT_SECONDS fail fast with OllamaBusyError
+# rather than queueing indefinitely — an unbounded queue behind a 6GB card
+# is how a slow evening turns into every request timing out at once.
+OLLAMA_MAX_CONCURRENT = int(os.getenv("OLLAMA_MAX_CONCURRENT", "1"))
+OLLAMA_ACQUIRE_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_ACQUIRE_TIMEOUT_SECONDS", "2"))
+
+_semaphore = asyncio.Semaphore(OLLAMA_MAX_CONCURRENT)
+
+
+async def _run_guarded(fn, *args, **kwargs):
+    try:
+        await asyncio.wait_for(_semaphore.acquire(), timeout=OLLAMA_ACQUIRE_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Ollama busy: no slot free within %ss (max_concurrent=%s)",
+            OLLAMA_ACQUIRE_TIMEOUT_SECONDS, OLLAMA_MAX_CONCURRENT,
+        )
+        raise OllamaBusyError(
+            f"No Ollama slot free within {OLLAMA_ACQUIRE_TIMEOUT_SECONDS}s "
+            f"(max concurrent generations: {OLLAMA_MAX_CONCURRENT})"
+        )
+    try:
+        return await asyncio.to_thread(fn, *args, **kwargs)
+    finally:
+        _semaphore.release()
 
 
 def _post(path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -124,6 +175,20 @@ def chat(
 
     data = _post("/api/chat", payload)
     return (data.get("message") or {}).get("content", "")
+
+
+async def generate_async(*args, **kwargs) -> str:
+    """Concurrency-guarded, non-blocking wrapper around generate() — see
+    the module-level comment above _run_guarded for why this exists.
+    Callers (llm_features.py) should always await this rather than calling
+    generate() directly from an async route handler."""
+    return await _run_guarded(generate, *args, **kwargs)
+
+
+async def chat_async(*args, **kwargs) -> str:
+    """Concurrency-guarded, non-blocking wrapper around chat() — see
+    generate_async above."""
+    return await _run_guarded(chat, *args, **kwargs)
 
 
 def health() -> Tuple[bool, Optional[str]]:

@@ -11,6 +11,7 @@ number in a generated sentence's context comes from real computed data,
 NOT that a real qwen2.5 model produces good prose. That part still needs
 verification against the real Ollama runtime on draftsmanbrain.
 """
+import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
@@ -39,7 +40,7 @@ def test_categorize_confident_result_is_applied():
         mock_post.return_value = _mock_post_response(
             {"response": '{"category_id": "food-snacks", "confidence": 0.92}'}
         )
-        result = llm_features.categorize_transaction("Swiggy order, 2 burgers")
+        result = asyncio.run(llm_features.categorize_transaction("Swiggy order, 2 burgers"))
 
     assert result["category_id"] == "food-snacks"
     assert result["category_name"] == "Food, drinks & snacks"
@@ -52,7 +53,7 @@ def test_categorize_low_confidence_flags_needs_review():
         mock_post.return_value = _mock_post_response(
             {"response": '{"category_id": "miscellaneous", "confidence": 0.2}'}
         )
-        result = llm_features.categorize_transaction("paid someone 50")
+        result = asyncio.run(llm_features.categorize_transaction("paid someone 50"))
 
     assert result["category_id"] is None
     assert result["needs_review"] is True
@@ -61,7 +62,7 @@ def test_categorize_low_confidence_flags_needs_review():
 def test_categorize_unparseable_output_flags_needs_review_not_a_guess():
     with patch("app.ml.ollama_client.requests.post") as mock_post:
         mock_post.return_value = _mock_post_response({"response": "not json at all"})
-        result = llm_features.categorize_transaction("something vague")
+        result = asyncio.run(llm_features.categorize_transaction("something vague"))
 
     assert result["category_id"] is None
     assert result["needs_review"] is True
@@ -74,7 +75,7 @@ def test_categorize_rejects_a_category_id_outside_the_real_taxonomy():
         mock_post.return_value = _mock_post_response(
             {"response": '{"category_id": "made-up-category", "confidence": 0.99}'}
         )
-        result = llm_features.categorize_transaction("something")
+        result = asyncio.run(llm_features.categorize_transaction("something"))
 
     assert result["category_id"] is None
     assert result["needs_review"] is True
@@ -82,7 +83,7 @@ def test_categorize_rejects_a_category_id_outside_the_real_taxonomy():
 
 def test_categorize_when_ollama_unreachable_flags_needs_review_not_crash():
     with patch("app.ml.ollama_client.requests.post", side_effect=requests.exceptions.ConnectionError("down")):
-        result = llm_features.categorize_transaction("Swiggy order")
+        result = asyncio.run(llm_features.categorize_transaction("Swiggy order"))
 
     assert result["category_id"] is None
     assert result["needs_review"] is True
@@ -91,7 +92,7 @@ def test_categorize_when_ollama_unreachable_flags_needs_review_not_crash():
 
 def test_categorize_empty_description_never_calls_model():
     with patch("app.ml.ollama_client.requests.post") as mock_post:
-        result = llm_features.categorize_transaction("   ")
+        result = asyncio.run(llm_features.categorize_transaction("   "))
     mock_post.assert_not_called()
     assert result["needs_review"] is True
 
@@ -158,7 +159,7 @@ def test_build_insight_computes_real_numbers_and_flags_meaningful_mover():
 
     with patch("app.ml.ollama_client.requests.post") as mock_post:
         mock_post.return_value = _mock_post_response({"response": "You spent more on food this week."})
-        result = llm_features.build_insight(db, "user1")
+        result = asyncio.run(llm_features.build_insight(db, "user1"))
 
     assert result["insight"] is not None
     assert result["computed"]["category_id"] == "food-snacks"
@@ -168,7 +169,7 @@ def test_build_insight_computes_real_numbers_and_flags_meaningful_mover():
 def test_build_insight_stays_quiet_with_no_transactions():
     db = _FakeDb({"user1": []})
     with patch("app.ml.ollama_client.requests.post") as mock_post:
-        result = llm_features.build_insight(db, "user1")
+        result = asyncio.run(llm_features.build_insight(db, "user1"))
     mock_post.assert_not_called()
     assert result["insight"] is None
 
@@ -181,7 +182,7 @@ def test_build_insight_falls_back_to_templated_sentence_when_ollama_down():
     db = _FakeDb({"user1": docs})
 
     with patch("app.ml.ollama_client.requests.post", side_effect=requests.exceptions.ConnectionError("down")):
-        result = llm_features.build_insight(db, "user1")
+        result = asyncio.run(llm_features.build_insight(db, "user1"))
 
     # Still a real, numbers-grounded sentence — not silently empty just
     # because the model itself was unreachable.
@@ -199,7 +200,7 @@ def test_answer_chat_grounds_on_real_totals_and_reports_count():
 
     with patch("app.ml.ollama_client.requests.post") as mock_post:
         mock_post.return_value = _mock_post_response({"message": {"content": "You've spent ₹500 total."}})
-        result = llm_features.answer_chat(db, "user1", "how much have I spent?")
+        result = asyncio.run(llm_features.answer_chat(db, "user1", "how much have I spent?"))
 
     assert result["grounded_on_transaction_count"] == 2
     # Confirm the context actually sent to the model carries the real total,
@@ -212,7 +213,7 @@ def test_answer_chat_grounds_on_real_totals_and_reports_count():
 def test_answer_chat_with_no_history_never_calls_model():
     db = _FakeDb({"user1": []})
     with patch("app.ml.ollama_client.requests.post") as mock_post:
-        result = llm_features.answer_chat(db, "user1", "how much have I spent?")
+        result = asyncio.run(llm_features.answer_chat(db, "user1", "how much have I spent?"))
     mock_post.assert_not_called()
     assert result["grounded_on_transaction_count"] == 0
 
