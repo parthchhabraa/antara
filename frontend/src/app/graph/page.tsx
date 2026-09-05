@@ -37,7 +37,10 @@ export default function PullPage() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isArchetypeOpen, setIsArchetypeOpen] = useState(false);
   const [isLearningCurveOpen, setIsLearningCurveOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  // Brief 8 (2026-09-05): same richer toast shape as Today's page.tsx —
+  // see that file's own comment for why (every real commit can now be
+  // undone straight from its success toast).
+  const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
 
   const transactions = isDemoMode ? demoTxs : liveTxs;
   const monthlyBudget = profile?.monthly_budget || 5000;
@@ -61,58 +64,17 @@ export default function PullPage() {
     }
   }, [isDemoMode, user]);
 
-  const handleCommit = async (newTx: Omit<Transaction, "id">) => {
-    let milestoneLine: string | null = null;
-    if (isDemoMode) {
-      setDemoTxs([{ ...newTx, id: "tx-" + Date.now() }, ...demoTxs]);
-    } else if (user) {
-      // Same reasoning as Today's handleCommit (lib/api.ts): every real log is
-      // training data, so a failed write must not be silently papered over
-      // with a local-only fallback that looks like success but never reaches
-      // Firebase.
-      try {
-        await addLiveTransaction(user.uid, newTx);
-      } catch (err) {
-        console.error("Error writing transaction to Firestore:", err);
-        setToast("Couldn't save that — check your connection and try again. Nothing was logged.");
-        window.setTimeout(() => setToast(null), 3400);
-        return;
-      }
-      try {
-        // Logging from Pull counts toward the streak too, not just from Today.
-        const streakResult = computeStreakUpdate(
-          {
-            currentStreak: profile?.currentStreak,
-            longestStreak: profile?.longestStreak,
-            lastLoggedDate: profile?.lastLoggedDate,
-            streakFreezesAvailable: profile?.streakFreezesAvailable,
-          },
-          new Date()
-        );
-        await saveStreakUpdate(user.uid, streakResult);
-        await refreshClaims();
-        milestoneLine = streakToastMessage(streakResult);
-      } catch (err) {
-        console.warn("Streak update failed (the transaction itself was saved fine):", err);
-      }
-    }
-    setIsLogOpen(false);
-    if (milestoneLine) {
-      setToast(milestoneLine);
-      window.setTimeout(() => setToast(null), 3400);
-    }
-  };
-
   // Step 13 §2 — same handlers, same reasoning, as Today's page.tsx (streak
   // fields untouched on purpose; burn/pace figures recompute automatically
-  // since they're derived from `transactions` on every render).
+  // since they're derived from `transactions` on every render). Declared
+  // before handleCommit, which now uses handleDeleteTx as its Undo action.
   const handleDeleteTx = async (txId: string) => {
     if (isDemoMode) {
       setDemoTxs((prev) => prev.filter((t) => t.id !== txId));
     } else if (user) {
       await deleteLiveTransaction(user.uid, txId);
     }
-    setToast("Entry deleted.");
+    setToast({ message: "Entry deleted." });
     window.setTimeout(() => setToast(null), 2400);
   };
 
@@ -122,8 +84,64 @@ export default function PullPage() {
     } else if (user) {
       await updateLiveTransaction(user.uid, txId, updates);
     }
-    setToast("Entry updated.");
+    setToast({ message: "Entry updated." });
     window.setTimeout(() => setToast(null), 2400);
+  };
+
+  // Brief 8 (2026-09-05): same optimistic-close-plus-Undo shape as Today's
+  // handleCommit — see that file's own comment. Pull's FAB reaches the
+  // same QuickLogSheet, so it gets the same two-second-logging treatment,
+  // not a second, drifting copy of the old blocking behavior.
+  const handleCommit = async (newTx: Omit<Transaction, "id">): Promise<string> => {
+    setIsLogOpen(false);
+    const categoryName = STARTER_CATEGORIES.find((c) => c.id === newTx.category)?.name || newTx.category;
+    const line = `Logged ${FORMAT_INR(newTx.amount)} · ${categoryName}.`;
+
+    if (isDemoMode) {
+      const id = "tx-" + Date.now();
+      setDemoTxs((prev) => [{ ...newTx, id }, ...prev]);
+      setToast({ message: line, undo: () => handleDeleteTx(id) });
+      window.setTimeout(() => setToast(null), 3400);
+      return id;
+    }
+
+    if (!user) return "";
+
+    // Same reasoning as Today's handleCommit (lib/api.ts): every real log is
+    // training data, so a failed write must not be silently papered over
+    // with a local-only fallback that looks like success but never reaches
+    // Firebase. The sheet is already closed by the time this can fail —
+    // see Today's page.tsx for why that's the deliberate tradeoff now.
+    let newId: string;
+    try {
+      newId = await addLiveTransaction(user.uid, newTx);
+    } catch (err) {
+      console.error("Error writing transaction to Firestore:", err);
+      setToast({ message: "Couldn't save that — check your connection and try again. Nothing was logged." });
+      window.setTimeout(() => setToast(null), 3400);
+      return "";
+    }
+    let milestoneLine: string | null = null;
+    try {
+      // Logging from Pull counts toward the streak too, not just from Today.
+      const streakResult = computeStreakUpdate(
+        {
+          currentStreak: profile?.currentStreak,
+          longestStreak: profile?.longestStreak,
+          lastLoggedDate: profile?.lastLoggedDate,
+          streakFreezesAvailable: profile?.streakFreezesAvailable,
+        },
+        new Date()
+      );
+      await saveStreakUpdate(user.uid, streakResult);
+      await refreshClaims();
+      milestoneLine = streakToastMessage(streakResult);
+    } catch (err) {
+      console.warn("Streak update failed (the transaction itself was saved fine):", err);
+    }
+    setToast({ message: milestoneLine ? `${line} ${milestoneLine}` : line, undo: () => handleDeleteTx(newId) });
+    window.setTimeout(() => setToast(null), 3400);
+    return newId;
   };
 
   const metrics = calculateBurnMetrics(transactions, monthlyBudget, today);
@@ -295,6 +313,7 @@ export default function PullPage() {
           onCommit={handleCommit}
           safeDaily={metrics.safeDaily}
           user={user}
+          transactions={transactions}
         />
         <CategoryDetailSheet
           category={detailCategory}
@@ -331,9 +350,21 @@ export default function PullPage() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-lg bg-primary-900/95 shadow-2xl text-sm leading-relaxed text-white"
+            className="fixed left-6 right-6 top-[104px] z-[90] flex items-start gap-3 p-3.5 rounded-lg bg-primary-900/95 shadow-2xl text-sm leading-relaxed text-white"
           >
-            {toast}
+            <span className="flex-1">{toast.message}</span>
+            {toast.undo && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.undo?.();
+                  setToast(null);
+                }}
+                className="shrink-0 text-xs font-bold text-primary-300 underline decoration-dotted underline-offset-4 active:opacity-60"
+              >
+                Undo
+              </button>
+            )}
           </motion.div>
         )}
       </PageTransition>

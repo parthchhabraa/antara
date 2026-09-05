@@ -1,5 +1,64 @@
 # Antara — session log
 
+## Brief 8 (UI overhaul): make logging take two seconds
+
+**Status: COMPLETED — verified live: real tap-count reduction confirmed via headless Chromium against both a rebuilt pre-Brief-8 build and the deployed post-Brief-8 production build, and the categorize-optional race confirmed end-to-end on a real signed-in account (real backend, real Ollama call, and a Playwright-injected artificial delay to force the fallback path) — not just read from the code.**
+
+### What changed
+
+- **`lib/api.ts`**: `addLiveTransaction` now returns the new doc's id (`Promise<string>`, was `Promise<void>`) so the caller can offer Undo without a second query. New `computeRepeatCandidates(transactions, now)` — groups the last 30 days of transactions by `amount|category|note`, keeps groups seen ≥2 times, returns up to 3, sorted by frequency then recency.
+- **`QuickLogSheet.tsx`** — rewritten:
+  - Repeat chips (from `computeRepeatCandidates`) render above the amount display when there's real repeat material. One tap on a chip commits immediately with the candidate's known amount/category/note and the currently-selected wallet — no keypad, no category, no note typing.
+  - Category is now optional. Chips toggle instead of always defaulting to something; `pick` starts `null` on every open (previously always pre-selected, usually to whatever was logged last).
+  - `commit()` is `async`. If no category was picked and a note was typed, it races the real categorizer (`fetchCategorizeSuggestion`) against a hard 1500ms timeout via `Promise.race`, falling back to `miscellaneous` either way the timeout wins. No note and no pick — `miscellaneous` immediately, no network call at all. The commit button shows "Logging…" for however long that race actually takes (never longer than 1.5s).
+- **`app/page.tsx`** (Today) and **`app/graph/page.tsx`** (Pull) — `handleCommit` rewritten to close the sheet and update local/optimistic state *before* awaiting Firestore, returning the new transaction's id so the toast can offer "Undo" (calls the existing delete path). A write failure surfaces as an error toast after the fact, never as a stuck sheet. Pull's `handleCommit` previously only toasted on streak milestones; now it always toasts, matching Today, since Undo needs somewhere to live — a deliberate, disclosed behavior change beyond the letter of the brief, made for consistency between the app's two logging entry points.
+- **`lib/constants.ts`** — added 5 demo transactions (`demo-tx-8`…`demo-tx-12`) that deliberately repeat: "Chai" ₹20 (food-snacks) ×3, "Auto" ₹40 (transportation) ×2. Without this, `computeRepeatCandidates` returns empty in demo mode and the whole repeat-chip feature would be invisible to anyone evaluating the app without a real logged-in history.
+
+No backend changes this pass — the categorizer endpoint (`/api/v1/ml/categorize`) and its behavior are unchanged; only the client's willingness to skip picking a category and wait up to 1.5s for it is new.
+
+### Measure it — actual tap counts and wall-clock seconds, not "feels faster"
+
+Built the pre-Brief-8 build (`c1bf457`, the exact commit this brief started from) in an isolated `git worktree` on a throwaway local port (3099), completely separate from the live site, and drove both it and the deployed `app.antara.money` (post-Brief-8) with the same headless-Chromium script in demo mode. Time = wall-clock from the first tap inside the sheet to the sheet actually closing (detected via DOM removal, not a fixed sleep) — tap count excludes the "open sheet" tap, identical in both builds.
+
+| Scenario | Before (taps / ms) | After (taps / ms) |
+|---|---|---|
+| Repeat expense (Chai, ₹20 — already logged 3×) | 3 taps / ~1,050ms | **1 tap** / ~960ms |
+| New expense, category happens to match the app's default (Movie ticket, ₹250) | 4 taps / ~1,130ms | 4 taps / ~1,090ms |
+| New expense, realistic non-default category (Bus fare, ₹40, category transportation) | 4 taps / ~1,190ms | **3 taps** / ~1,040ms |
+
+The middle row is reported honestly even though it shows no improvement: on a clean session the old build's category defaulted to `STARTER_CATEGORIES[0]` (food-snacks), which happened to already be correct for that example, so no category tap was ever needed there either. The bottom row is the realistic case the brief is actually about — a category that isn't already selected — and that's where the real tap saved shows up. The repeat row is the headline number: **a real repeat goes from 3 taps to 1.**
+
+Caveat stated plainly: headless-Chromium clicks are near-instant, far faster than a real thumb, so the wall-clock deltas above are small and dominated by animation/network overhead rather than human reaction time between taps — tap count, not synthetic milliseconds, is the meaningful "two-second log" metric here. A human saving 2-3 physical taps saves real, noticeable time; a script doesn't.
+
+### Verified live on a real account — the categorize race, not just the code
+
+Demo mode has no Firebase user, so it always takes the immediate `miscellaneous` path and never actually exercises the `Promise.race` — that only matters for signed-in accounts. Created a throwaway real account (Firebase Auth user + a seeded `users/{uid}` profile so it landed straight on the Today screen, `beta: true` claim), signed in via the same temporary `?__e2e_token=` hook prior briefs established (added to `AuthContext.tsx`, used, then fully reverted — confirmed via `git diff` showing zero remaining changes), and logged two real expenses against the live production build and the real backend:
+
+- **Categorizer reachable, normal speed**: "Metro card recharge", ₹60, no category tapped. The real `/api/v1/ml/categorize` call returned `{"category_id":"transportation","confidence":0.9,"needs_review":false}`, and the committed transaction persisted with `category: "transportation"` and correctly debited the account's real wallet (`balance: -60`).
+- **Categorizer artificially delayed**: same flow, but this page's own network layer (Playwright route interception — never touched the real backend/Ollama, so no other user's traffic was affected) held the `/api/v1/ml/categorize` response for 5 seconds. The sheet still closed at ~2.6-3.0s total (typing + taps + the 1.5s race + close animation) — **not 5+ seconds** — and the committed transaction persisted with `category: "miscellaneous"`. The hard cap holds regardless of how slow or unavailable the real service is.
+
+Both transactions confirmed via the Firebase Admin SDK, then the throwaway account and every doc it created (profile, wallet, 2 transactions) were deleted; Firebase Auth user count confirmed back to the real baseline of 6.
+
+One test-harness-only wrinkle worth naming so it isn't mistaken for a product bug: an early pass at this same check showed a commit silently not persisting. Traced to two harness artifacts, not the app — (1) an unscoped `getByText("6")` locator matching something behind the modal backdrop instead of the sheet's own keypad, so the click actually landed on the backdrop and closed the sheet via `onClose` without committing anything (fixed by scoping every in-sheet locator to the sheet's own overlay element); and (2) closing the Playwright page too soon after the commit, before the Firestore write channel had actually flushed over the network (fixed by waiting several seconds post-commit before tearing the page down). Both are artifacts of automating faster than a real client's network stack settles, not something a real user hits.
+
+### A pre-existing wallet-default race noticed in passing, not part of this brief
+
+While debugging the harness issue above, opening `QuickLogSheet` immediately after page load (faster than any real human taps) once caused `walletId` to default to `"demo-wallet-main"` — the literal id of the hardcoded demo wallet — on a real signed-in account, because the real wallets Firestore subscription hadn't loaded yet when the sheet's wallet-default effect ran. The write itself still succeeded (the Firestore rule only validates `wallet_id`'s shape, not that it references a real wallet), so no data was lost, but the transaction wouldn't have debited any real wallet. This predates Brief 8 — the wallet-default logic wasn't touched here — and needs a real person tapping within milliseconds of the page finishing load to hit, which is unlikely but not impossible on a fast reopen. Flagged as a follow-up rather than fixed in this pass, since it's unrelated to what Brief 8 actually changed.
+
+### Tests
+
+`tsc --noEmit` and `npm run build` clean (13/13 pages) after the `constants.ts` addition. 39/39 backend tests pass. 33/33 Firestore-rules tests pass. Neither suite needed changes — this brief is entirely frontend/client logic.
+
+### Cleanup
+
+Throwaway account and all its Firestore data deleted; Firebase Auth user count confirmed back to 6. Temporary `?__e2e_token=` hook reverted, confirmed via `git diff` on `AuthContext.tsx` showing no remaining changes. Pre-Brief-8 comparison worktree and its throwaway server (port 3099) removed; `git worktree list` confirms only the main worktree remains.
+
+### Final state
+
+`main` at (pending push — see below).
+
+---
+
 ## Brief 7 (UI overhaul): rebuild the Today screen around one number
 
 **Status: COMPLETED — verified live in both demo mode and a real account at 375×812, the exact viewport the brief names, with the spendable number and the log button independently confirmed (via bounding-box checks, not eyeballing) to sit inside the viewport with zero scrolling.**

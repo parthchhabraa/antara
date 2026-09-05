@@ -56,7 +56,11 @@ export default function TodayPage() {
   const [isWalletsOpen, setIsWalletsOpen] = useState(false);
   const [demoWallets, setDemoWallets] = useState<Wallet[]>(DEMO_WALLETS);
   const [liveWallets, setLiveWallets] = useState<Wallet[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
+  // Brief 8 (2026-09-05): now carries an optional `undo` action, not just
+  // a message — every real commit (typed or a one-tap repeat chip) can be
+  // undone straight from its own success toast, since neither path has a
+  // confirmation step of its own anymore once the sheet closes instantly.
+  const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
   // `user` is null AND isDemoMode is true for every fresh/unauthenticated
   // visit (AuthContext only ever sets isDemoMode=false once a real signed-in,
   // allowlisted user resolves) — so the hero can't gate on isDemoMode itself,
@@ -233,62 +237,6 @@ export default function TodayPage() {
     return bar ? new Date(selectedDateKey).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short" }) : "";
   }, [isDaySelected, selectedDateKey, metrics.weekBars]);
 
-  const handleCommit = async (newTx: Omit<Transaction, "id">) => {
-    let milestoneLine: string | null = null;
-    if (isDemoMode) {
-      setDemoTxs([{ ...newTx, id: "tx-" + Date.now() }, ...demoTxs]);
-      // Demo wallets are fully locally-interactive, same as demoTxs above —
-      // a demo user picking a wallet chip and logging should see the real
-      // effect immediately, not a picker that silently does nothing.
-      if (newTx.wallet_id) {
-        setDemoWallets((prev) => prev.map((w) => (w.id === newTx.wallet_id ? { ...w, balance: w.balance - newTx.amount } : w)));
-      }
-    } else if (user) {
-      // Every real log needs to actually land in Firestore — it's the training
-      // data for the ML personalization, not just something to show on screen.
-      // No local-only fallback here on purpose: faking a successful "Logged ₹X"
-      // toast while the write silently failed would mean that transaction is
-      // gone from Firebase forever, invisible to the model, with the user none
-      // the wiser. If it fails, say so and stop — don't close the sheet, don't
-      // touch the streak, don't show a false success toast.
-      try {
-        await addLiveTransaction(user.uid, newTx);
-      } catch (err) {
-        console.error("Error writing transaction to Firestore:", err);
-        setToast("Couldn't save that — check your connection and try again. Nothing was logged.");
-        window.setTimeout(() => setToast(null), 3400);
-        return;
-      }
-      // Transaction is confirmed saved at this point. The streak update is a
-      // secondary effect on top of it — if this part fails, the log itself is
-      // still safely in Firebase; just don't let a streak-write hiccup make it
-      // look like the log itself didn't happen.
-      try {
-        const streakResult = computeStreakUpdate(
-          {
-            currentStreak: profile?.currentStreak,
-            longestStreak: profile?.longestStreak,
-            lastLoggedDate: profile?.lastLoggedDate,
-            streakFreezesAvailable: profile?.streakFreezesAvailable,
-          },
-          new Date()
-        );
-        await saveStreakUpdate(user.uid, streakResult);
-        await refreshClaims(); // re-fetch profile so the header's streak badge updates
-        milestoneLine = streakToastMessage(streakResult);
-      } catch (err) {
-        console.warn("Streak update failed (the transaction itself was saved fine):", err);
-      }
-    }
-    setIsLogOpen(false);
-    const line =
-      newTx.amount > 300
-        ? `Logged ${FORMAT_INR(newTx.amount)}. That nudges the date — check the ring.`
-        : `Logged ${FORMAT_INR(newTx.amount)}. Small one, barely moves the date. Nice.`;
-    setToast(milestoneLine ? `${line} ${milestoneLine}` : line);
-    window.setTimeout(() => setToast(null), 3400);
-  };
-
   // Step 13 §2 — deliberately do not touch streak fields here (see the
   // comment on deleteLiveTransaction in lib/api.ts): the streak reflects
   // "logged something that day," already true regardless of what happens to
@@ -296,13 +244,17 @@ export default function TodayPage() {
   // handling either — both are recomputed from `transactions` on every
   // render, and removing/editing this row updates that array directly (demo:
   // local state; live: onSnapshot fires after the Firestore write resolves).
+  //
+  // Declared before handleCommit (which now uses it as the Undo action)
+  // rather than after, per hooks/closures ordering — the two are otherwise
+  // unchanged from before this brief.
   const handleDeleteTx = async (txId: string) => {
     if (isDemoMode) {
       setDemoTxs((prev) => prev.filter((t) => t.id !== txId));
     } else if (user) {
       await deleteLiveTransaction(user.uid, txId);
     }
-    setToast("Entry deleted.");
+    setToast({ message: "Entry deleted." });
     window.setTimeout(() => setToast(null), 2400);
   };
 
@@ -312,8 +264,88 @@ export default function TodayPage() {
     } else if (user) {
       await updateLiveTransaction(user.uid, txId, updates);
     }
-    setToast("Entry updated.");
+    setToast({ message: "Entry updated." });
     window.setTimeout(() => setToast(null), 2400);
+  };
+
+  // Brief 8 (2026-09-05): closes the sheet and updates optimistically —
+  // never waits on Firestore. QuickLogSheet already resolved a real,
+  // final category before calling this (either an explicit pick, a
+  // repeat chip's known one, or the categorize race's answer/fallback —
+  // see that component), so this has nothing left to infer; it only
+  // persists and reports back. Returns the new transaction's id so the
+  // success toast's "Undo" action (both for a typed log and a one-tap
+  // repeat) can call handleDeleteTx on the right one — a repeat chip in
+  // particular has no confirmation step of its own, so a fast, real undo
+  // is what makes one tap safe to offer at all.
+  const handleCommit = async (newTx: Omit<Transaction, "id">): Promise<string> => {
+    // First thing, no exceptions — this is the actual "closes immediately"
+    // guarantee. Everything below (Firestore, the streak write) happens
+    // after the sheet is already gone.
+    setIsLogOpen(false);
+    const categoryName = STARTER_CATEGORIES.find((c) => c.id === newTx.category)?.name || newTx.category;
+    const line =
+      newTx.amount > 300
+        ? `Logged ${FORMAT_INR(newTx.amount)} · ${categoryName}. That nudges the date — check the ring.`
+        : `Logged ${FORMAT_INR(newTx.amount)} · ${categoryName}. Small one, barely moves the date. Nice.`;
+
+    if (isDemoMode) {
+      const id = "tx-" + Date.now();
+      setDemoTxs((prev) => [{ ...newTx, id }, ...prev]);
+      // Demo wallets are fully locally-interactive, same as demoTxs above —
+      // a demo user picking a wallet chip and logging should see the real
+      // effect immediately, not a picker that silently does nothing.
+      if (newTx.wallet_id) {
+        setDemoWallets((prev) => prev.map((w) => (w.id === newTx.wallet_id ? { ...w, balance: w.balance - newTx.amount } : w)));
+      }
+      setToast({ message: line, undo: () => handleDeleteTx(id) });
+      window.setTimeout(() => setToast(null), 3400);
+      return id;
+    }
+
+    if (!user) return "";
+
+    // Every real log needs to actually land in Firestore — it's the training
+    // data for the ML personalization, not just something to show on screen.
+    // Unlike before this brief, a failure here no longer re-opens or holds
+    // the sheet: the sheet is already closed (optimistic), so a failure
+    // surfaces as an honest error toast after the fact rather than a stuck
+    // "please wait" state — the tradeoff the brief's "never wait on
+    // Firestore" explicitly asks for.
+    let newId: string;
+    try {
+      newId = await addLiveTransaction(user.uid, newTx);
+    } catch (err) {
+      console.error("Error writing transaction to Firestore:", err);
+      setToast({ message: "Couldn't save that — check your connection and try again. Nothing was logged." });
+      window.setTimeout(() => setToast(null), 3400);
+      return "";
+    }
+
+    // Transaction is confirmed saved at this point. The streak update is a
+    // secondary effect on top of it — if this part fails, the log itself is
+    // still safely in Firebase; just don't let a streak-write hiccup make it
+    // look like the log itself didn't happen.
+    let milestoneLine: string | null = null;
+    try {
+      const streakResult = computeStreakUpdate(
+        {
+          currentStreak: profile?.currentStreak,
+          longestStreak: profile?.longestStreak,
+          lastLoggedDate: profile?.lastLoggedDate,
+          streakFreezesAvailable: profile?.streakFreezesAvailable,
+        },
+        new Date()
+      );
+      await saveStreakUpdate(user.uid, streakResult);
+      await refreshClaims(); // re-fetch profile so the header's streak badge updates
+      milestoneLine = streakToastMessage(streakResult);
+    } catch (err) {
+      console.warn("Streak update failed (the transaction itself was saved fine):", err);
+    }
+    setToast({ message: milestoneLine ? `${line} ${milestoneLine}` : line, undo: () => handleDeleteTx(newId) });
+    window.setTimeout(() => setToast(null), 3400);
+    return newId;
   };
 
   const detailCategory = STARTER_CATEGORIES.find((c) => c.id === detailCategoryId) || null;
@@ -680,6 +712,7 @@ export default function TodayPage() {
           safeDaily={metrics.safeDaily}
           user={user}
           wallets={activeWallets}
+          transactions={transactions}
         />
         <WalletsSheet
           isOpen={isWalletsOpen}
@@ -689,7 +722,7 @@ export default function TodayPage() {
           isDemoMode={isDemoMode}
           user={user}
           onToast={(message) => {
-            setToast(message);
+            setToast({ message });
             window.setTimeout(() => setToast(null), 3000);
           }}
         />
@@ -725,9 +758,21 @@ export default function TodayPage() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="fixed left-6 right-6 top-[104px] z-[90] p-3.5 rounded-lg bg-primary-900/95 shadow-2xl text-sm leading-relaxed text-white"
+            className="fixed left-6 right-6 top-[104px] z-[90] flex items-start gap-3 p-3.5 rounded-lg bg-primary-900/95 shadow-2xl text-sm leading-relaxed text-white"
           >
-            {toast}
+            <span className="flex-1">{toast.message}</span>
+            {toast.undo && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.undo?.();
+                  setToast(null);
+                }}
+                className="shrink-0 text-xs font-bold text-primary-300 underline decoration-dotted underline-offset-4 active:opacity-60"
+              >
+                Undo
+              </button>
+            )}
           </motion.div>
         )}
       </PageTransition>

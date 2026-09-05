@@ -264,6 +264,61 @@ export function burnState(burnPct: number): BurnState {
 }
 
 // ────────────────────────────────────────────────────────────────────────
+// Brief 8 (2026-09-05): repeat-expense chips for QuickLogSheet — "up to
+// three repeat chips derived from that user's own most-frequent recent
+// transactions." Pure and client-side, computed from transactions already
+// in memory (no new endpoint, per the brief). A group needs at least 2
+// occurrences in the last 30 days to count as a real "repeat" — a single
+// ₹450 movie ticket shouldn't become a permanent one-tap shortcut.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface RepeatCandidate {
+  key: string;
+  amount: number;
+  category: string;
+  subcategory: string;
+  note: string;
+  count: number;
+  lastUsed: number;
+}
+
+const REPEAT_LOOKBACK_DAYS = 30;
+const REPEAT_MIN_COUNT = 2;
+const REPEAT_MAX_CANDIDATES = 3;
+
+export function computeRepeatCandidates(transactions: Transaction[], now: Date = new Date()): RepeatCandidate[] {
+  const cutoff = now.getTime() - REPEAT_LOOKBACK_DAYS * 86400000;
+  const groups = new Map<string, RepeatCandidate>();
+  for (const t of transactions) {
+    const ts = new Date(t.timestamp).getTime();
+    if (ts < cutoff) continue;
+    // Two logs count as "the same repeat" only if amount, category, and
+    // note all match exactly — "Chai ₹20" and a one-off ₹20 gift are both
+    // ₹20 but not the same real-world thing, and shouldn't merge.
+    const key = `${t.amount}|${t.category}|${t.note || ""}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.lastUsed = Math.max(existing.lastUsed, ts);
+    } else {
+      groups.set(key, {
+        key,
+        amount: t.amount,
+        category: t.category,
+        subcategory: t.subcategory || "",
+        note: t.note || "",
+        count: 1,
+        lastUsed: ts,
+      });
+    }
+  }
+  return Array.from(groups.values())
+    .filter((g) => g.count >= REPEAT_MIN_COUNT)
+    .sort((a, b) => b.count - a.count || b.lastUsed - a.lastUsed)
+    .slice(0, REPEAT_MAX_CANDIDATES);
+}
+
+// ────────────────────────────────────────────────────────────────────────
 // Week-over-week category trend — purely local, works in demo mode and
 // before the backend prediction resolves (or if it fails). Used by
 // WhyPredictionSheet for the "X% more than your last 2 weeks" style
@@ -345,12 +400,16 @@ export function computeCategoryTrend(transactions: Transaction[], categoryId: st
 // transaction logged before this feature existed, and still allowed going
 // forward since the brief says this must never be mandatory) behaves
 // exactly as before: a plain addDoc, no wallet touched at all.
-export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id">): Promise<void> {
+// Brief 8 (2026-09-05): now returns the new document's id — the repeat-
+// chip one-tap log needs it to offer a real "Undo" in its toast (see
+// QuickLogSheet.tsx). Every existing caller already ignored the previous
+// `Promise<void>` return value, so this is additive, not a breaking change.
+export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id">): Promise<string> {
   if (!tx.wallet_id) {
     const txCol = collection(db, "users", uid, "transactions");
-    await addDoc(txCol, tx);
+    const ref = await addDoc(txCol, tx);
     trackEvent("transaction_logged");
-    return;
+    return ref.id;
   }
   const txRef = doc(collection(db, "users", uid, "transactions"));
   const walletRef = doc(db, "users", uid, "wallets", tx.wallet_id);
@@ -372,6 +431,7 @@ export async function addLiveTransaction(uid: string, tx: Omit<Transaction, "id"
   // on every log (rather than tracking "is this their first?" client-side)
   // still gives the right funnel semantics with far less code.
   trackEvent("transaction_logged");
+  return txRef.id;
 }
 
 // Step 13 — delete/edit. Deliberately does NOT touch streak fields: the

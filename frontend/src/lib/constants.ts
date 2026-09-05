@@ -328,6 +328,54 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
     note: "Moved 500 to savings pot",
     timestamp: "2026-08-13T16:00:00.000Z",
     source: "upi"
+  },
+  // demo-tx-8/9/10 and demo-tx-11/12 deliberately repeat the same
+  // (amount, category, note) combo so demo mode has real material for the
+  // QuickLogSheet "repeat" chips (see computeRepeatCandidates in api.ts).
+  {
+    id: "demo-tx-8",
+    amount: 20,
+    category: "food-snacks",
+    subcategory: "Street Food/Chaat",
+    note: "Chai",
+    timestamp: "2026-08-19T07:30:00.000Z",
+    source: "cash"
+  },
+  {
+    id: "demo-tx-9",
+    amount: 20,
+    category: "food-snacks",
+    subcategory: "Street Food/Chaat",
+    note: "Chai",
+    timestamp: "2026-08-17T07:45:00.000Z",
+    source: "cash"
+  },
+  {
+    id: "demo-tx-10",
+    amount: 20,
+    category: "food-snacks",
+    subcategory: "Street Food/Chaat",
+    note: "Chai",
+    timestamp: "2026-08-15T08:00:00.000Z",
+    source: "cash"
+  },
+  {
+    id: "demo-tx-11",
+    amount: 40,
+    category: "transportation",
+    subcategory: "Auto/Rickshaw",
+    note: "Auto",
+    timestamp: "2026-08-18T18:15:00.000Z",
+    source: "cash"
+  },
+  {
+    id: "demo-tx-12",
+    amount: 40,
+    category: "transportation",
+    subcategory: "Auto/Rickshaw",
+    note: "Auto",
+    timestamp: "2026-08-16T18:30:00.000Z",
+    source: "cash"
   }
 ];
 
