@@ -60,7 +60,7 @@ Both throwaway accounts from the friend-deletion test, and the account used for 
 
 ### Final state
 
-`main` — see commit hash recorded below once pushed.
+`main` at `9ca7ccb` (pushed).
 
 ---
 
