@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Delete, Sparkles, X } from "lucide-react";
+import { IconDelete, IconSuggest, IconX } from "@/components/icons";
 import { User as FirebaseUser } from "firebase/auth";
 import { STARTER_CATEGORIES, FORMAT_INR } from "@/lib/constants";
 import { Transaction, Wallet } from "@/types";
@@ -350,7 +350,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({
                 whileTap={{ scale: 0.98 }}
                 className="w-full flex items-center gap-2 mb-2.5 pl-2.5 pr-2 py-2 rounded-sm bg-primary-500/10 border border-primary-500/30 text-left"
               >
-                <Sparkles className="w-3.5 h-3.5 text-primary-300 shrink-0" />
+                <IconSuggest className="w-3.5 h-3.5 text-primary-300 shrink-0" />
                 <span className="flex-1 min-w-0 text-xs text-primary-200">
                   Sounds like <span className="font-semibold">{suggestedCategory.name}</span> — tap to switch
                 </span>
@@ -362,7 +362,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({
                   }}
                   className="shrink-0 p-1 rounded-sm text-primary-400/70 hover:text-primary-200 active:opacity-60"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <IconX className="w-3.5 h-3.5" />
                 </span>
               </motion.button>
             )}
@@ -401,7 +401,7 @@ export const QuickLogSheet: React.FC<QuickLogSheetProps> = ({
                   className="h-[50px] rounded-lg bg-white/5 text-white text-xl font-medium flex items-center justify-center"
                   style={{ transition: "background-color .15s ease" }}
                 >
-                  {k === "del" ? <Delete className="w-5 h-5" /> : k}
+                  {k === "del" ? <IconDelete className="w-5 h-5" /> : k}
                 </motion.button>
               ))}
             </div>

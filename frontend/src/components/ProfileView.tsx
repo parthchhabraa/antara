@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { User as FirebaseUser } from "firebase/auth";
-import { Flame, Sparkles, ShieldCheck, Target, ArrowLeft } from "lucide-react";
+import { IconFlame, IconTarget, IconShieldCheck, IconArrowLeft } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import {
   Badge,
@@ -128,7 +128,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           onClick={() => router.back()}
           className="flex items-center gap-1.5 text-xs text-gray-400 mb-3 active:opacity-60 transition-opacity"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <IconArrowLeft className="w-3.5 h-3.5" />
           Back
         </button>
       )}
@@ -155,7 +155,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {/* Streak */}
           {(profileBadge?.currentStreak ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 mt-4 text-xs text-orange-300 font-semibold">
-              <Flame className="w-4 h-4" fill="currentColor" strokeWidth={0} />
+              <IconFlame className="w-4 h-4" fill="currentColor" strokeWidth={0} />
               {profileBadge?.currentStreak}-day streak
               {(profileBadge?.longestStreak ?? 0) > (profileBadge?.currentStreak ?? 0) && (
                 <span className="text-xs text-gray-500 font-normal">· best {profileBadge?.longestStreak}</span>
@@ -167,7 +167,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {archetypeBadge && (
             <div className="mt-4 p-4 rounded-lg bg-primary-900/25 border border-primary-800/40">
               <div className="flex items-center gap-1.5 text-xs font-medium tracking-[0.14em] text-primary-300">
-                <Sparkles className="w-3 h-3" />
+                <IconTarget className="w-3 h-3" />
                 ARCHETYPE
               </div>
               <div className="text-sm font-medium text-white mt-1.5">{archetypeBadge.archetype_name}</div>
@@ -193,13 +193,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   key={b.id}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/25 text-xs text-orange-300 font-semibold"
                 >
-                  <Flame className="w-3.5 h-3.5" fill="currentColor" strokeWidth={0} />
+                  <IconFlame className="w-3.5 h-3.5" fill="currentColor" strokeWidth={0} />
                   {b.threshold}-day streak
                 </span>
               ))}
               {graduatedBadge && (
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300 font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <IconShieldCheck className="w-3.5 h-3.5" />
                   Graduated cold-start
                 </span>
               )}
@@ -210,7 +210,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     key={b.id}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-500/10 border border-primary-500/25 text-xs text-primary-200 font-semibold"
                   >
-                    <Target className="w-3.5 h-3.5" />
+                    <IconTarget className="w-3.5 h-3.5" />
                     Cap keeper · {cat?.short || b.category_id}
                   </span>
                 );

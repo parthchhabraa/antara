@@ -78,6 +78,25 @@
  * icons. No hover-only affordances (this is a touch product — anything
  * that only reveals on :hover is unreachable on a phone). No fake
  * testimonials.
+ *
+ * ── Icons (Brief 9, 2026-09-06) ──────────────────────────────────────
+ * components/icons.tsx — one hand-drawn glyph set, replacing lucide-react
+ * entirely (see that file's own header for the tree-shaking bug this
+ * fixes: a dynamic `LucideIcons[name]` lookup can't be tree-shaken, so
+ * the taxonomy's category badges alone were shipping the whole package —
+ * confirmed via a real before/after production build, not estimated: see
+ * REVIEW.md's Brief 9 entry for the actual byte counts). Every icon
+ * shares one 24x24 viewBox, round line caps/joins, and a 1.75 stroke
+ * (the four nav glyphs use 1.6, the weight MobileFrame had already tuned
+ * by eye pre-Brief-9) — one wrapper function enforces this, so no
+ * individual icon can drift from it. The taxonomy's `icon` field (lib/
+ * constants.ts) is a plain glyph key now ("utensils", not "Utensils") —
+ * resolved via a static object lookup in CategoryIcon.tsx, not a dynamic
+ * namespace scan, so nothing unused can leak back into the bundle the
+ * same way again. Per the house rule above, no icon in this set is
+ * literally a sparkle glyph — the one Lucide `Sparkles` usage that meant
+ * "tap to switch" became a two-arrow swap icon instead of a decorative
+ * flourish.
  */
 
 export {};

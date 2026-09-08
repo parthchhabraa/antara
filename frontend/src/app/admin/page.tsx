@@ -4,7 +4,7 @@ import React from "react";
 import { MobileFrame } from "@/components/MobileFrame";
 import { SuperadminPanel } from "@/components/SuperadminPanel";
 import { PageTransition } from "@/components/PageTransition";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft } from "@/components/icons";
 import Link from "next/link";
 
 export default function AdminPage() {
@@ -18,7 +18,7 @@ export default function AdminPage() {
               href="/"
               className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <IconArrowLeft className="w-4 h-4" />
             </Link>
             <div>
               <h1 className="text-sm font-bold text-white">Superadmin Dashboard</h1>

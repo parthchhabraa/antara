@@ -6,7 +6,7 @@ import { springs } from "@/lib/motion";
 import { User as FirebaseUser } from "firebase/auth";
 import QRCode from "qrcode";
 import jsQR from "jsqr";
-import { QrCode, ScanLine, Nfc, Check } from "lucide-react";
+import { IconQrCode, IconScanLine, IconNfc, IconCheck } from "@/components/icons";
 import { fetchFriendToken, addFriendByToken } from "@/lib/api";
 
 interface AddFriendSheetProps {
@@ -203,7 +203,7 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
                   mode === "my-code" ? "bg-primary-600 text-white" : "text-gray-400"
                 }`}
               >
-                <QrCode className="w-3.5 h-3.5" />
+                <IconQrCode className="w-3.5 h-3.5" />
                 My code
               </button>
               <button
@@ -213,7 +213,7 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
                   mode === "scan" ? "bg-primary-600 text-white" : "text-gray-400"
                 }`}
               >
-                <ScanLine className="w-3.5 h-3.5" />
+                <IconScanLine className="w-3.5 h-3.5" />
                 Scan
               </button>
             </div>
@@ -239,7 +239,7 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
                   <canvas ref={canvasRef} className="hidden" />
                   {adding && (
                     <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                      <Check className="w-8 h-8 text-emerald-400" />
+                      <IconCheck className="w-8 h-8 text-emerald-400" />
                     </div>
                   )}
                   <div className="absolute inset-6 border-2 border-primary-400/50 rounded-lg pointer-events-none" />
@@ -254,7 +254,7 @@ export const AddFriendSheet: React.FC<AddFriendSheetProps> = ({ isOpen, onClose,
                     disabled={nfcListening}
                     className="mt-3 flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-300 disabled:opacity-60"
                   >
-                    <Nfc className="w-3.5 h-3.5 text-primary-300" />
+                    <IconNfc className="w-3.5 h-3.5 text-primary-300" />
                     {nfcListening ? "Listening for NFC…" : "Or tap to add via NFC"}
                   </button>
                 )}

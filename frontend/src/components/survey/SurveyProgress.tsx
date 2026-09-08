@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft } from "@/components/icons";
 
 interface SurveyProgressProps {
   step: number; // 1-indexed, includes intro
@@ -32,7 +32,7 @@ export const SurveyProgress: React.FC<SurveyProgressProps> = ({
           aria-label="Back"
           className="w-8 h-8 shrink-0 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 disabled:opacity-0 disabled:pointer-events-none"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <IconArrowLeft className="w-4 h-4" />
         </motion.button>
         <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
           <motion.div

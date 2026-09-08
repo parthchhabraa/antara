@@ -10,8 +10,6 @@ import { CategoryIcon } from "@/components/CategoryIcon";
 import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { CategoryDetailSheet } from "@/components/CategoryDetailSheet";
 import { TransactionEditSheet } from "@/components/TransactionEditSheet";
-import { ArchetypeSheet } from "@/components/ArchetypeSheet";
-import { LearningCurveSheet } from "@/components/LearningCurveSheet";
 import { PageTransition } from "@/components/PageTransition";
 import { DEMO_TRANSACTIONS, DEMO_REFERENCE_DATE, FORMAT_INR, STARTER_CATEGORIES } from "@/lib/constants";
 import {
@@ -35,8 +33,6 @@ export default function PullPage() {
   const [selectedId, setSelectedId] = useState<string>("gaming-inapp");
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-  const [isArchetypeOpen, setIsArchetypeOpen] = useState(false);
-  const [isLearningCurveOpen, setIsLearningCurveOpen] = useState(false);
   // Brief 8 (2026-09-05): same richer toast shape as Today's page.tsx —
   // see that file's own comment for why (every real commit can now be
   // undone straight from its success toast).
@@ -289,22 +285,6 @@ export default function PullPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-4 mt-4">
-          <button
-            onClick={() => setIsArchetypeOpen(true)}
-            className="text-xs text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
-          >
-            See your spending archetype
-          </button>
-          <span className="text-gray-700 text-xs">·</span>
-          <button
-            onClick={() => setIsLearningCurveOpen(true)}
-            className="text-xs text-gray-500 underline decoration-dotted decoration-gray-600 underline-offset-4 active:opacity-60 transition-opacity"
-          >
-            How well Antara knows you
-          </button>
-        </div>
-
         <div className="h-8" />
 
         <QuickLogSheet
@@ -330,21 +310,6 @@ export default function PullPage() {
           onSave={handleEditTx}
           onDelete={handleDeleteTx}
         />
-        <ArchetypeSheet
-          isOpen={isArchetypeOpen}
-          onClose={() => setIsArchetypeOpen(false)}
-          transactions={transactions}
-          isDemoMode={isDemoMode}
-          user={user}
-        />
-        <LearningCurveSheet
-          isOpen={isLearningCurveOpen}
-          onClose={() => setIsLearningCurveOpen(false)}
-          transactions={transactions}
-          isDemoMode={isDemoMode}
-          user={user}
-        />
-
         {toast && (
           <motion.div
             initial={{ opacity: 0, y: -12 }}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { MessageSquare } from "lucide-react";
+import { IconMessageSquare } from "@/components/icons";
 import { useAuth } from "@/lib/AuthContext";
 
 const LAUNCH_CONFIG_REF = doc(db, "admin", "launchConfig");
@@ -64,7 +64,7 @@ export const LlmDailyCapControl: React.FC = () => {
     <div className="p-4 rounded-lg bg-[#0F111A] border border-white/5 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold text-gray-200 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-primary-400" />
+          <IconMessageSquare className="w-4 h-4 text-primary-400" />
           <span>Daily Chat/Insights Limit</span>
         </h3>
         <span className="text-xs text-gray-500">{cap === null ? "Loading…" : `currently ${cap}/day`}</span>

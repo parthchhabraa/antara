@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { User as FirebaseUser } from "firebase/auth";
-import { Download, MessageSquareText, Trash2 } from "lucide-react";
+import { IconDownload, IconMessageSquareText, IconTrash } from "@/components/icons";
 import { exportMyData } from "@/lib/api";
 import { FeedbackSheet } from "./FeedbackSheet";
 import { DeleteAccountSheet } from "./DeleteAccountSheet";
@@ -57,7 +57,7 @@ export const AccountSettingsSection: React.FC<AccountSettingsSectionProps> = ({
           disabled={exporting}
           className="flex items-center gap-2.5 px-3.5 py-3 rounded-sm bg-white/[0.04] text-xs text-gray-200 disabled:opacity-50"
         >
-          <Download className="w-4 h-4 text-gray-400" />
+          <IconDownload className="w-4 h-4 text-gray-400" />
           {exporting ? "Preparing your export…" : "Export my data"}
         </button>
 
@@ -66,7 +66,7 @@ export const AccountSettingsSection: React.FC<AccountSettingsSectionProps> = ({
           onClick={() => setIsFeedbackOpen(true)}
           className="flex items-center gap-2.5 px-3.5 py-3 rounded-sm bg-white/[0.04] text-xs text-gray-200"
         >
-          <MessageSquareText className="w-4 h-4 text-gray-400" />
+          <IconMessageSquareText className="w-4 h-4 text-gray-400" />
           Send feedback
         </button>
 
@@ -75,7 +75,7 @@ export const AccountSettingsSection: React.FC<AccountSettingsSectionProps> = ({
           onClick={() => setIsDeleteOpen(true)}
           className="flex items-center gap-2.5 px-3.5 py-3 rounded-sm bg-rose-500/[0.06] border border-rose-500/15 text-xs text-rose-300"
         >
-          <Trash2 className="w-4 h-4" />
+          <IconTrash className="w-4 h-4" />
           Delete my account
         </button>
       </div>

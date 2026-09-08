@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { ArrowLeft, Users } from "lucide-react";
+import { IconArrowLeft, IconUsers } from "@/components/icons";
 import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
 import { PageTransition } from "@/components/PageTransition";
@@ -13,6 +13,7 @@ import { ProfileView } from "@/components/ProfileView";
 import { FriendsSheet } from "@/components/FriendsSheet";
 import { AccountSettingsSection } from "@/components/AccountSettingsSection";
 import { BudgetInstancesSection } from "@/components/BudgetInstancesSection";
+import { InsightsSection } from "@/components/InsightsSection";
 import { DEMO_TRANSACTIONS } from "@/lib/constants";
 import { Transaction } from "@/types";
 import { useAuth } from "@/lib/AuthContext";
@@ -72,7 +73,7 @@ export default function ProfilePage() {
               href="/"
               className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <IconArrowLeft className="w-4 h-4" />
             </Link>
             <h1 className="text-sm font-bold text-white">Your profile</h1>
           </div>
@@ -82,7 +83,7 @@ export default function ProfilePage() {
               onClick={() => setIsFriendsOpen(true)}
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-primary-500/10 text-primary-300 border border-primary-500/25 hover:bg-primary-500/20 transition-colors"
             >
-              <Users className="w-3.5 h-3.5" />
+              <IconUsers className="w-3.5 h-3.5" />
               Friends
             </button>
           )}
@@ -125,6 +126,11 @@ export default function ProfilePage() {
             onApplyInstance={applyInstance}
           />
         )}
+
+        {/* Brief 9 (2026-09-06): archetype + learning-curve, moved here from
+            the bottom of the Pull screen — real signed-in accounts only,
+            same real-vs-demo tradeoff Budget/Instances made above. */}
+        {user && !isDemoMode && <InsightsSection user={user} isDemoMode={isDemoMode} transactions={transactions} />}
 
         {/* Brief 5 (2026-09-05): export/feedback/delete — self-only, real
             signed-in accounts only. Superadmin excluded: the backend

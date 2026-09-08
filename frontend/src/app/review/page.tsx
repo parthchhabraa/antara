@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { CheckCircle } from "lucide-react";
+import { IconCheckCircle } from "@/components/icons";
 
 import { SurveyProgress } from "@/components/survey/SurveyProgress";
 import { NumericKeypad } from "@/components/survey/NumericKeypad";
@@ -231,7 +231,7 @@ export default function SurveyPage() {
       <SurveyShell>
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center px-8">
           <div className="w-14 h-14 rounded-full bg-purple-500/15 border border-purple-500/40 flex items-center justify-center mb-5">
-            <CheckCircle className="w-7 h-7 text-purple-400" />
+            <IconCheckCircle className="w-7 h-7 text-purple-400" />
           </div>
           <h1 className="text-xl font-black text-white">You've already helped us out</h1>
           <p className="text-sm text-gray-400 mt-2 leading-relaxed">
@@ -401,7 +401,7 @@ export default function SurveyPage() {
             transition={{ ...springs.default, delay: 0.1 }}
             className="w-16 h-16 rounded-full bg-purple-500/15 border border-purple-500/40 flex items-center justify-center"
           >
-            <CheckCircle className="w-8 h-8 text-purple-400" />
+            <IconCheckCircle className="w-8 h-8 text-purple-400" />
           </motion.div>
         </div>
         <h1 className="text-2xl font-black text-white">Thank you.</h1>

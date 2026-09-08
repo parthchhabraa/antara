@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { IconArrowRight, IconLoader } from "@/components/icons";
 
 interface StepFooterProps {
   onPrimary: () => void;
@@ -38,7 +38,7 @@ export const StepFooter: React.FC<StepFooterProps> = ({
       >
         {loading ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <IconLoader className="w-4 h-4 animate-spin" />
             {loadingLabel && <span>{loadingLabel}</span>}
           </>
         ) : (
@@ -49,7 +49,7 @@ export const StepFooter: React.FC<StepFooterProps> = ({
               whileHover={{ x: 2 }}
               transition={springs.default}
             >
-              <ArrowRight className="w-4 h-4" />
+              <IconArrowRight className="w-4 h-4" />
             </motion.span>
           </>
         )}

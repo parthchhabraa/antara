@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Delete } from "lucide-react";
+import { IconDelete } from "@/components/icons";
 
 interface NumericKeypadProps {
   /** Raw digit string, e.g. "1500". Empty string means nothing entered yet. */
@@ -113,7 +113,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
                 : "bg-white/[0.04] border border-white/10 text-white text-lg font-bold hover:bg-purple-500/10 hover:border-purple-500/30"
             }`}
           >
-            {key === "back" ? <Delete className="w-4 h-4" /> : key === "clear" ? "Clear" : key}
+            {key === "back" ? <IconDelete className="w-4 h-4" /> : key === "clear" ? "Clear" : key}
           </motion.button>
         ))}
       </div>

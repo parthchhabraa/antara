@@ -3,7 +3,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Sparkles } from "lucide-react";
+import { IconBell } from "@/components/icons";
 import { ChangelogEntry } from "@/lib/changelog";
 
 interface WhatsNewSheetProps {
@@ -50,7 +50,7 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ isOpen, onClose, e
 
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary-500/15 border border-primary-500/30 flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5 text-primary-300" />
+                <IconBell className="w-5 h-5 text-primary-300" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium tracking-[0.14em] text-primary-300">WHAT'S NEW</div>

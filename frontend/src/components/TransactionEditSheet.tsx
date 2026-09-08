@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Delete, Trash2 } from "lucide-react";
+import { IconDelete, IconTrash } from "@/components/icons";
 import { STARTER_CATEGORIES } from "@/lib/constants";
 import { Transaction } from "@/types";
 import { CategoryIcon } from "./CategoryIcon";
@@ -180,7 +180,7 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
                   whileTap={{ scale: 0.93 }}
                   className="h-[46px] rounded-lg bg-white/5 text-white text-lg font-medium flex items-center justify-center"
                 >
-                  {k === "del" ? <Delete className="w-4 h-4" /> : k}
+                  {k === "del" ? <IconDelete className="w-4 h-4" /> : k}
                 </motion.button>
               ))}
             </div>
@@ -207,7 +207,7 @@ export const TransactionEditSheet: React.FC<TransactionEditSheetProps> = ({ tran
               }`}
             >
               <span className="inline-flex items-center gap-1.5">
-                <Trash2 className="w-3.5 h-3.5" />
+                <IconTrash className="w-3.5 h-3.5" />
                 {deleting ? "Deleting…" : confirmingDelete ? "Tap again to confirm — can't be undone" : "Delete this entry"}
               </span>
             </motion.button>

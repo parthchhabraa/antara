@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { IconArrowLeft, IconRefresh } from "@/components/icons";
 import { MobileFrame } from "@/components/MobileFrame";
 import { PageTransition } from "@/components/PageTransition";
 import { CategoryDistributionChart } from "@/components/CategoryDistributionChart";
@@ -58,7 +58,7 @@ export default function TrainingInsightsPage() {
               href="/admin"
               className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <IconArrowLeft className="w-4 h-4" />
             </Link>
             <div>
               <h1 className="text-sm font-bold text-white">Training Insights</h1>
@@ -70,7 +70,7 @@ export default function TrainingInsightsPage() {
             disabled={loading}
             className="flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-40"
           >
-            <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
+            <IconRefresh className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>

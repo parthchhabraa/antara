@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
-import { Send, Sparkles, Plus, Mic, Copy, Check, ThumbsUp, ThumbsDown } from "lucide-react";
+import { IconSend, IconAsk, IconPlus, IconMic, IconCopy, IconCheck, IconThumbsUp, IconThumbsDown } from "@/components/icons";
 import { db } from "@/lib/firebase";
 import { MobileFrame } from "@/components/MobileFrame";
 import { AntaraMark } from "@/components/AntaraMark";
@@ -155,7 +155,7 @@ export default function ChatPage() {
         {!canChat ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
             <div className="w-12 h-12 rounded-full bg-primary-500/10 border border-primary-500/25 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-primary-300" />
+              <IconAsk className="w-6 h-6 text-primary-300" />
             </div>
             <p className="text-sm leading-relaxed text-gray-400 max-w-[260px]">
               {isDemoMode
@@ -203,7 +203,7 @@ export default function ChatPage() {
                             className="w-7 h-7 rounded-sm flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors"
                             aria-label="Copy response"
                           >
-                            {copiedId === m.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedId === m.id ? <IconCheck className="w-3.5 h-3.5 text-emerald-400" /> : <IconCopy className="w-3.5 h-3.5" />}
                           </button>
                           <button
                             type="button"
@@ -213,7 +213,7 @@ export default function ChatPage() {
                             }`}
                             aria-label="Good response"
                           >
-                            <ThumbsUp className="w-3.5 h-3.5" />
+                            <IconThumbsUp className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
@@ -223,7 +223,7 @@ export default function ChatPage() {
                             }`}
                             aria-label="Bad response"
                           >
-                            <ThumbsDown className="w-3.5 h-3.5" />
+                            <IconThumbsDown className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       )}
@@ -278,7 +278,7 @@ export default function ChatPage() {
                   className="w-8 h-8 shrink-0 rounded-sm flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
                   aria-label="Add (coming soon)"
                 >
-                  <Plus className="w-4 h-4" />
+                  <IconPlus className="w-4 h-4" />
                 </button>
                 <input
                   type="text"
@@ -300,7 +300,7 @@ export default function ChatPage() {
                   className="w-8 h-8 shrink-0 rounded-sm flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
                   aria-label="Voice input (coming soon)"
                 >
-                  <Mic className="w-4 h-4" />
+                  <IconMic className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => send()}
@@ -308,7 +308,7 @@ export default function ChatPage() {
                   className="w-8 h-8 shrink-0 rounded-sm bg-primary-600 text-white flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30 disabled:pointer-events-none"
                   aria-label="Send"
                 >
-                  <Send className="w-3.5 h-3.5" />
+                  <IconSend className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

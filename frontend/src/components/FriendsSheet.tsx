@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { useRouter } from "next/navigation";
 import { User as FirebaseUser } from "firebase/auth";
-import { UserPlus, ChevronRight, UserMinus } from "lucide-react";
+import { IconUserPlus, IconChevronRight, IconUserMinus } from "@/components/icons";
 import { Friend, Badge, ProfileBadge } from "@/types";
 import { fetchFriendsList, fetchBadges, unfriendUser } from "@/lib/api";
 import { AddFriendSheet } from "./AddFriendSheet";
@@ -124,7 +124,7 @@ export const FriendsSheet: React.FC<FriendsSheetProps> = ({ isOpen, onClose, use
                               {(f.displayName || "?").charAt(0).toUpperCase()}
                             </div>
                             <span className="text-sm text-gray-100 truncate">{f.displayName || "Antara friend"}</span>
-                            <ChevronRight className="w-4 h-4 text-gray-600 shrink-0 ml-auto" />
+                            <IconChevronRight className="w-4 h-4 text-gray-600 shrink-0 ml-auto" />
                           </button>
                           <button
                             type="button"
@@ -133,7 +133,7 @@ export const FriendsSheet: React.FC<FriendsSheetProps> = ({ isOpen, onClose, use
                             className="shrink-0 w-8 h-8 rounded-sm bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors disabled:opacity-40"
                             aria-label="Remove friend"
                           >
-                            <UserMinus className="w-3.5 h-3.5" />
+                            <IconUserMinus className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ))}
@@ -145,7 +145,7 @@ export const FriendsSheet: React.FC<FriendsSheetProps> = ({ isOpen, onClose, use
                     onClick={() => setIsAddOpen(true)}
                     className="w-full h-11 mt-4 rounded-lg bg-primary-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
                   >
-                    <UserPlus className="w-4 h-4" />
+                    <IconUserPlus className="w-4 h-4" />
                     Add a friend
                   </button>
                 </>

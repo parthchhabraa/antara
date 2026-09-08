@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Delete } from "lucide-react";
+import { IconDelete } from "@/components/icons";
 import { Wallet } from "@/types";
 import { FORMAT_INR } from "@/lib/constants";
 
@@ -143,7 +143,7 @@ export const IncomeLogSheet: React.FC<IncomeLogSheetProps> = ({ isOpen, onClose,
                   whileTap={{ scale: 0.93 }}
                   className="h-[50px] rounded-lg bg-white/5 text-white text-xl font-medium flex items-center justify-center"
                 >
-                  {k === "del" ? <Delete className="w-5 h-5" /> : k}
+                  {k === "del" ? <IconDelete className="w-5 h-5" /> : k}
                 </motion.button>
               ))}
             </div>

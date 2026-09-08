@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { SlidersHorizontal, RefreshCw } from "lucide-react";
+import { IconSliders, IconRefresh } from "@/components/icons";
 import { useAuth } from "@/lib/AuthContext";
 import { DataConfig, fetchDataConfig, updateDataConfig, recomputeBenchmarks } from "@/lib/api";
 import { STARTER_CATEGORIES } from "@/lib/constants";
@@ -77,7 +77,7 @@ export const DataConfigPanel: React.FC = () => {
     <div className="p-4 rounded-lg bg-[#0F111A] border border-white/5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold text-gray-200 flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4 text-primary-400" />
+          <IconSliders className="w-4 h-4 text-primary-400" />
           <span>Tailor the Training Data</span>
         </h3>
         <button
@@ -85,7 +85,7 @@ export const DataConfigPanel: React.FC = () => {
           disabled={saving}
           className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-sm bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-40"
         >
-          <RefreshCw className={`w-3 h-3 ${saving ? "animate-spin" : ""}`} />
+          <IconRefresh className={`w-3 h-3 ${saving ? "animate-spin" : ""}`} />
           Recompute now
         </button>
       </div>

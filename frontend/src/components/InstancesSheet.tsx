@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { User as FirebaseUser } from "firebase/auth";
-import { ChevronLeft, Pin, Trash2 } from "lucide-react";
+import { IconChevronLeft, IconPin, IconTrash } from "@/components/icons";
 import { db } from "@/lib/firebase";
 import { STARTER_CATEGORIES, FORMAT_INR } from "@/lib/constants";
 import { CategoryIcon } from "./CategoryIcon";
@@ -236,7 +236,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                           className="shrink-0 w-8 h-8 rounded-sm bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors"
                           aria-label={`Delete ${inst.name}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <IconTrash className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ))}
@@ -266,7 +266,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                     className="w-8 h-8 -ml-1.5 rounded-sm flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                     aria-label="Back"
                   >
-                    <ChevronLeft className="w-4.5 h-4.5" />
+                    <IconChevronLeft className="w-4.5 h-4.5" />
                   </button>
                   <h5 className="text-lg font-medium text-white m-0">{editingId ? "Edit instance" : "New instance"}</h5>
                 </div>
@@ -323,7 +323,7 @@ export const InstancesSheet: React.FC<InstancesSheetProps> = ({
                                 onClick={() => togglePin(c.id)}
                                 className="shrink-0 flex items-center gap-1 text-xs text-primary-300"
                               >
-                                <Pin className="w-3 h-3" />
+                                <IconPin className="w-3 h-3" />
                                 Pin
                               </button>
                             </>

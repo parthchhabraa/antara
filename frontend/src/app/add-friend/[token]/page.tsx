@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { UserPlus, Check } from "lucide-react";
+import { IconUserPlus, IconCheck } from "@/components/icons";
 import { MobileFrame } from "@/components/MobileFrame";
 import { PageTransition } from "@/components/PageTransition";
 import { useAuth } from "@/lib/AuthContext";
@@ -48,9 +48,9 @@ export default function AddFriendDeepLinkPage() {
         <div className="min-h-screen flex flex-col items-center justify-center px-8 text-center">
           <div className="w-16 h-16 rounded-full bg-primary-500/15 border border-primary-500/25 flex items-center justify-center mb-5">
             {state === "done" ? (
-              <Check className="w-7 h-7 text-emerald-400" />
+              <IconCheck className="w-7 h-7 text-emerald-400" />
             ) : (
-              <UserPlus className="w-7 h-7 text-primary-300" />
+              <IconUserPlus className="w-7 h-7 text-primary-300" />
             )}
           </div>
 

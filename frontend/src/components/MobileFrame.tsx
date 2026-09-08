@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Circle, Orbit, Plus, Shield, LogOut, MessageCircle, UserCircle2 } from "lucide-react";
+import { IconToday, IconPull, IconPlus, IconShield, IconLogOut, IconAsk, IconUserCircle } from "@/components/icons";
 import { useAuth } from "@/lib/AuthContext";
 import { StreakBadge } from "./StreakBadge";
 import { AntaraMark } from "./AntaraMark";
@@ -71,7 +71,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                 </Link>
               ) : (
                 <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                  <UserCircle2 className="w-4.5 h-4.5 text-gray-600" />
+                  <IconUserCircle className="w-4.5 h-4.5 text-gray-600" />
                 </div>
               )}
               {/* Streak — real accounts only, never demo/guest data. */}
@@ -103,7 +103,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                     title="Admin & data source"
                     className="relative p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
                   >
-                    <Shield className="w-4 h-4" />
+                    <IconShield className="w-4 h-4" />
                     <span
                       className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-2 ring-[#0A0C10] ${
                         isDemoMode ? "bg-primary-400" : "bg-emerald-400"
@@ -145,7 +145,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                             onClick={() => setIsMenuOpen(false)}
                             className="flex items-center gap-2.5 px-3.5 py-3 text-xs text-gray-200 hover:bg-white/5 border-t border-white/5 transition-colors"
                           >
-                            <Shield className="w-3.5 h-3.5 text-amber-300" />
+                            <IconShield className="w-3.5 h-3.5 text-amber-300" />
                             Admin dashboard
                           </Link>
                           <button
@@ -155,7 +155,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                             }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-3 text-xs text-rose-300 hover:bg-white/5 border-t border-white/5 transition-colors"
                           >
-                            <LogOut className="w-3.5 h-3.5" />
+                            <IconLogOut className="w-3.5 h-3.5" />
                             Sign out
                           </button>
                         </motion.div>
@@ -172,7 +172,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                   title="Sign out / Reset"
                   className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <IconLogOut className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -214,7 +214,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                   pathname === "/" ? "text-primary-300" : "text-gray-500"
                 }`}
               >
-                <Circle className="w-5 h-5" strokeWidth={1.6} />
+                <IconToday className="w-5 h-5" strokeWidth={1.6} />
                 <span className="text-xs tracking-wide">TODAY</span>
                 {pathname === "/" && (
                   <motion.span
@@ -231,7 +231,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                   pathname === "/graph" ? "text-primary-300" : "text-gray-500"
                 }`}
               >
-                <Orbit className="w-5 h-5" strokeWidth={1.6} />
+                <IconPull className="w-5 h-5" strokeWidth={1.6} />
                 <span className="text-xs tracking-wide">PULL</span>
                 {pathname === "/graph" && (
                   <motion.span
@@ -248,7 +248,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                   pathname === "/chat" ? "text-primary-300" : "text-gray-500"
                 }`}
               >
-                <MessageCircle className="w-5 h-5" strokeWidth={1.6} />
+                <IconAsk className="w-5 h-5" strokeWidth={1.6} />
                 <span className="text-xs tracking-wide">ASK</span>
                 {pathname === "/chat" && (
                   <motion.span
@@ -264,7 +264,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, onOpenQuickL
                   onClick={onOpenQuickLog}
                   className="absolute left-1/2 -translate-x-1/2 -top-[22px] h-[46px] px-5 rounded-full bg-primary-600 text-white text-sm font-bold active:scale-95 transition-transform flex items-center gap-1.5"
                 >
-                  <Plus className="w-4 h-4" />
+                  <IconPlus className="w-4 h-4" />
                   Log
                 </button>
               )}

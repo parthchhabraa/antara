@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Delete, Wallet } from "lucide-react";
+import { IconDelete, IconWallet } from "@/components/icons";
 import { AntaraMark } from "./AntaraMark";
 
 interface BudgetSheetProps {
@@ -88,7 +88,7 @@ export const BudgetSheet: React.FC<BudgetSheetProps> = ({ isOpen, mode, currentA
               </div>
             ) : (
               <div className="flex items-baseline gap-2.5 mb-1">
-                <Wallet className="w-4 h-4 text-primary-400" />
+                <IconWallet className="w-4 h-4 text-primary-400" />
                 <h5 className="text-sm font-semibold text-white m-0">Edit monthly budget</h5>
                 {onClose && (
                   <button onClick={onClose} className="ml-auto text-xs text-gray-500 hover:text-gray-300">
@@ -118,7 +118,7 @@ export const BudgetSheet: React.FC<BudgetSheetProps> = ({ isOpen, mode, currentA
                   whileTap={{ scale: 0.93 }}
                   className="h-[50px] rounded-lg bg-white/5 text-white text-xl font-medium flex items-center justify-center"
                 >
-                  {k === "del" ? <Delete className="w-5 h-5" /> : k}
+                  {k === "del" ? <IconDelete className="w-5 h-5" /> : k}
                 </motion.button>
               ))}
             </div>

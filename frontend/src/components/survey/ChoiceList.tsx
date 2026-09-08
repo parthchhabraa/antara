@@ -3,7 +3,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Check } from "lucide-react";
+import { IconCheck } from "@/components/icons";
 
 export interface ChoiceOption {
   value: string;
@@ -53,7 +53,7 @@ export const ChoiceList: React.FC<ChoiceListProps> = ({ options, selected, onSel
                     exit={{ scale: 0 }}
                     transition={springs.default}
                   >
-                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                    <IconCheck className="w-3 h-3 text-white" strokeWidth={3} />
                   </motion.span>
                 )}
               </AnimatePresence>

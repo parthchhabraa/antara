@@ -1,23 +1,24 @@
+import type React from "react";
 import {
-  Utensils,
-  Cpu,
-  Film,
-  Sparkles,
-  ShoppingBag,
-  Gift,
-  Users,
-  TrendingUp,
-  Dumbbell,
-  Wifi,
-  Bus,
-  BookOpen,
-  Gamepad2,
-  GraduationCap,
-  Clapperboard,
-  Dice5,
-  HandCoins,
-  LucideIcon,
-} from "lucide-react";
+  IconUtensils,
+  IconLaptop,
+  IconFilm,
+  IconDroplet,
+  IconShoppingBag,
+  IconCoins,
+  IconHeart,
+  IconTrendingUp,
+  IconDumbbell,
+  IconPhone,
+  IconCar,
+  IconBook,
+  IconGamepad,
+  IconGraduationCap,
+  IconClapperboard,
+  IconDice,
+  IconHeartHands,
+  IconProps,
+} from "@/components/icons";
 
 // Bump this if the question set or the shape of a submitted document changes —
 // lets the ML pipeline branch on schema version when reading survey_responses.
@@ -29,7 +30,7 @@ export const SURVEY_SCHEMA_VERSION = 2;
 export interface SurveyCategoryDef {
   id: string;
   label: string;
-  icon: LucideIcon;
+  icon: React.FC<IconProps>;
   color: string;
 }
 
@@ -43,23 +44,23 @@ export interface SurveyCategoryDef {
 // survey, see SURVEY_MERGE_NOTES below), each with a color for its icon
 // badge — mirrors the colored category chips in the live quick-log modal.
 export const SURVEY_CATEGORIES: SurveyCategoryDef[] = [
-  { id: "food-snacks", label: "Food, drinks & snacks", icon: Utensils, color: "#F97316" },
-  { id: "tech-gadgets", label: "Technology & gadgets", icon: Cpu, color: "#3B82F6" },
-  { id: "subscriptions", label: "Subscriptions (OTT / music / gaming)", icon: Film, color: "#8B5CF6" },
-  { id: "grooming", label: "Skin, hair & grooming products", icon: Sparkles, color: "#A855F7" },
-  { id: "clothes-shoes", label: "Clothes & shoes", icon: ShoppingBag, color: "#F43F5E" },
-  { id: "gifting-friends", label: "Gifting to friends", icon: Gift, color: "#EAB308" },
-  { id: "dates-outings", label: "Going out", icon: Users, color: "#EC4899" }, // was "Dates & outings"; renamed for consistency with the main app's category rename
-  { id: "transportation", label: "Transportation & fuel", icon: Bus, color: "#06B6D4" },
-  { id: "investments", label: "Investments", icon: TrendingUp, color: "#22C55E" },
-  { id: "fitness", label: "Fitness, gym & supplements", icon: Dumbbell, color: "#F59E0B" },
-  { id: "mobile-recharge", label: "Mobile recharge / data", icon: Wifi, color: "#0EA5E9" },
-  { id: "books", label: "Books & stationery", icon: BookOpen, color: "#14B8A6" },
-  { id: "gaming-inapp", label: "Gaming / in-app purchases", icon: Gamepad2, color: "#D946EF" },
-  { id: "tuition-coaching", label: "Tuition / coaching", icon: GraduationCap, color: "#10B981" },
-  { id: "movies-entertainment", label: "Movies & entertainment", icon: Clapperboard, color: "#6366F1" },
-  { id: "fantasy-betting", label: "Fantasy sports / betting apps", icon: Dice5, color: "#EF4444" },
-  { id: "charity-donations", label: "Charity / donations", icon: HandCoins, color: "#FACC15" },
+  { id: "food-snacks", label: "Food, drinks & snacks", icon: IconUtensils, color: "#F97316" },
+  { id: "tech-gadgets", label: "Technology & gadgets", icon: IconLaptop, color: "#3B82F6" },
+  { id: "subscriptions", label: "Subscriptions (OTT / music / gaming)", icon: IconFilm, color: "#8B5CF6" },
+  { id: "grooming", label: "Skin, hair & grooming products", icon: IconDroplet, color: "#A855F7" },
+  { id: "clothes-shoes", label: "Clothes & shoes", icon: IconShoppingBag, color: "#F43F5E" },
+  { id: "gifting-friends", label: "Gifting to friends", icon: IconCoins, color: "#EAB308" },
+  { id: "dates-outings", label: "Going out", icon: IconHeart, color: "#EC4899" }, // was "Dates & outings"; renamed for consistency with the main app's category rename
+  { id: "transportation", label: "Transportation & fuel", icon: IconCar, color: "#06B6D4" },
+  { id: "investments", label: "Investments", icon: IconTrendingUp, color: "#22C55E" },
+  { id: "fitness", label: "Fitness, gym & supplements", icon: IconDumbbell, color: "#F59E0B" },
+  { id: "mobile-recharge", label: "Mobile recharge / data", icon: IconPhone, color: "#0EA5E9" },
+  { id: "books", label: "Books & stationery", icon: IconBook, color: "#14B8A6" },
+  { id: "gaming-inapp", label: "Gaming / in-app purchases", icon: IconGamepad, color: "#D946EF" },
+  { id: "tuition-coaching", label: "Tuition / coaching", icon: IconGraduationCap, color: "#10B981" },
+  { id: "movies-entertainment", label: "Movies & entertainment", icon: IconClapperboard, color: "#6366F1" },
+  { id: "fantasy-betting", label: "Fantasy sports / betting apps", icon: IconDice, color: "#EF4444" },
+  { id: "charity-donations", label: "Charity / donations", icon: IconHeartHands, color: "#FACC15" },
 ];
 
 // Documents *why* a category disappeared, so a re-read of this file explains

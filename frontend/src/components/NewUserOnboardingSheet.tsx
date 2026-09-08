@@ -3,7 +3,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Sparkles } from "lucide-react";
+import { IconCheckCircle } from "@/components/icons";
 
 interface NewUserOnboardingSheetProps {
   isOpen: boolean;
@@ -38,7 +38,7 @@ export const NewUserOnboardingSheet: React.FC<NewUserOnboardingSheetProps> = ({ 
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
             <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary-500/15 border border-primary-500/30 mb-4">
-              <Sparkles className="w-6 h-6 text-primary-300" />
+              <IconCheckCircle className="w-6 h-6 text-primary-300" />
             </div>
 
             <h5 className="text-lg font-medium text-white m-0">Welcome to Live mode</h5>

@@ -1,5 +1,75 @@
 # Antara — session log
 
+## Brief 9 (UI overhaul): the remaining screens and a custom icon set
+
+**Status: PARTIALLY SCOPED, DISCLOSED RATHER THAN FORCED — the custom icon set and the lucide-react removal are complete and verified end-to-end (real before/after production builds, zero remaining references anywhere in source or built output). The "one screen, one question" density rule was audited against every remaining screen and sheet, not re-applied blind: most of them already fit it (see the per-screen notes below) or are the wrong shape for it (a settings hub, a browsable graph, legal text) — flagged back per the brief's own closing line rather than forced into Today's hero-number shape where it wouldn't fit. `git worktree` isn't used for a before/after this time (the before build is un-restorable: this brief deletes lucide-react from package.json, so a byte-identical "before" checkout needs `npm install` at the old lockfile, not just a git checkout) — the "before" build was captured live, in place, before any file changed, see below.**
+
+### The custom icon set — 69 hand-drawn glyphs, one system
+
+`components/icons.tsx` (new) replaces `lucide-react` entirely: the 4 nav glyphs (Today/Pull/Ask/Log), 18 category icons (one per `lib/constants.ts` taxonomy entry), and 47 general UI icons (arrows, chevrons, trash, shield, wallet, etc.) — every real icon used anywhere in the app, nothing more. One shared wrapper function enforces the same 24x24 viewBox, round line caps/joins, and stroke weight (1.75 default, 1.6 for the four nav glyphs, matching what `MobileFrame` had already tuned by eye) across all 69, so the set can't drift piece by piece the way ad hoc icon choices do. Per Brief 6's own house rule ("no sparkle icons"), the app's one real `Sparkles` usage that meant "tap to switch this category" became a two-arrow swap icon instead of carrying a literal sparkle forward just because Lucide happened to have one.
+
+**The taxonomy itself changed, per the brief's explicit instruction to do the rename and the removal together**: `lib/constants.ts`'s 18 `icon` fields went from Lucide component names (`"Utensils"`) to plain glyph keys (`"utensils"`) — `CategoryIcon.tsx` now resolves that key through a static object literal, not `import * as LucideIcons from "lucide-react"` resolved dynamically at render time (see the next section for why that specific pattern was the actual bundle problem). `lib/surveyConstants.ts`'s separate 17-category survey taxonomy (a different list, built for the ML training survey, not 1:1 with the live app's categories) also carried its own Lucide icon references — migrated the same way, mapped to the closest existing custom glyph rather than drawing near-duplicates (survey's `Bus` → app's `IconCar`, `Wifi` → `IconPhone`, `Gift` → `IconCoins`, etc.), which if anything makes the survey's icons more visually consistent with the live app's than before.
+
+**A real bug found by actually looking at a screenshot, not by trusting `tsc`/`build`**: `IconFlame` — used filled (`fill="currentColor" strokeWidth={0}`) for the streak badge in `MobileFrame`'s header and twice in `ProfileView.tsx` — was drawn as an open stroke path (fine when outlined, the only way it was ever visually checked before wiring it in). Filled with no stroke to carry its shape, an open path collapses to whatever thin sliver its browser-auto-closed silhouette happens to be — rendered as a barely-visible dot instead of a flame. Caught by screenshotting the real profile header, not by any type check (this is exactly the class of bug Brief 6 also hit and documented — a syntactically valid but visually wrong render). Fixed by redrawing it as a proper closed silhouette; re-verified via a cropped screenshot of the exact header element showing a real flame shape.
+
+### Why this was worth doing — the actual bundle numbers, before and after
+
+`CategoryIcon.tsx` used to do `import * as LucideIcons from "lucide-react"` and resolve `category.icon` (a runtime string) to a component via `LucideIcons[name]`. Webpack can't tree-shake a namespace object accessed with a dynamic key — it can't prove which of the package's icons are reachable, so it has to assume all of them might be, and the whole package ships. Measured with real production builds of this exact repo, not estimated:
+
+| Route | Before | After | Change |
+|---|---|---|---|
+| `/` (Today) | 428 kB | 282 kB | −146 kB (−34%) |
+| `/graph` (Pull) | 422 kB | 274 kB | −148 kB (−35%) |
+| `/profile` | 477 kB | 333 kB | −144 kB (−30%) |
+| `/profile/[uid]` | 414 kB | 268 kB | −146 kB (−35%) |
+| `/chat`, `/admin`, `/review`, legal pages (no `CategoryIcon` usage) | ~264-269 kB each | ~266-270 kB each | +1-2 kB each |
+
+The four routes that render `CategoryIcon` anywhere (directly or through a component they mount) each dropped ~145 kB. The routes that never touch it show a small (1-2 kB) *increase* — each of my 69 standalone icon components is a little heavier than Lucide's own shared `createLucideIcon` factory per-icon, and a page using a handful of individual UI icons (already tree-shaking fine before, since those were always plain named imports) now pays that small per-icon cost instead. That tradeoff is real and disclosed, not hidden — it's the correct trade given the alternative was carrying the entire package for the dynamic-lookup pages. Whole build output, `.next/static/chunks/`, total size: **2,358,860 bytes before → 1,631,938 bytes after (−726,922 bytes, −30.8%)**. `grep -rl "createLucideIcon\|lucide"` across every built chunk: zero matches after. `lucide-react` removed from `package.json` and `node_modules` entirely (`npm uninstall lucide-react`).
+
+### Bury Instances, LearningCurveSheet, and ArchetypeSheet behind profile
+
+`InstancesSheet` was already moved to profile in Brief 7 (nothing to do there). `ArchetypeSheet` and `LearningCurveSheet` — two dotted-underline text links at the bottom of the Pull screen ("See your spending archetype" / "How well Antara knows you") — moved to a new `InsightsSection.tsx` on the profile screen, same two sheets, same props, only the entry point changed. **A real, disclosed functionality loss for demo/guest accounts**, the same shape as Brief 7's Budget/Instances move: this section only renders for a real signed-in user (profile itself already refuses demo mode entirely — "Profiles need a real signed-in account"), so a demo/guest visitor who could previously see either insight on Pull now can't reach either at all. Neither sheet was deleted, per the brief.
+
+### The "one screen, one question" density rule — audited, not blindly reapplied
+
+Went through every remaining named screen and sheet looking for real, unforced density wins. What actually needed nothing:
+
+- **Signed-out hero** (`page.tsx`'s hero branch): already one headline, one sentence, one CTA, already on brief-6 tokens (`text-3xl`/`text-sm`/`text-xs`, `rounded-lg`). No changes made — there was no real problem to fix here.
+- **Legal pages** (`/privacy`, `/terms`, `LegalPageLayout.tsx`): already on brief-6 tokens. "One question" doesn't apply to a privacy policy or terms of use — full disclosure is the actual job, not a single hero fact. Left as-is.
+- **The 14 sheets** (`AddFriendSheet`, `ArchetypeSheet`, `BudgetSheet`, `CategoryDetailSheet`, `DeleteAccountSheet`, `FeedbackSheet`, `FriendsSheet`, `IncomeLogSheet`, `InstancesSheet`, `LearningCurveSheet`, `NewUserOnboardingSheet`, `TransactionEditSheet`, `WalletsSheet`, `WhatsNewSheet`): each one already opens for exactly one task by construction (a sheet is a modal commitment to one action) — screenshotted every one live (see below); none showed the old Today screen's problem of several competing questions on one surface.
+- **`MobileFrame`'s header/bottom nav**: kept the exact structure per the brief's explicit instruction ("keep that structure — it works — but re-render it in the new system") — the only change is the icon set itself, confirmed already on brief-6 tokens.
+
+What was audited and found already compliant app-wide, not just on screens a prior brief already rebuilt: `grep -rn "text-\[[0-9]"` (arbitrary pixel sizes), `rounded-md|xl|2xl|3xl` (pre-brief-6 radius steps), and `shadow-glow` — all zero matches across the entire `src` tree. Brief 6's original migration held; nothing had regressed since.
+
+**Flagged back rather than forced, per the brief's own closing line** ("if any screen can't be made to answer one question without losing a feature that matters, flag it back with the tradeoff"):
+
+- **Pull** (`app/graph/page.tsx`): already organized around one primary visual (the dot graph) with supporting context below it (legend, category picker, spotlight card, needs/wants split) — this is a browsable data graph, not a single-number screen, and collapsing it to one hero number the way Today was rebuilt would mean deleting the graph itself, which is the actual feature. Left structurally as-is (only the Archetype/LearningCurve links were removed, per the burying above).
+- **Ask** (`app/chat/page.tsx`): a chat interface is inherently a conversation, not a single-question surface — its existing empty/loading/chat states are each already minimal for what they show. Left as-is.
+- **Profile** (`ProfileView.tsx` + `app/profile/page.tsx`): a settings hub by nature, organized into clearly labeled single-topic sections (BUDGET, INSTANCES, INSIGHTS, ACCOUNT) rather than one hero number — screenshotted live, each section reads as one row, one topic, one action. Forcing this into Today's pattern would mean picking one setting to spotlight and hiding the rest, which loses real functionality for no real gain.
+
+### Verified live — screenshots at 375px, zero console errors
+
+Built the pre-Brief-9 state's exact bundle numbers from a real, in-place `npm run build` before touching any file (can't `git worktree` a "before" here — this brief deletes a dependency from `package.json`, so an old checkout would need its own `npm install` at the old lockfile to even build, not a simple restore). Post-change, screenshotted every reachable screen and a representative sample of sheets at 375×812 via headless Chromium, first in demo mode, then against a throwaway real account (created, seeded, used, and fully deleted — Firebase Auth user count confirmed back to the real baseline of 6 both times this session needed one) for the profile-only sections:
+
+- Signed-out hero, Today (demo), Pull (demo), Ask (demo), Wallets sheet (demo), `/privacy`, `/terms` — all clean, zero console errors.
+- Profile, Budget sheet, Instances sheet, Archetype sheet, Learning-curve sheet, Feedback sheet, Friends sheet, Delete-account sheet, Category-detail sheet — all against the real throwaway account, all clean. Archetype/Learning-curve correctly showed a graceful "Couldn't load this right now" fallback (the real backend's CORS policy only allows `app.antara.money`, not the localhost port used for this check — confirms the existing error-handling path works, not a bug).
+- Re-ran the full demo-mode sweep a second time directly against the live `app.antara.money` post-deploy: same result, zero console errors, confirming the actual production build (not just a local one) renders correctly.
+- The `IconFlame` bug above was caught and fixed during this pass, then re-verified with a fresh screenshot before moving on.
+
+### Tests
+
+`tsc --noEmit` and `npm run build` clean (13/13 pages) throughout. 39/39 backend tests pass (no backend code touched this pass). 33/33 Firestore-rules tests pass.
+
+### Cleanup
+
+Throwaway account and all its Firestore data (profile, 4 seeded transactions) deleted; Firebase Auth user count confirmed back to 6. Temporary `?__e2e_token=` hook reverted from `AuthContext.tsx`, confirmed via `git diff` showing zero remaining changes. Icon-preview scratch route (`app/icontest9brief/`) used to sanity-check all 69 glyphs before wiring them in was deleted before commit. Throwaway local port (3097) killed.
+
+### Final state
+
+`main` at (pending push — see below).
+
+---
+
 ## Brief 8 (UI overhaul): make logging take two seconds
 
 **Status: COMPLETED — verified live: real tap-count reduction confirmed via headless Chromium against both a rebuilt pre-Brief-8 build and the deployed post-Brief-8 production build, and the categorize-optional race confirmed end-to-end on a real signed-in account (real backend, real Ollama call, and a Playwright-injected artificial delay to force the fallback path) — not just read from the code.**

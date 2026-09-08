@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { User as FirebaseUser } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { IconTrash, IconAlertTriangle } from "@/components/icons";
 import { deleteMyAccount } from "@/lib/api";
 
 interface DeleteAccountSheetProps {
@@ -82,7 +82,7 @@ export const DeleteAccountSheet: React.FC<DeleteAccountSheetProps> = ({ isOpen, 
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3.5" />
 
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <IconAlertTriangle className="w-4 h-4 text-rose-400" />
               <h5 className="text-sm font-semibold text-white m-0">Delete your account</h5>
             </div>
 
@@ -121,7 +121,7 @@ export const DeleteAccountSheet: React.FC<DeleteAccountSheetProps> = ({ isOpen, 
               }`}
             >
               <span className="inline-flex items-center gap-1.5">
-                <Trash2 className="w-3.5 h-3.5" />
+                <IconTrash className="w-3.5 h-3.5" />
                 {deleting
                   ? "Deleting everything…"
                   : confirming

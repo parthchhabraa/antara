@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { User as FirebaseUser } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { MessageSquareText } from "lucide-react";
+import { IconMessageSquareText } from "@/components/icons";
 import { submitFeedback } from "@/lib/api";
 
 interface FeedbackSheetProps {
@@ -68,7 +68,7 @@ export const FeedbackSheet: React.FC<FeedbackSheetProps> = ({ isOpen, onClose, u
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3.5" />
 
             <div className="flex items-center gap-2">
-              <MessageSquareText className="w-4 h-4 text-primary-400" />
+              <IconMessageSquareText className="w-4 h-4 text-primary-400" />
               <h5 className="text-sm font-semibold text-white m-0">Send feedback</h5>
             </div>
             <p className="text-xs text-gray-500 mt-1.5">

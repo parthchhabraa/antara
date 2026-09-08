@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Shield, UserCheck, Plus, Trash2, Server, Database, Radio, LineChart, ChevronRight } from "lucide-react";
+import { IconShield, IconUserCheck, IconPlus, IconTrash, IconServer, IconDatabase, IconRadio, IconLineChart, IconChevronRight } from "@/components/icons";
 import { useAuth } from "@/lib/AuthContext";
 import { BetaAllowlistEntry } from "@/types";
 import { DataConfigPanel } from "./DataConfigPanel";
@@ -95,7 +95,7 @@ export const SuperadminPanel: React.FC = () => {
       <div className="p-4 rounded-lg bg-gradient-to-r from-primary-950/60 to-primary-950/60 border border-primary-500/30 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-sm bg-primary-500/20 text-primary-300 border border-primary-500/30">
-            <Shield className="w-5 h-5" />
+            <IconShield className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-white">Superadmin Control Deck</h2>
@@ -132,7 +132,7 @@ export const SuperadminPanel: React.FC = () => {
       {/* Backend & Tunnel Telemetry */}
       <div className="p-4 rounded-lg bg-[#0F111A] border border-white/5 space-y-3">
         <h3 className="text-xs font-bold text-gray-200 flex items-center gap-2">
-          <Server className="w-4 h-4 text-cyan-400" />
+          <IconServer className="w-4 h-4 text-cyan-400" />
           <span>Server Telemetry & Port Guard</span>
         </h3>
         
@@ -170,14 +170,14 @@ export const SuperadminPanel: React.FC = () => {
         >
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-sm bg-primary-500/10 text-primary-300 border border-primary-500/20">
-              <LineChart className="w-4 h-4" />
+              <IconLineChart className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-xs font-bold text-gray-200">Training Insights</h3>
               <p className="text-xs text-gray-500">Survey distributions, sample size trend, population dot-graph</p>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-gray-600" />
+          <IconChevronRight className="w-4 h-4 text-gray-600" />
         </Link>
       )}
 
@@ -199,7 +199,7 @@ export const SuperadminPanel: React.FC = () => {
       <div className="p-4 rounded-lg bg-[#0F111A] border border-white/5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold text-gray-200 flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-primary-400" />
+            <IconUserCheck className="w-4 h-4 text-primary-400" />
             <span>Beta Tester Allowlist ({allowlist.length})</span>
           </h3>
         </div>
@@ -222,7 +222,7 @@ export const SuperadminPanel: React.FC = () => {
             type="submit"
             className="px-3 py-2 rounded-sm bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold flex items-center gap-1 transition-all"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <IconPlus className="w-3.5 h-3.5" />
             <span>Add</span>
           </button>
         </form>
@@ -241,7 +241,7 @@ export const SuperadminPanel: React.FC = () => {
                   onClick={() => handleRemoveEmail(entry.email)}
                   className="text-gray-500 hover:text-rose-400 p-1 transition-colors"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <IconTrash className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>

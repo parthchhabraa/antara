@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { User as FirebaseUser } from "firebase/auth";
-import { SlidersHorizontal } from "lucide-react";
+import { IconSliders } from "@/components/icons";
 import { BudgetSheet } from "./BudgetSheet";
 import { InstancesSheet } from "./InstancesSheet";
 import { FORMAT_INR } from "@/lib/constants";
@@ -47,7 +47,7 @@ export const BudgetInstancesSection: React.FC<BudgetInstancesSectionProps> = ({
           onClick={() => setIsBudgetOpen(true)}
           className="flex items-center gap-2.5 px-3.5 py-3 rounded-sm bg-white/[0.04] text-sm text-gray-200"
         >
-          <SlidersHorizontal className="w-4 h-4 text-gray-400" />
+          <IconSliders className="w-4 h-4 text-gray-400" />
           <span>Monthly budget</span>
           <span className="ml-auto font-mono tabular-nums text-gray-400">{FORMAT_INR(monthlyBudget)}/mo</span>
         </button>
@@ -57,7 +57,7 @@ export const BudgetInstancesSection: React.FC<BudgetInstancesSectionProps> = ({
           onClick={() => setIsInstancesOpen(true)}
           className="flex items-center gap-2.5 px-3.5 py-3 rounded-sm bg-white/[0.04] text-sm text-gray-200"
         >
-          <SlidersHorizontal className="w-4 h-4 text-gray-400" />
+          <IconSliders className="w-4 h-4 text-gray-400" />
           Instances
         </button>
       </div>

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { User as FirebaseUser } from "firebase/auth";
-import { Wallet as WalletIcon, Pencil, Archive, Plus } from "lucide-react";
+import { IconWallet as WalletIcon, IconPencil, IconArchive, IconPlus } from "@/components/icons";
 import { Wallet } from "@/types";
 import { FORMAT_INR } from "@/lib/constants";
 import { createWallet, renameWallet, archiveWallet, logIncome } from "@/lib/api";
@@ -192,7 +192,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                             className="w-7 h-7 rounded-sm bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-colors"
                             aria-label={`Rename ${w.name}`}
                           >
-                            <Pencil className="w-3 h-3" />
+                            <IconPencil className="w-3 h-3" />
                           </button>
                           {active.length > 1 && (
                             <button
@@ -201,7 +201,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                               className="w-7 h-7 rounded-sm bg-white/5 flex items-center justify-center text-gray-500 hover:text-rose-300 transition-colors"
                               aria-label={`Archive ${w.name}`}
                             >
-                              <Archive className="w-3 h-3" />
+                              <IconArchive className="w-3 h-3" />
                             </button>
                           )}
                         </div>
@@ -245,7 +245,7 @@ export const WalletsSheet: React.FC<WalletsSheetProps> = ({
                     onClick={() => setCreating(true)}
                     className="w-full h-11 mt-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-semibold text-gray-200 flex items-center justify-center gap-1.5 transition-colors"
                   >
-                    <Plus className="w-4 h-4" />
+                    <IconPlus className="w-4 h-4" />
                     New wallet
                   </button>
                 )}

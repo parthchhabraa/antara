@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Globe, ShieldAlert } from "lucide-react";
+import { IconGlobe, IconShieldAlert } from "@/components/icons";
 import { useAuth } from "@/lib/AuthContext";
 
 const LAUNCH_CONFIG_REF = doc(db, "admin", "launchConfig");
@@ -56,7 +56,7 @@ export const PublicSignupToggle: React.FC = () => {
     <div className="p-4 rounded-lg bg-[#0F111A] border border-white/5 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold text-gray-200 flex items-center gap-2">
-          <Globe className="w-4 h-4 text-primary-400" />
+          <IconGlobe className="w-4 h-4 text-primary-400" />
           <span>Public Signup</span>
         </h3>
         <button
@@ -77,7 +77,7 @@ export const PublicSignupToggle: React.FC = () => {
       </p>
       {enabled && (
         <div className="flex items-start gap-2 p-2.5 rounded-sm bg-amber-500/10 border border-amber-500/25 text-xs text-amber-300">
-          <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <IconShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>
             Public signup is live right now. Real strangers — who may be minors — can create accounts with real
             financial data. Confirm the Privacy Policy / Terms / consent checkbox are actually in place before

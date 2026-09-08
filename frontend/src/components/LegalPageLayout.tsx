@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft } from "@/components/icons";
 import { MobileFrame } from "@/components/MobileFrame";
 import { PageTransition } from "@/components/PageTransition";
 
@@ -24,7 +24,7 @@ export const LegalPageLayout: React.FC<LegalPageLayoutProps> = ({ title, updated
           href="/"
           className="p-1.5 rounded-sm bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <IconArrowLeft className="w-4 h-4" />
         </Link>
         <div>
           <h1 className="text-sm font-bold text-white">{title}</h1>
