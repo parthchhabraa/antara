@@ -66,7 +66,7 @@ Throwaway account and all its Firestore data (profile, 4 seeded transactions) de
 
 ### Final state
 
-`main` at (pending push — see below).
+`main` at `385c7e7` (pushed).
 
 ---
 
